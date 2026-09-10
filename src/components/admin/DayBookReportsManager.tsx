@@ -1,38 +1,131 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
-  BookOpen,
-  Filter,
   Search,
   RefreshCw,
   Download,
   Printer,
-  ArrowDownLeft,
-  ArrowUpRight,
-  Clock,
-  IndianRupee,
-  CheckCircle2,
-  XCircle,
-  ArrowLeftRight,
+  Plus,
+  Pencil,
+  Trash2,
+  X,
+  Check,
   AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { type TransactionRecord, SEED_TRANSACTIONS } from "./AccountsReportsHub";
+
+export interface DayBookRow {
+  id: string | number;
+  sl_no: number;
+  date: string; // e.g. "1/7/2024"
+  on: string; // e.g. "2/7/2024"
+  from: string; // e.g. "SBC RWL STATION"
+  to: string; // e.g. "FULL LOCAL\nKIA DROP"
+  time: string; // e.g. "4:45AM"
+  pax_phone: string; // e.g. "9884037975"
+  passenger_name?: string;
+}
+
+// Initial reference rows matching the exact user Excel sheet
+const INITIAL_DAY_BOOK_ROWS: DayBookRow[] = [
+  {
+    id: "REF-1",
+    sl_no: 1,
+    date: "1/7/2024",
+    on: "2/7/2024",
+    from: "SBC RWL STATION",
+    to: "FULL LOCAL\nKIA DROP",
+    time: "4:45AM",
+    pax_phone: "9884037975",
+    passenger_name: "Customer 1",
+  },
+  {
+    id: "REF-2",
+    sl_no: 2,
+    date: "2/7/2024",
+    on: "3/7/2024",
+    from: "KIA",
+    to: "BOM DROP",
+    time: "4:30AM",
+    pax_phone: "9175163494",
+    passenger_name: "Customer 2",
+  },
+  {
+    id: "REF-3",
+    sl_no: 3,
+    date: "2/7/2024",
+    on: "3/7/2024",
+    from: "N VEG HOTEL",
+    to: "BSS",
+    time: "10:30AM",
+    pax_phone: "9893904810",
+    passenger_name: "Customer 3",
+  },
+];
+
+// Compact date formatting helper (e.g. "1/7/2024")
+function formatCompactDate(dateStr?: string | null): string {
+  if (!dateStr) return "";
+  try {
+    // If it's already compact like 1/7/2024 or 01/07/2024
+    if (dateStr.includes("/")) {
+      const parts = dateStr.split("/");
+      if (parts.length === 3) {
+        const d = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        const y = parts[2];
+        if (!isNaN(d) && !isNaN(m)) return `${d}/${m}/${y}`;
+      }
+      return dateStr;
+    }
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+    }
+  } catch {}
+  return dateStr || "";
+}
+
+// Compact time formatting helper (e.g. "4:45AM", "10:30AM")
+function extractCompactTime(notes?: string | null, timeStr?: string | null): string {
+  if (timeStr && timeStr.trim()) {
+    return timeStr.trim();
+  }
+  if (notes) {
+    const m = notes.match(/Time:\s*([0-9]{1,2}:[0-9]{2}(?:\s*[AaPp][Mm])?)/i);
+    if (m && m[1]) {
+      const raw = m[1].trim();
+      if (/am|pm/i.test(raw)) return raw.replace(/\s+/g, "").toUpperCase();
+      const [hh, mm] = raw.split(":");
+      let h = parseInt(hh, 10);
+      const ampm = h >= 12 ? "PM" : "AM";
+      if (h > 12) h -= 12;
+      if (h === 0) h = 12;
+      return `${h}:${mm}${ampm}`;
+    }
+  }
+  return "4:45AM";
+}
 
 export function DayBookReportsManager() {
-  const [transactions, setTransactions] = useState<TransactionRecord[]>(SEED_TRANSACTIONS);
+  const [rows, setRows] = useState<DayBookRow[]>(INITIAL_DAY_BOOK_ROWS);
   const [loading, setLoading] = useState(false);
-
-  // Filter states
   const [searchQuery, setSearchQuery] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("ALL");
-  const [paymentMethodFilter, setPaymentMethodFilter] = useState("ALL");
-  const [statusFilter, setStatusFilter] = useState("ALL");
-  const [datePreset, setDatePreset] = useState<"today" | "month" | "all" | "custom">("all");
 
-  // Fetch real database records from PostgreSQL
-  const fetchDayBookData = async () => {
+  // Modal State for Add / Edit Entry
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingRow, setEditingRow] = useState<DayBookRow | null>(null);
+  const [formData, setFormData] = useState({
+    date: "",
+    on: "",
+    from: "",
+    to: "",
+    time: "",
+    pax_phone: "",
+    passenger_name: "",
+  });
+
+  // Fetch live PostgreSQL day book entries
+  const fetchLiveEntries = async () => {
     setLoading(true);
     try {
       const adminKey =
@@ -41,691 +134,575 @@ export function DayBookReportsManager() {
         "Admin@fortunetourism2026";
       const headers: Record<string, string> = { "x-admin-key": adminKey };
 
-      const [bizRes, dbRes] = await Promise.all([
-        fetch("/api/business/business_records?limit=200", { headers }).catch(() => null),
-        fetch("/api/business/day_book_entries?limit=200", { headers }).catch(() => null),
-      ]);
+      const res = await fetch("/api/business/day_book_entries?limit=200", { headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.rows) && data.rows.length > 0) {
+          const liveMapped: DayBookRow[] = data.rows.map((r: any, idx: number) => ({
+            id: r.id,
+            sl_no: idx + 1,
+            date: formatCompactDate(r.booking_date || r.created_at),
+            on: formatCompactDate(r.travel_date || r.booking_date || r.created_at),
+            from: (r.from_location || "SBC").toUpperCase(),
+            to: (r.to_location || "LOCAL DROP").toUpperCase(),
+            time: extractCompactTime(r.notes, r.pickup_time),
+            pax_phone: r.passenger_phone || "—",
+            passenger_name: r.passenger_name || "",
+          }));
 
-      const liveList: TransactionRecord[] = [];
-
-      // 1. Process Business Records
-      if (bizRes && bizRes.ok) {
-        const data = await bizRes.json();
-        if (data.success && Array.isArray(data.rows)) {
-          data.rows.forEach((r: any, idx: number) => {
-            const amount = Number(r.amount || r.total_amount || r.fare || 0);
-            const isExpense = (r.record_type || r.type || "").toUpperCase().includes("EXPENSE");
-            const income = isExpense ? 0 : amount;
-            const expense = isExpense ? amount : Number(r.expense_amount || r.cost || 0);
-            liveList.push({
-              id: `TXN-${r.id || idx + 100}`,
-              date: r.created_at || r.travel_date || r.date || new Date().toISOString(),
-              ref_number: r.voucher_no || r.booking_reference || `REC-${r.id}`,
-              particulars: r.particulars || r.description || r.activity || "Travel Booking Service",
-              category: (r.category || "TOUR").toUpperCase() as any,
-              payment_method: (r.payment_mode || "UPI").toUpperCase() as any,
-              status: (r.status || "PAID").toUpperCase() as any,
-              income,
-              expense,
-              balance: income - expense,
-              customer_name: r.client_name || r.passenger_name || "Direct Customer",
-              phone: r.phone || r.mobile || "",
-              notes: r.notes || "",
-            });
-          });
+          // Merge: Keep reference rows first if not in DB, then add live records
+          const refPhones = new Set(INITIAL_DAY_BOOK_ROWS.map((r) => r.pax_phone));
+          const uniqueLive = liveMapped.filter((r) => !refPhones.has(r.pax_phone));
+          const combined = [...INITIAL_DAY_BOOK_ROWS, ...uniqueLive].map((row, idx) => ({
+            ...row,
+            sl_no: idx + 1,
+          }));
+          setRows(combined);
+          return;
         }
       }
-
-      // 2. Process Day Book Entries from PostgreSQL
-      if (dbRes && dbRes.ok) {
-        const dbData = await dbRes.json();
-        if (dbData.success && Array.isArray(dbData.rows)) {
-          dbData.rows.forEach((r: any) => {
-            const bookingAmt = Number(r.booking_amount || r.total_amount || 0);
-            const dueAmt = Number(r.due_amount || 0);
-            const offAdv = Number(r.office_advance || 0);
-            const status: "PAID" | "PENDING" = dueAmt === 0 && bookingAmt > 0 ? "PAID" : "PENDING";
-            const routeStr = `${r.from_location || "BLR"} → ${r.to_location || "Outstation"}`;
-            const paxStr = r.passenger_name ? ` (${r.passenger_name})` : "";
-
-            liveList.push({
-              id: `DB-${r.serial_number || r.id}`,
-              date: r.booking_date || r.created_at || new Date().toISOString(),
-              ref_number: `VCH-DB-${r.id}`,
-              particulars: `${routeStr}${paxStr} - ${r.travel_by || "CAR"}`,
-              category: ((r.travel_by || "CAR").toUpperCase().includes("FLIGHT")
-                ? "FLIGHT"
-                : (r.travel_by || "CAR").toUpperCase().includes("BUS")
-                ? "BUS"
-                : (r.travel_by || "CAR").toUpperCase().includes("TRAIN")
-                ? "TRAIN"
-                : "CAR") as any,
-              payment_method: (offAdv > 0 ? "UPI" : "CASH") as any,
-              status,
-              income: bookingAmt,
-              expense: 0,
-              balance: bookingAmt,
-              customer_name: r.passenger_name || "Customer",
-              phone: r.passenger_phone || "",
-              notes: r.pickup_location ? `Pickup: ${r.pickup_location}` : "",
-            });
-          });
-        }
-      }
-
-      // Merge unique live records with seed transactions
-      if (liveList.length > 0) {
-        setTransactions([...liveList, ...SEED_TRANSACTIONS]);
-      } else {
-        setTransactions(SEED_TRANSACTIONS);
-      }
+      setRows(INITIAL_DAY_BOOK_ROWS);
     } catch (err) {
-      console.warn("Using seeded transactions:", err);
-      setTransactions(SEED_TRANSACTIONS);
+      console.warn("Using initial day book reference rows:", err);
+      setRows(INITIAL_DAY_BOOK_ROWS);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchDayBookData();
+    fetchLiveEntries();
   }, []);
 
-  // Filter transactions
-  const filteredTransactions = useMemo(() => {
-    return transactions.filter((t) => {
-      // 1. Search Query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matches =
-          t.id.toLowerCase().includes(q) ||
-          t.ref_number.toLowerCase().includes(q) ||
-          t.particulars.toLowerCase().includes(q) ||
-          (t.customer_name && t.customer_name.toLowerCase().includes(q)) ||
-          (t.phone && t.phone.includes(q)) ||
-          (t.notes && t.notes.toLowerCase().includes(q));
-        if (!matches) return false;
-      }
-
-      // 2. Category / Booking Type Filter
-      if (categoryFilter !== "ALL" && t.category !== categoryFilter) {
-        return false;
-      }
-
-      // 3. Payment Method Filter
-      if (paymentMethodFilter !== "ALL" && t.payment_method !== paymentMethodFilter) {
-        return false;
-      }
-
-      // 4. Status Filter
-      if (statusFilter !== "ALL" && t.status !== statusFilter) {
-        return false;
-      }
-
-      // 5. Date Range Filter
-      if (startDate) {
-        const tTime = new Date(t.date).getTime();
-        const sTime = new Date(startDate).getTime();
-        if (tTime < sTime) return false;
-      }
-      if (endDate) {
-        const tTime = new Date(t.date).getTime();
-        const eTime = new Date(endDate).getTime() + 86400000;
-        if (tTime > eTime) return false;
-      }
-
-      return true;
+  // Filter rows by search query
+  const filteredRows = useMemo(() => {
+    if (!searchQuery.trim()) return rows;
+    const q = searchQuery.toLowerCase().trim();
+    return rows.filter((r) => {
+      return (
+        String(r.sl_no).includes(q) ||
+        r.date.toLowerCase().includes(q) ||
+        r.on.toLowerCase().includes(q) ||
+        r.from.toLowerCase().includes(q) ||
+        r.to.toLowerCase().includes(q) ||
+        r.time.toLowerCase().includes(q) ||
+        r.pax_phone.toLowerCase().includes(q)
+      );
     });
-  }, [transactions, searchQuery, categoryFilter, paymentMethodFilter, statusFilter, startDate, endDate]);
+  }, [rows, searchQuery]);
 
-  // Aggregate Metrics for 4 Summary Cards
-  const metrics = useMemo(() => {
-    let totalIncome = 0;
-    let totalExpenses = 0;
-    let totalPending = 0;
-    let totalOnline = 0;
-    let totalCash = 0;
+  // Open Add Modal
+  const openAddModal = () => {
+    setEditingRow(null);
+    const now = new Date();
+    const today = `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear()}`;
+    setFormData({
+      date: today,
+      on: today,
+      from: "",
+      to: "",
+      time: "4:45AM",
+      pax_phone: "",
+      passenger_name: "",
+    });
+    setModalOpen(true);
+  };
 
-    filteredTransactions.forEach((t) => {
-      if (t.status === "PAID") {
-        totalIncome += t.income;
-        totalExpenses += t.expense;
-        if (t.payment_method === "CASH") {
-          totalCash += t.income;
-        } else {
-          totalOnline += t.income;
+  // Open Edit Modal
+  const openEditModal = (row: DayBookRow) => {
+    setEditingRow(row);
+    setFormData({
+      date: row.date,
+      on: row.on,
+      from: row.from,
+      to: row.to,
+      time: row.time,
+      pax_phone: row.pax_phone,
+      passenger_name: row.passenger_name || "",
+    });
+    setModalOpen(true);
+  };
+
+  // Delete Row
+  const handleDeleteRow = async (id: string | number) => {
+    if (!window.confirm("Are you sure you want to delete this Day Book row?")) return;
+    setRows((prev) => prev.filter((r) => r.id !== id).map((r, i) => ({ ...r, sl_no: i + 1 })));
+    toast.success("Row deleted from Day Book");
+
+    if (typeof id === "number") {
+      try {
+        await fetch(`/api/business/day_book_entries?id=${id}`, {
+          method: "DELETE",
+          headers: { "x-admin-key": "Admin@fortunetourism2026" },
+        });
+      } catch (err) {
+        console.warn("Delete error:", err);
+      }
+    }
+  };
+
+  // Save Row (Add or Edit)
+  const handleSaveRow = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.from || !formData.to) {
+      toast.error("Please enter FROM and TO locations.");
+      return;
+    }
+
+    if (editingRow) {
+      const updated: DayBookRow = {
+        ...editingRow,
+        date: formData.date,
+        on: formData.on,
+        from: formData.from.toUpperCase(),
+        to: formData.to.toUpperCase(),
+        time: formData.time.toUpperCase(),
+        pax_phone: formData.pax_phone,
+        passenger_name: formData.passenger_name,
+      };
+      setRows((prev) => prev.map((r) => (r.id === editingRow.id ? updated : r)));
+      toast.success("Day Book entry updated!");
+
+      if (typeof editingRow.id === "number") {
+        try {
+          await fetch("/api/business/day_book_entries", {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "x-admin-key": "Admin@fortunetourism2026",
+            },
+            body: JSON.stringify({
+              id: editingRow.id,
+              from_location: formData.from.toUpperCase(),
+              to_location: formData.to.toUpperCase(),
+              passenger_phone: formData.pax_phone,
+              passenger_name: formData.passenger_name,
+              notes: `Time: ${formData.time}`,
+            }),
+          });
+        } catch (err) {
+          console.warn("Update error:", err);
         }
-      } else if (t.status === "PENDING") {
-        totalPending += t.income;
       }
-    });
+    } else {
+      const newId = `DB-LOCAL-${Date.now()}`;
+      const newRow: DayBookRow = {
+        id: newId,
+        sl_no: rows.length + 1,
+        date: formData.date,
+        on: formData.on,
+        from: formData.from.toUpperCase(),
+        to: formData.to.toUpperCase(),
+        time: formData.time.toUpperCase(),
+        pax_phone: formData.pax_phone,
+        passenger_name: formData.passenger_name,
+      };
+      setRows((prev) => [...prev, newRow].map((r, i) => ({ ...r, sl_no: i + 1 })));
+      toast.success("New Day Book entry saved!");
 
-    const netBalance = totalIncome - totalExpenses;
-    const profitMargin = totalIncome > 0 ? ((netBalance / totalIncome) * 100).toFixed(1) : "0.0";
+      try {
+        await fetch("/api/business/day_book_entries", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-admin-key": "Admin@fortunetourism2026",
+          },
+          body: JSON.stringify({
+            booking_date: new Date().toISOString(),
+            travel_date: new Date().toISOString(),
+            from_location: formData.from.toUpperCase(),
+            to_location: formData.to.toUpperCase(),
+            passenger_phone: formData.pax_phone,
+            passenger_name: formData.passenger_name || "Customer",
+            notes: `Time: ${formData.time}`,
+            status: "Pending",
+          }),
+        });
+      } catch (err) {
+        console.warn("Insert error:", err);
+      }
+    }
 
-    return {
-      totalIncome,
-      totalExpenses,
-      totalPending,
-      totalOnline,
-      totalCash,
-      netBalance,
-      profitMargin,
-    };
-  }, [filteredTransactions]);
+    setModalOpen(false);
+  };
 
-  // Export CSV Functionality
+  // Export to Excel CSV
   const handleExportCSV = () => {
     const headers = [
-      "Transaction ID",
-      "Date",
-      "Reference Number",
-      "Particulars",
-      "Sector",
-      "Payment Method",
-      "Status",
-      "Income (INR)",
-      "Expense (INR)",
-      "Balance (INR)",
-      "Customer Name",
-      "Phone",
-      "Notes",
+      "SL NO",
+      "DATE",
+      "ON",
+      "FROM",
+      "TO",
+      "TIME",
+      "Pax ph no",
     ];
-
-    const rows = filteredTransactions.map((t) => [
-      t.id,
-      new Date(t.date).toLocaleString("en-IN"),
-      `"${t.ref_number}"`,
-      `"${t.particulars.replace(/"/g, '""')}"`,
-      t.category,
-      t.payment_method,
-      t.status,
-      t.income,
-      t.expense,
-      t.balance,
-      `"${(t.customer_name || "").replace(/"/g, '""')}"`,
-      `"${t.phone || ""}"`,
-      `"${(t.notes || "").replace(/"/g, '""')}"`,
+    const csvRows = filteredRows.map((r) => [
+      r.sl_no,
+      `"${r.date}"`,
+      `"${r.on}"`,
+      `"${r.from.replace(/"/g, '""')}"`,
+      `"${r.to.replace(/"/g, '""').replace(/\n/g, ' ')}"`,
+      `"${r.time}"`,
+      `"${r.pax_phone}"`,
     ]);
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [headers.join(","), ...csvRows.map((e) => e.join(","))].join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `fortune_tourism_day_book_report_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", `Day_Book_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success("Day Book CSV export generated successfully!");
+    toast.success("Excel Day Book exported successfully!");
   };
 
-  // Print / PDF Functionality
+  // Print Table
   const handlePrint = () => {
     window.print();
   };
 
-  const isFilterActive = Boolean(
-    searchQuery ||
-      categoryFilter !== "ALL" ||
-      paymentMethodFilter !== "ALL" ||
-      statusFilter !== "ALL" ||
-      startDate ||
-      endDate
-  );
-
   return (
-    <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="bg-gradient-to-r from-[#063f2d] via-[#085e44] to-[#063f2d] rounded-2xl p-6 text-white border border-emerald-800 shadow-md">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-300/40 text-amber-300 text-xs font-bold mb-2">
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>ACCOUNTS &amp; FINANCIAL OPERATIONS · DAY BOOK</span>
-            </div>
-            <h2 className="text-2xl font-black text-white flex items-center gap-2.5">
-              <BookOpen className="w-7 h-7 text-amber-400" />
-              <span>Day Book Reports</span>
-            </h2>
-            <p className="text-xs text-emerald-100 mt-1 max-w-2xl">
-              Chronological double-entry cash register showing opening balance, debit expenses, and closing balance.
-            </p>
-          </div>
+    <div className="w-full py-4 px-2 sm:px-4">
+      {/* Centered Title: "Day Book" */}
+      <div className="text-center mb-4">
+        <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+          Day Book
+        </h2>
+      </div>
 
-          {/* Action Buttons: Refresh, Export CSV, Print / PDF */}
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={fetchDayBookData}
-              disabled={loading}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-bold transition cursor-pointer"
-              title="Refresh Day Book ledger from PostgreSQL database"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-amber-300" : ""}`} />
-              <span>Refresh</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleExportCSV}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-700 text-white border border-emerald-600 text-xs font-bold transition shadow-xs cursor-pointer"
-              title="Export filtered transactions to CSV"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export CSV</span>
-            </button>
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs transition shadow-md cursor-pointer"
-              title="Print Day Book report or save as PDF"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Print / PDF</span>
-            </button>
-          </div>
+      {/* Top Compact Controls Bar */}
+      <div className="w-full max-w-4xl mx-auto mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+        {/* Search Field */}
+        <div className="relative w-64 max-w-full">
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search phone, from, to, date..."
+            className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-white border border-gray-400 rounded-none focus:outline-none focus:border-black font-medium text-slate-800"
+          />
+        </div>
+
+        {/* Action Buttons: Add, Refresh, Export, Print */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <button
+            type="button"
+            onClick={openAddModal}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-black text-white font-bold hover:bg-slate-800 transition cursor-pointer"
+            title="Add New Day Book Entry"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Entry</span>
+          </button>
+          <button
+            type="button"
+            onClick={fetchLiveEntries}
+            disabled={loading}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white border border-gray-400 text-slate-800 font-bold hover:bg-slate-100 transition cursor-pointer"
+            title="Refresh from PostgreSQL"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#107c41] text-white font-bold hover:bg-[#0d6535] transition cursor-pointer"
+            title="Export Excel CSV"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export</span>
+          </button>
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white border border-gray-400 text-slate-800 font-bold hover:bg-slate-100 transition cursor-pointer"
+            title="Print Table"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Print</span>
+          </button>
         </div>
       </div>
 
-      {/* 4 Summary Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* 1. Total Income */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Total Income
-            </p>
-            <p className="text-2xl font-black text-emerald-600 mt-1">
-              ₹{metrics.totalIncome.toLocaleString("en-IN")}
-            </p>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              Online: ₹{metrics.totalOnline.toLocaleString("en-IN")} · Cash: ₹{metrics.totalCash.toLocaleString("en-IN")}
-            </p>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
-            <ArrowDownLeft className="w-6 h-6" />
-          </div>
-        </div>
-
-        {/* 2. Total Expenses */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Total Expenses
-            </p>
-            <p className="text-2xl font-black text-blue-600 mt-1">
-              ₹{metrics.totalExpenses.toLocaleString("en-IN")}
-            </p>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              Disbursed supplier &amp; fleet costs
-            </p>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
-            <ArrowUpRight className="w-6 h-6" />
-          </div>
-        </div>
-
-        {/* 3. Pending Dues */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Pending Dues
-            </p>
-            <p className="text-2xl font-black text-rose-600 mt-1">
-              ₹{metrics.totalPending.toLocaleString("en-IN")}
-            </p>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              Uncollected customer receivables
-            </p>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
-            <Clock className="w-6 h-6" />
-          </div>
-        </div>
-
-        {/* 4. Net Balance */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Net Balance
-            </p>
-            <p className="text-2xl font-black text-indigo-600 mt-1">
-              ₹{metrics.netBalance.toLocaleString("en-IN")}
-            </p>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              {metrics.profitMargin}% profit margin
-            </p>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
-            <IndianRupee className="w-6 h-6" />
-          </div>
-        </div>
-      </div>
-
-      {/* FILTER & AUDIT TOOLS Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-amber-500" />
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
-              Filter &amp; Audit Tools
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-500">
-              Showing <span className="font-bold text-slate-900">{filteredTransactions.length}</span> transactions
-            </span>
-            {isFilterActive && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery("");
-                  setCategoryFilter("ALL");
-                  setPaymentMethodFilter("ALL");
-                  setStatusFilter("ALL");
-                  setStartDate("");
-                  setEndDate("");
-                  setDatePreset("all");
-                }}
-                className="text-xs font-bold text-rose-600 hover:text-rose-800 transition cursor-pointer"
+      {/* Centered Narrow Spreadsheet Register Container */}
+      <div className="w-full max-w-4xl mx-auto overflow-x-auto bg-white border border-gray-400">
+        <table className="w-full text-xs border-collapse border border-gray-400 font-sans select-text">
+          {/* Target Header Structure:
+              Dark/black header cells with white text
+              Grouped header over FROM / TO / TIME: "Remainder display up Departure Time"
+          */}
+          <thead>
+            <tr className="bg-black text-white text-xs font-bold text-center">
+              <th
+                rowSpan={2}
+                className="border border-gray-400 py-1.5 px-3 whitespace-nowrap text-center align-middle w-16"
               >
-                Reset Filters
-              </button>
+                SL NO
+              </th>
+              <th
+                rowSpan={2}
+                className="border border-gray-400 py-1.5 px-3 whitespace-nowrap text-center align-middle w-24"
+              >
+                DATE
+              </th>
+              <th
+                rowSpan={2}
+                className="border border-gray-400 py-1.5 px-3 whitespace-nowrap text-center align-middle w-24"
+              >
+                ON
+              </th>
+              <th
+                colSpan={3}
+                className="border border-gray-400 py-1.5 px-4 text-center align-middle tracking-wide uppercase text-[11px]"
+              >
+                Remainder display up Departure Time
+              </th>
+              <th
+                rowSpan={2}
+                className="border border-gray-400 py-1.5 px-3 whitespace-nowrap text-center align-middle w-28"
+              >
+                Pax ph no
+              </th>
+              <th
+                rowSpan={2}
+                className="border border-gray-400 py-1.5 px-2 text-center align-middle w-12 print:hidden"
+              >
+                Action
+              </th>
+            </tr>
+            <tr className="bg-black text-white text-xs font-bold text-center">
+              <th className="border border-gray-400 py-1 px-3 whitespace-nowrap text-center">
+                FROM
+              </th>
+              <th className="border border-gray-400 py-1 px-3 whitespace-nowrap text-center">
+                TO
+              </th>
+              <th className="border border-gray-400 py-1 px-2.5 whitespace-nowrap text-center w-20">
+                TIME
+              </th>
+            </tr>
+          </thead>
+
+          {/* Table Body:
+              SL NO, DATE, ON: White cells with thin grey borders
+              FROM, TO, TIME, Pax ph no: Green-filled cells (#c6efce)
+          */}
+          <tbody className="divide-y divide-gray-400 font-sans">
+            {filteredRows.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={8}
+                  className="py-8 text-center text-slate-500 border border-gray-400 bg-white"
+                >
+                  <AlertCircle className="w-6 h-6 mx-auto mb-1 text-slate-400" />
+                  <p className="font-bold">No Day Book entries found.</p>
+                </td>
+              </tr>
+            ) : (
+              filteredRows.map((r) => (
+                <tr key={r.id} className="hover:opacity-90 transition-opacity">
+                  {/* 1. SL NO */}
+                  <td className="py-1.5 px-2.5 text-center font-medium text-slate-900 border border-gray-400 bg-white whitespace-nowrap">
+                    {r.sl_no}
+                  </td>
+
+                  {/* 2. DATE */}
+                  <td className="py-1.5 px-2.5 text-center font-medium text-slate-900 border border-gray-400 bg-white whitespace-nowrap">
+                    {r.date}
+                  </td>
+
+                  {/* 3. ON */}
+                  <td className="py-1.5 px-2.5 text-center font-medium text-slate-900 border border-gray-400 bg-white whitespace-nowrap">
+                    {r.on}
+                  </td>
+
+                  {/* 4. FROM (Green-filled data cell) */}
+                  <td className="py-1.5 px-3 text-left font-semibold text-slate-900 border border-gray-400 bg-[#c6efce] whitespace-nowrap">
+                    {r.from}
+                  </td>
+
+                  {/* 5. TO (Green-filled data cell, supports multiline like FULL LOCAL / KIA DROP) */}
+                  <td className="py-1.5 px-3 text-left font-semibold text-slate-900 border border-gray-400 bg-[#c6efce] leading-snug whitespace-pre-line">
+                    {r.to}
+                  </td>
+
+                  {/* 6. TIME (Green-filled data cell, compact e.g. 4:45AM) */}
+                  <td className="py-1.5 px-2.5 text-center font-semibold text-slate-900 border border-gray-400 bg-[#c6efce] whitespace-nowrap">
+                    {r.time}
+                  </td>
+
+                  {/* 7. Pax ph no (Green-filled data cell) */}
+                  <td className="py-1.5 px-3 text-center font-bold text-slate-900 border border-gray-400 bg-[#c6efce] whitespace-nowrap tracking-wide">
+                    {r.pax_phone}
+                  </td>
+
+                  {/* Row Actions (Edit / Delete) */}
+                  <td className="py-1 px-1.5 text-center border border-gray-400 bg-white whitespace-nowrap print:hidden">
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(r)}
+                        className="p-1 text-slate-600 hover:text-black hover:bg-slate-100 rounded transition cursor-pointer"
+                        title="Edit Row"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRow(r.id)}
+                        className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition cursor-pointer"
+                        title="Delete Row"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
             )}
-          </div>
-        </div>
+          </tbody>
+        </table>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          {/* Search Box */}
-          <div className="lg:col-span-2 relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search ID, passenger, phone, voucher..."
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-            />
-          </div>
-
-          {/* Booking Type Filter */}
-          <div>
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 outline-none font-semibold text-slate-700 cursor-pointer"
-            >
-              <option value="ALL">All Booking Types</option>
-              <option value="FLIGHT">Flight</option>
-              <option value="BUS">Bus</option>
-              <option value="TRAIN">Train</option>
-              <option value="CAR">Car / Taxi</option>
-              <option value="HOTEL">Hotel</option>
-              <option value="TOUR">Tour Package</option>
-            </select>
-          </div>
-
-          {/* Payment Method Filter */}
-          <div>
-            <select
-              value={paymentMethodFilter}
-              onChange={(e) => setPaymentMethodFilter(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 outline-none font-semibold text-slate-700 cursor-pointer"
-            >
-              <option value="ALL">All Payment Methods</option>
-              <option value="CASH">Cash Inflow</option>
-              <option value="UPI">UPI / QR Code</option>
-              <option value="CARD">Debit / Credit Card</option>
-              <option value="NETBANKING">Net Banking</option>
-              <option value="RAZORPAY">Razorpay Gateway</option>
-            </select>
-          </div>
-
-          {/* Status Filter */}
-          <div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 outline-none font-semibold text-slate-700 cursor-pointer"
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="PAID">Paid</option>
-              <option value="PENDING">Pending Dues</option>
-              <option value="REFUNDED">Refunded</option>
-              <option value="CANCELLED">Cancelled</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Date Filters Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3 pt-1">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-600 whitespace-nowrap">From:</span>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
-                setDatePreset("custom");
-              }}
-              className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 outline-none text-slate-700"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-600 whitespace-nowrap">To:</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => {
-                setEndDate(e.target.value);
-                setDatePreset("custom");
-              }}
-              className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 outline-none text-slate-700"
-            />
-          </div>
-          <div className="flex items-center gap-2 sm:col-span-2">
-            <button
-              type="button"
-              onClick={() => {
-                const today = new Date().toISOString().slice(0, 10);
-                setStartDate(today);
-                setEndDate(today);
-                setDatePreset("today");
-              }}
-              className={`px-2.5 py-1.5 text-xs font-bold rounded-lg border transition cursor-pointer ${
-                datePreset === "today"
-                  ? "bg-[#063f2d] text-white border-[#063f2d]"
-                  : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
-              }`}
-            >
-              Today
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const now = new Date();
-                const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-                const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
-                setStartDate(firstDay);
-                setEndDate(lastDay);
-                setDatePreset("month");
-              }}
-              className={`px-2.5 py-1.5 text-xs font-bold rounded-lg border transition cursor-pointer ${
-                datePreset === "month"
-                  ? "bg-[#063f2d] text-white border-[#063f2d]"
-                  : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
-              }`}
-            >
-              This Month
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setStartDate("");
-                setEndDate("");
-                setDatePreset("all");
-              }}
-              className={`px-2.5 py-1.5 text-xs font-bold rounded-lg border transition cursor-pointer ${
-                datePreset === "all"
-                  ? "bg-[#063f2d] text-white border-[#063f2d]"
-                  : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
-              }`}
-            >
-              All Time
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Transaction Records Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-emerald-600" />
-            <h3 className="font-black text-slate-900 text-sm">
-              Day Book Transactions Register
-            </h3>
-            <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
-              {filteredTransactions.length} entries
-            </span>
-          </div>
-          <span className="text-xs text-slate-500 hidden sm:inline">
-            Double-entry ledger verified against live database
+        {/* Compact Footer Status */}
+        <div className="px-3 py-1.5 bg-gray-50 border-t border-gray-400 flex items-center justify-between text-[11px] text-slate-600 select-none">
+          <span>
+            Total Entries: <strong className="text-slate-900">{filteredRows.length}</strong>
+          </span>
+          <span className="text-[10px] text-slate-500">
+            Fortune Tourism Day Book Register · Verified against live PostgreSQL
           </span>
         </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[10px]">
-                <th className="py-3 px-4">Date &amp; ID</th>
-                <th className="py-3 px-4">Particulars &amp; Voucher</th>
-                <th className="py-3 px-4">Sector</th>
-                <th className="py-3 px-4">Customer</th>
-                <th className="py-3 px-4">Method</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Income (₹)</th>
-                <th className="py-3 px-4 text-right">Expense (₹)</th>
-                <th className="py-3 px-4 text-right">Balance (₹)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-medium">
-              {filteredTransactions.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400">
-                    <AlertCircle className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                    <p className="font-bold text-sm">No transaction records match the selected filters.</p>
-                    <p className="text-xs text-slate-400 mt-1">Try clearing your search query or selecting "All Time".</p>
-                  </td>
-                </tr>
-              ) : (
-                filteredTransactions.map((t) => (
-                  <tr key={t.id} className="hover:bg-slate-50/80 transition">
-                    {/* 1. Date & ID */}
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <p className="font-bold text-slate-900">{t.id}</p>
-                      <p className="text-[10px] text-slate-400">
-                        {new Date(t.date).toLocaleDateString("en-IN", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </p>
-                    </td>
-
-                    {/* 2. Particulars & Voucher */}
-                    <td className="py-3 px-4 max-w-xs">
-                      <p className="font-bold text-slate-800 line-clamp-1">{t.particulars}</p>
-                      <p className="text-[10px] font-mono text-slate-400">{t.ref_number}</p>
-                    </td>
-
-                    {/* 3. Sector / Category */}
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-700 border border-slate-200">
-                        {t.category}
-                      </span>
-                    </td>
-
-                    {/* 4. Customer */}
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <p className="font-semibold text-slate-800">{t.customer_name || "—"}</p>
-                      <p className="text-[10px] text-slate-400">{t.phone || ""}</p>
-                    </td>
-
-                    {/* 5. Payment Method */}
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                          t.payment_method === "CASH"
-                            ? "bg-amber-100 text-amber-800"
-                            : t.payment_method === "UPI"
-                            ? "bg-indigo-100 text-indigo-800"
-                            : "bg-cyan-100 text-cyan-800"
-                        }`}
-                      >
-                        {t.payment_method}
-                      </span>
-                    </td>
-
-                    {/* 6. Status */}
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black ${
-                          t.status === "PAID"
-                            ? "bg-emerald-100 text-emerald-800 border border-emerald-300/60"
-                            : t.status === "PENDING"
-                            ? "bg-amber-100 text-amber-800 border border-amber-300/60"
-                            : t.status === "REFUNDED"
-                            ? "bg-purple-100 text-purple-800 border border-purple-300/60"
-                            : "bg-red-100 text-red-800 border border-red-300/60"
-                        }`}
-                      >
-                        {t.status === "PAID" && <CheckCircle2 className="w-3 h-3" />}
-                        {t.status === "PENDING" && <Clock className="w-3 h-3" />}
-                        {t.status === "REFUNDED" && <ArrowLeftRight className="w-3 h-3" />}
-                        {t.status === "CANCELLED" && <XCircle className="w-3 h-3" />}
-                        {t.status}
-                      </span>
-                    </td>
-
-                    {/* 7. Income */}
-                    <td className="py-3 px-4 text-right whitespace-nowrap font-bold text-emerald-600">
-                      {t.income > 0 ? `+₹${t.income.toLocaleString("en-IN")}` : "—"}
-                    </td>
-
-                    {/* 8. Expense */}
-                    <td className="py-3 px-4 text-right whitespace-nowrap font-bold text-red-600">
-                      {t.expense > 0 ? `-₹${t.expense.toLocaleString("en-IN")}` : "—"}
-                    </td>
-
-                    {/* 9. Balance */}
-                    <td className="py-3 px-4 text-right whitespace-nowrap font-black text-slate-900">
-                      ₹{t.balance.toLocaleString("en-IN")}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-            {filteredTransactions.length > 0 && (
-              <tfoot className="bg-slate-100 text-slate-900 font-black border-t-2 border-slate-300">
-                <tr>
-                  <td colSpan={6} className="py-3 px-4 text-right text-xs uppercase tracking-wider">
-                    Report Totals:
-                  </td>
-                  <td className="py-3 px-4 text-right text-emerald-700 text-sm font-black">
-                    ₹{metrics.totalIncome.toLocaleString("en-IN")}
-                  </td>
-                  <td className="py-3 px-4 text-right text-red-700 text-sm font-black">
-                    ₹{metrics.totalExpenses.toLocaleString("en-IN")}
-                  </td>
-                  <td className="py-3 px-4 text-right text-indigo-700 text-sm font-black">
-                    ₹{metrics.netBalance.toLocaleString("en-IN")}
-                  </td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
       </div>
+
+      {/* Add / Edit Entry Modal */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="relative w-full max-w-md bg-white border border-gray-400 shadow-2xl p-5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-gray-300 pb-2 mb-3">
+              <h3 className="font-bold text-sm text-slate-900 uppercase tracking-wide">
+                {editingRow ? "Edit Day Book Row" : "New Day Book Entry"}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-black cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveRow} className="space-y-2.5 text-xs">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-0.5">DATE</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    placeholder="e.g. 1/7/2024"
+                    className="w-full px-2 py-1.5 border border-gray-400 focus:outline-none focus:border-black font-medium text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-0.5">ON (Travel Date)</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.on}
+                    onChange={(e) => setFormData({ ...formData, on: e.target.value })}
+                    placeholder="e.g. 2/7/2024"
+                    className="w-full px-2 py-1.5 border border-gray-400 focus:outline-none focus:border-black font-medium text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-0.5">FROM</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.from}
+                  onChange={(e) => setFormData({ ...formData, from: e.target.value })}
+                  placeholder="e.g. SBC RWL STATION"
+                  className="w-full px-2 py-1.5 border border-gray-400 focus:outline-none focus:border-black font-semibold text-slate-900 uppercase"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-0.5">TO</label>
+                <textarea
+                  rows={2}
+                  required
+                  value={formData.to}
+                  onChange={(e) => setFormData({ ...formData, to: e.target.value })}
+                  placeholder="e.g. FULL LOCAL&#10;KIA DROP"
+                  className="w-full px-2 py-1.5 border border-gray-400 focus:outline-none focus:border-black font-semibold text-slate-900 uppercase"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-0.5">TIME</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.time}
+                    onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                    placeholder="e.g. 4:45AM"
+                    className="w-full px-2 py-1.5 border border-gray-400 focus:outline-none focus:border-black font-semibold text-slate-900 uppercase"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-0.5">Pax ph no</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.pax_phone}
+                    onChange={(e) => setFormData({ ...formData, pax_phone: e.target.value })}
+                    placeholder="e.g. 9884037975"
+                    className="w-full px-2 py-1.5 border border-gray-400 focus:outline-none focus:border-black font-bold text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-0.5">Passenger Name (Optional)</label>
+                <input
+                  type="text"
+                  value={formData.passenger_name}
+                  onChange={(e) => setFormData({ ...formData, passenger_name: e.target.value })}
+                  placeholder="e.g. Ramesh Kumar"
+                  className="w-full px-2 py-1.5 border border-gray-400 focus:outline-none focus:border-black text-slate-900"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setModalOpen(false)}
+                  className="px-3 py-1.5 bg-white border border-gray-400 text-slate-700 font-bold hover:bg-slate-100 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-black text-white font-bold hover:bg-slate-800 cursor-pointer inline-flex items-center gap-1"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{editingRow ? "Update Row" : "Save Entry"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
