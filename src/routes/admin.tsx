@@ -14,6 +14,7 @@ import { HotelAdminManager } from "@/components/admin/HotelAdminManager";
 import { RechargeAdminManager } from "@/components/admin/RechargeAdminManager";
 import { BillPaymentAdminManager } from "@/components/admin/BillPaymentAdminManager";
 import { AccountsReportsHub, type AccountReportKey, REPORT_DEFINITIONS } from "@/components/admin/AccountsReportsHub";
+import { DayBookReportsManager } from "@/components/admin/DayBookReportsManager";
 import logoAsset from "@/assets/fortune-tourism-logo.png";
 import fullLogoAsset from "@/assets/fortune-tourism-full-logo.png";
 import keralaHeroImg from "@/assets/kerala-hero.jpg";
@@ -132,6 +133,7 @@ import {
   CalendarDays,
   List,
   IndianRupee,
+  BookOpen,
   Bus,
   TrainFront,
   Plane,
@@ -227,19 +229,21 @@ interface VehicleItem {
   is_popular: boolean;
 }
 
-function AdminPage() {
-  type ServiceNavKey =
-    | "home"
-    | "flight"
-    | "bus"
-    | "train"
-    | "cars"
-    | "hotel"
-    | "packages"
-    | "accounts"
-    | "recharge"
-    | "bill_payment";
-  const [activeService, setActiveService] = useState<ServiceNavKey>("home");
+export type ServiceNavKey =
+  | "daybook"
+  | "home"
+  | "flight"
+  | "bus"
+  | "train"
+  | "cars"
+  | "hotel"
+  | "packages"
+  | "accounts"
+  | "recharge"
+  | "bill_payment";
+
+export function AdminPage({ initialService = "daybook" }: { initialService?: ServiceNavKey }) {
+  const [activeService, setActiveService] = useState<ServiceNavKey>(initialService);
   const [bookingDropdownOpen, setBookingDropdownOpen] = useState(false);
   const bookingDropdownRef = useRef<HTMLDivElement>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -512,7 +516,11 @@ function AdminPage() {
 
     if (key === "Admin@fortunetourism2026") {
       setIsAuthenticated(true);
-      setActiveService("home");
+      if (typeof window !== "undefined" && window.location.pathname.includes("/admin/day-book")) {
+        setActiveService("daybook");
+      } else {
+        setActiveService(initialService || "daybook");
+      }
       if (authStr) {
         try {
           setAdminUser(JSON.parse(authStr));
@@ -525,7 +533,7 @@ function AdminPage() {
       fetchData();
     }
     setAuthChecking(false);
-  }, []);
+  }, [initialService]);
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -556,7 +564,10 @@ function AdminPage() {
         localStorage.setItem("fortune_admin_key", data.admin_key);
         localStorage.setItem("fortune_admin_auth", JSON.stringify(data.user));
         setAdminUser(data.user);
-        setActiveService("home");
+        setActiveService("daybook");
+        if (typeof window !== "undefined") {
+          window.history.replaceState(null, "", "/admin/day-book");
+        }
         setIsAuthenticated(true);
         fetchData();
       } else {
@@ -1249,11 +1260,34 @@ function AdminPage() {
       <nav className="sticky top-13 sm:top-14 z-40 w-full bg-white border-b border-slate-200 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-1.5">
-            {/* Left: Dashboard Button */}
-            <div className="flex items-center">
+            {/* Left: Day Book | Dashboard Buttons */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 type="button"
-                onClick={() => setActiveService("home")}
+                onClick={() => {
+                  setActiveService("daybook");
+                  if (typeof window !== "undefined" && window.location.pathname !== "/admin/day-book") {
+                    window.history.replaceState(null, "", "/admin/day-book");
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                  activeService === "daybook"
+                    ? "bg-[#063f2d] text-white shadow-xs font-extrabold"
+                    : "text-slate-700 hover:text-[#063f2d] hover:bg-slate-100"
+                }`}
+              >
+                <BookOpen className="w-4 h-4" />
+                <span>Day Book</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveService("home");
+                  if (typeof window !== "undefined" && window.location.pathname !== "/admin") {
+                    window.history.replaceState(null, "", "/admin");
+                  }
+                }}
                 className={`flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                   activeService === "home"
                     ? "bg-[#063f2d] text-white shadow-xs font-extrabold"
@@ -1327,6 +1361,22 @@ function AdminPage() {
                     >
                       <Settings className="w-4 h-4 text-amber-600" />
                       <span>Settings</span>
+                    </button>
+
+                    {/* Day Book */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        setActiveService("daybook");
+                        if (typeof window !== "undefined" && window.location.pathname !== "/admin/day-book") {
+                          window.history.replaceState(null, "", "/admin/day-book");
+                        }
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50 transition text-left cursor-pointer"
+                    >
+                      <BookOpen className="w-4 h-4 text-emerald-600" />
+                      <span>Day Book</span>
                     </button>
 
                     {/* Financial Ledgers */}
@@ -1911,11 +1961,22 @@ function AdminPage() {
             </div>
           )}
 
+          {/* DAY BOOK REPORTS SECTION */}
+          {activeService === "daybook" && (
+            <DayBookReportsManager />
+          )}
+
           {/* ACCOUNTS & FINANCIAL OPERATIONS SECTION */}
           {activeService === "accounts" && (
             <AccountsReportsHub
               initialReport={activeAccountReport}
               onSelectReport={(k) => setActiveAccountReport(k)}
+              onNavigateToDayBook={() => {
+                setActiveService("daybook");
+                if (typeof window !== "undefined" && window.location.pathname !== "/admin/day-book") {
+                  window.history.replaceState(null, "", "/admin/day-book");
+                }
+              }}
             />
           )}
         </div>

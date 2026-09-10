@@ -19,6 +19,7 @@ import { Route as DriverLoginRouteImport } from './routes/driver-login'
 import { Route as ServicesRouteImport } from './routes/services'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TourPackagesRouteImport } from './routes/tour-packages'
+import { Route as AdminDayBookRouteImport } from './routes/admin.day-book'
 import { Route as ApiEnquiriesRouteImport } from './routes/api/enquiries'
 import { Route as ApiPackagesRouteImport } from './routes/api/packages'
 import { Route as ApiVehiclesRouteImport } from './routes/api/vehicles'
@@ -89,6 +90,11 @@ const TourPackagesRoute = TourPackagesRouteImport.update({
   id: '/tour-packages',
   path: '/tour-packages',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminDayBookRoute = AdminDayBookRouteImport.update({
+  id: '/day-book',
+  path: '/day-book',
+  getParentRoute: () => AdminRoute,
 } as any)
 const ApiEnquiriesRoute = ApiEnquiriesRouteImport.update({
   id: '/api/enquiries',
@@ -196,7 +202,7 @@ const ApiBookingsIdRefundsIndexRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/airport-transfer': typeof AirportTransferRoute
   '/booking': typeof BookingRoute
   '/car-rentals': typeof CarRentalsRouteWithChildren
@@ -205,6 +211,7 @@ export interface FileRoutesByFullPath {
   '/services': typeof ServicesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/tour-packages': typeof TourPackagesRouteWithChildren
+  '/admin/day-book': typeof AdminDayBookRoute
   '/api/enquiries': typeof ApiEnquiriesRoute
   '/api/packages': typeof ApiPackagesRoute
   '/api/vehicles': typeof ApiVehiclesRoute
@@ -228,7 +235,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/airport-transfer': typeof AirportTransferRoute
   '/booking': typeof BookingRoute
   '/car-rentals': typeof CarRentalsRouteWithChildren
@@ -237,6 +244,7 @@ export interface FileRoutesByTo {
   '/services': typeof ServicesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/tour-packages': typeof TourPackagesRouteWithChildren
+  '/admin/day-book': typeof AdminDayBookRoute
   '/api/enquiries': typeof ApiEnquiriesRoute
   '/api/packages': typeof ApiPackagesRoute
   '/api/vehicles': typeof ApiVehiclesRoute
@@ -261,7 +269,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/airport-transfer': typeof AirportTransferRoute
   '/booking': typeof BookingRoute
   '/car-rentals': typeof CarRentalsRouteWithChildren
@@ -270,6 +278,7 @@ export interface FileRoutesById {
   '/services': typeof ServicesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/tour-packages': typeof TourPackagesRouteWithChildren
+  '/admin/day-book': typeof AdminDayBookRoute
   '/api/enquiries': typeof ApiEnquiriesRoute
   '/api/packages': typeof ApiPackagesRoute
   '/api/vehicles': typeof ApiVehiclesRoute
@@ -304,6 +313,7 @@ export interface FileRouteTypes {
     | '/services'
     | '/sitemap.xml'
     | '/tour-packages'
+    | '/admin/day-book'
     | '/api/enquiries'
     | '/api/packages'
     | '/api/vehicles'
@@ -336,6 +346,7 @@ export interface FileRouteTypes {
     | '/services'
     | '/sitemap.xml'
     | '/tour-packages'
+    | '/admin/day-book'
     | '/api/enquiries'
     | '/api/packages'
     | '/api/vehicles'
@@ -368,6 +379,7 @@ export interface FileRouteTypes {
     | '/services'
     | '/sitemap.xml'
     | '/tour-packages'
+    | '/admin/day-book'
     | '/api/enquiries'
     | '/api/packages'
     | '/api/vehicles'
@@ -392,7 +404,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRoute
+  AdminRoute: typeof AdminRouteWithChildren
   AirportTransferRoute: typeof AirportTransferRoute
   BookingRoute: typeof BookingRoute
   CarRentalsRoute: typeof CarRentalsRouteWithChildren
@@ -492,6 +504,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/tour-packages'
       preLoaderRoute: typeof TourPackagesRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/admin/day-book': {
+      id: '/admin/day-book'
+      path: '/day-book'
+      fullPath: '/admin/day-book'
+      preLoaderRoute: typeof AdminDayBookRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/api/enquiries': {
       id: '/api/enquiries'
@@ -636,6 +655,16 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AdminRouteChildren {
+  AdminDayBookRoute: typeof AdminDayBookRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminDayBookRoute: AdminDayBookRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 interface CarRentalsRouteChildren {
   CarRentalsVehicleIdRoute: typeof CarRentalsVehicleIdRoute
 }
@@ -662,7 +691,7 @@ const TourPackagesRouteWithChildren = TourPackagesRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRoute,
+  AdminRoute: AdminRouteWithChildren,
   AirportTransferRoute: AirportTransferRoute,
   BookingRoute: BookingRoute,
   CarRentalsRoute: CarRentalsRouteWithChildren,
