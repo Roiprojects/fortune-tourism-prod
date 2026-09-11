@@ -392,7 +392,7 @@ export function DayBookReportsManager() {
   return (
     <div className="w-full py-4 px-2 sm:px-4">
       {/* Top Header & Actions Bar */}
-      <div className="w-full max-w-4xl mx-auto mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="w-full max-w-5xl mx-auto mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         {/* Left: Clearly Visible High-Contrast Heading */}
         <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
           Day Book
@@ -426,50 +426,51 @@ export function DayBookReportsManager() {
         </div>
       </div>
 
-      {/* Centered Narrow Spreadsheet Register Container */}
-      <div className="w-full max-w-4xl mx-auto overflow-x-auto bg-white border border-gray-400">
+      {/* Spreadsheet Register Container */}
+      <div className="w-full max-w-5xl mx-auto overflow-x-auto bg-white border border-gray-400 shadow-xs">
         <table className="w-full text-xs border-collapse border border-gray-400 font-sans select-text">
           {/* Target Header Structure:
               Dark/black header cells with white text
               Grouped header over FROM / TO / TIME: "Remainder display up Departure Time"
+              Prominent TRIP DONE action column
           */}
           <thead>
             <tr className="bg-black text-white text-xs font-bold text-center">
               <th
                 rowSpan={2}
-                className="border border-gray-400 py-1.5 px-3 whitespace-nowrap text-center align-middle w-16"
+                className="border border-gray-400 py-2 px-2.5 whitespace-nowrap text-center align-middle w-14"
               >
                 SL NO
               </th>
               <th
                 rowSpan={2}
-                className="border border-gray-400 py-1.5 px-3 whitespace-nowrap text-center align-middle w-24"
+                className="border border-gray-400 py-2 px-2.5 whitespace-nowrap text-center align-middle w-24"
               >
                 DATE
               </th>
               <th
                 rowSpan={2}
-                className="border border-gray-400 py-1.5 px-3 whitespace-nowrap text-center align-middle w-24"
+                className="border border-gray-400 py-2 px-2.5 whitespace-nowrap text-center align-middle w-24"
               >
                 ON
               </th>
               <th
                 colSpan={3}
-                className="border border-gray-400 py-1.5 px-4 text-center align-middle tracking-wide uppercase text-[11px]"
+                className="border border-gray-400 py-2 px-4 text-center align-middle tracking-wide uppercase text-[11px]"
               >
                 Remainder display up Departure Time
               </th>
               <th
                 rowSpan={2}
-                className="border border-gray-400 py-1.5 px-3 whitespace-nowrap text-center align-middle w-28"
+                className="border border-gray-400 py-2 px-3 whitespace-nowrap text-center align-middle w-28"
               >
                 Pax ph no
               </th>
               <th
                 rowSpan={2}
-                className="border border-gray-400 py-1.5 px-3 text-center align-middle w-28 print:hidden"
+                className="border border-gray-400 py-2 px-3 text-center align-middle w-32 bg-[#0d6535] text-white font-black tracking-wide text-xs uppercase print:hidden"
               >
-                Action
+                Trip Done
               </th>
             </tr>
             <tr className="bg-black text-white text-xs font-bold text-center">
@@ -553,32 +554,22 @@ export function DayBookReportsManager() {
                     {r.pax_phone}
                   </td>
 
-                  {/* Row Actions: "Trip Done" button + Edit */}
-                  <td className="py-1 px-1.5 text-center border border-gray-400 bg-white whitespace-nowrap print:hidden">
-                    <div className="flex items-center justify-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => handleMarkTripDone(r)}
-                        disabled={savingId === r.id}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-[11px] rounded shadow-2xs cursor-pointer transition disabled:opacity-50 disabled:cursor-not-allowed"
-                        title={`Mark Trip #${r.sl_no} as Completed`}
-                      >
-                        {savingId === r.id ? (
-                          <RefreshCw className="w-3 h-3 animate-spin text-white" />
-                        ) : (
-                          <CheckCircle2 className="w-3 h-3 text-white" />
-                        )}
-                        <span>{savingId === r.id ? "Saving..." : "Trip Done"}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(r)}
-                        className="p-1 text-slate-400 hover:text-black hover:bg-slate-100 rounded transition cursor-pointer"
-                        title="Edit Row"
-                      >
-                        <Pencil className="w-3 h-3" />
-                      </button>
-                    </div>
+                  {/* Row Actions: Prominent Standalone "Trip Done" button */}
+                  <td className="py-2 px-2 text-center border border-gray-400 bg-white whitespace-nowrap print:hidden">
+                    <button
+                      type="button"
+                      onClick={() => handleMarkTripDone(r)}
+                      disabled={savingId === r.id}
+                      className="w-full min-w-[95px] inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#107c41] hover:bg-[#0d6535] active:bg-[#0a4d29] text-white font-extrabold text-xs rounded shadow-xs cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={`Mark Trip #${r.sl_no} as Completed`}
+                    >
+                      {savingId === r.id ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
+                      ) : (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                      )}
+                      <span>{savingId === r.id ? "Saving..." : "Trip Done"}</span>
+                    </button>
                   </td>
                 </tr>
               ))
