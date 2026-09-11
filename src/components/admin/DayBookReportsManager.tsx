@@ -370,7 +370,7 @@ export function DayBookReportsManager() {
       {/* Top Header & Actions Bar */}
       <div className="w-full max-w-4xl mx-auto mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         {/* Left: Clearly Visible High-Contrast Heading */}
-        <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-md">
+        <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
           Day Book
         </h2>
 

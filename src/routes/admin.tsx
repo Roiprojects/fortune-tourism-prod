@@ -1414,13 +1414,53 @@ export function AdminPage({ initialService = "daybook" }: { initialService?: Ser
         </div>
       </nav>
 
-      {/* Main Content Area with Taj Mahal Background */}
-      <section
-        className="relative py-6 sm:py-8 min-h-[calc(100vh-108px)] bg-cover bg-center bg-no-repeat bg-fixed flex flex-col justify-center"
-        style={{ backgroundImage: `url('/taj-mahal-admin-bg.jpg')` }}
-      >
-        {/* Soft elegant gradient overlay to ensure perfect contrast & readability */}
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/65 via-slate-900/50 to-slate-950/75 backdrop-blur-[2px] pointer-events-none" />
+      {/* Main Content Area with Elegant Curved SVG Background */}
+      <section className="relative py-6 sm:py-8 min-h-[calc(100vh-108px)] bg-[#FFFFFF] overflow-hidden flex flex-col justify-center">
+        {/* Top-Left Deep Teal-Blue (#1D5065) Curved Background Shape */}
+        <div className="absolute top-0 left-0 w-[65vw] sm:w-[50vw] max-w-[700px] h-[220px] sm:h-[300px] md:h-[360px] pointer-events-none z-0 select-none">
+          <svg
+            viewBox="0 0 800 400"
+            preserveAspectRatio="none"
+            className="w-full h-full"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            {/* Subtle soft depth accent curve */}
+            <path
+              d="M0 0 L820 0 C660 30 540 140 420 200 C270 270 160 330 0 400 Z"
+              fill="#1D5065"
+              fillOpacity="0.18"
+            />
+            {/* Main sweeping deep teal-blue curve flowing from top-left */}
+            <path
+              d="M0 0 L760 0 C600 20 480 120 370 180 C230 250 130 300 0 370 Z"
+              fill="#1D5065"
+            />
+          </svg>
+        </div>
+
+        {/* Bottom-Right Mustard Gold (#D5A300) Sweeping Curved Background Shape */}
+        <div className="absolute bottom-0 right-0 w-[65vw] sm:w-[50vw] max-w-[700px] h-[220px] sm:h-[300px] md:h-[360px] pointer-events-none z-0 select-none">
+          <svg
+            viewBox="0 0 800 400"
+            preserveAspectRatio="none"
+            className="w-full h-full"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            {/* Subtle soft depth accent curve */}
+            <path
+              d="M800 400 L0 400 C150 370 260 270 380 200 C530 130 640 60 800 0 Z"
+              fill="#D5A300"
+              fillOpacity="0.18"
+            />
+            {/* Main sweeping mustard gold curve rising from bottom-right */}
+            <path
+              d="M800 400 L40 400 C190 380 300 280 420 220 C560 150 660 80 800 20 Z"
+              fill="#D5A300"
+            />
+          </svg>
+        </div>
 
         <div className="container-fortune relative z-10">
           {/* HOME SERVICE VIEW: MODERN ADMIN DASHBOARD */}
@@ -1429,7 +1469,7 @@ export function AdminPage({ initialService = "daybook" }: { initialService?: Ser
               {/* Booking Itinerary Service Cards */}
               <div className="mb-2">
                 <div className="mb-4">
-                  <h2 className="text-2xl sm:text-3xl font-black text-white font-heading drop-shadow-md tracking-tight">
+                  <h2 className="text-2xl sm:text-3xl font-black text-slate-900 font-heading tracking-tight">
                     Select Your Category
                   </h2>
                 </div>
