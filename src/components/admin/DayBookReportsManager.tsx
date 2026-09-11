@@ -367,65 +367,37 @@ export function DayBookReportsManager() {
 
   return (
     <div className="w-full py-4 px-2 sm:px-4">
-      {/* Centered Title: "Day Book" */}
-      <div className="text-center mb-4">
-        <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+      {/* Top Header & Actions Bar */}
+      <div className="w-full max-w-4xl mx-auto mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        {/* Left: Clearly Visible High-Contrast Heading */}
+        <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-md">
           Day Book
         </h2>
-      </div>
 
-      {/* Top Compact Controls Bar */}
-      <div className="w-full max-w-4xl mx-auto mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
-        {/* Search Field */}
-        <div className="relative w-64 max-w-full">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search phone, from, to, date..."
-            className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-white border border-gray-400 rounded-none focus:outline-none focus:border-black font-medium text-slate-800"
-          />
-        </div>
+        {/* Right: Search Filter & Action Group (Refresh Only) */}
+        <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-end">
+          {/* Search Filter */}
+          <div className="relative flex-1 sm:w-64 max-w-full">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search phone, from, to, date..."
+              className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-white border border-gray-400 rounded-none focus:outline-none focus:border-black font-medium text-slate-800 shadow-2xs"
+            />
+          </div>
 
-        {/* Action Buttons: Add, Refresh, Export, Print */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <button
-            type="button"
-            onClick={openAddModal}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-black text-white font-bold hover:bg-slate-800 transition cursor-pointer"
-            title="Add New Day Book Entry"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Entry</span>
-          </button>
+          {/* Action Button: Refresh Only */}
           <button
             type="button"
             onClick={fetchLiveEntries}
             disabled={loading}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white border border-gray-400 text-slate-800 font-bold hover:bg-slate-100 transition cursor-pointer"
-            title="Refresh from PostgreSQL"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-400 text-slate-900 font-bold hover:bg-slate-100 transition cursor-pointer text-xs shrink-0 shadow-2xs disabled:opacity-50"
+            title="Refresh Day Book"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleExportCSV}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#107c41] text-white font-bold hover:bg-[#0d6535] transition cursor-pointer"
-            title="Export Excel CSV"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export</span>
-          </button>
-          <button
-            type="button"
-            onClick={handlePrint}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white border border-gray-400 text-slate-800 font-bold hover:bg-slate-100 transition cursor-pointer"
-            title="Print Table"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Print</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-emerald-700" : "text-slate-800"}`} />
+            <span>Refresh</span>
           </button>
         </div>
       </div>
