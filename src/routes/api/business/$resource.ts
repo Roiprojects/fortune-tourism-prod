@@ -36,8 +36,9 @@ export const Route = createFileRoute("/api/business/$resource")({
           const q = url.searchParams.get("q")?.trim();
           const startDate = url.searchParams.get("startDate")?.trim();
           const endDate = url.searchParams.get("endDate")?.trim();
+          const activeOnly = url.searchParams.get("active") === "1" || url.searchParams.get("active") === "true";
 
-          const { sql, countSql, whereParams } = buildListQuery(cfg, q, startDate, endDate);
+          const { sql, countSql, whereParams } = buildListQuery(cfg, q, startDate, endDate, activeOnly);
 
           const sqlFinal = `${sql} ORDER BY r.${cfg.orderBy} ${cfg.orderDir || "DESC"} LIMIT ${limit} OFFSET ${offset}`;
 
@@ -270,6 +271,7 @@ function buildListQuery(
   q?: string,
   startDate?: string,
   endDate?: string,
+  activeOnly?: boolean,
 ): { sql: string; countSql: string; whereParams: unknown[] } {
   // LEFT JOIN every reference field so the UI can display friendly labels.
   const joins: string[] = [];
@@ -306,6 +308,10 @@ function buildListQuery(
       whereParams.push(endDate);
       whereConditions.push(`r."${dateCol}"::date <= $${whereParams.length}::date`);
     }
+  }
+
+  if (activeOnly && (cfg.fields.some((f) => f.name === "status") || cfg.tableColumns.includes("status"))) {
+    whereConditions.push(`LOWER(COALESCE(r."status", 'pending')) NOT IN ('completed', 'cancelled', 'canceled', 'done')`);
   }
 
   const whereClause = whereConditions.length > 0 ? ` WHERE ${whereConditions.join(" AND ")}` : "";

@@ -10,6 +10,7 @@ import {
   X,
   Check,
   AlertCircle,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,44 +24,16 @@ export interface DayBookRow {
   time: string; // e.g. "4:45AM"
   pax_phone: string; // e.g. "9884037975"
   passenger_name?: string;
+  status?: string;
 }
 
-// Initial reference rows matching the exact user Excel sheet
-const INITIAL_DAY_BOOK_ROWS: DayBookRow[] = [
-  {
-    id: "REF-1",
-    sl_no: 1,
-    date: "1/7/2024",
-    on: "2/7/2024",
-    from: "SBC RWL STATION",
-    to: "FULL LOCAL\nKIA DROP",
-    time: "4:45AM",
-    pax_phone: "9884037975",
-    passenger_name: "Customer 1",
-  },
-  {
-    id: "REF-2",
-    sl_no: 2,
-    date: "2/7/2024",
-    on: "3/7/2024",
-    from: "KIA",
-    to: "BOM DROP",
-    time: "4:30AM",
-    pax_phone: "9175163494",
-    passenger_name: "Customer 2",
-  },
-  {
-    id: "REF-3",
-    sl_no: 3,
-    date: "2/7/2024",
-    on: "3/7/2024",
-    from: "N VEG HOTEL",
-    to: "BSS",
-    time: "10:30AM",
-    pax_phone: "9893904810",
-    passenger_name: "Customer 3",
-  },
-];
+// Active trips helper: pending, today's ongoing, and future trips
+// Excludes completed and cancelled trips, while preserving older trips that remain pending
+export function isActiveTrip(status?: string | null): boolean {
+  if (!status) return true;
+  const s = status.trim().toLowerCase();
+  return !["completed", "cancelled", "canceled", "done"].includes(s);
+}
 
 // Compact date formatting helper (e.g. "1/7/2024")
 function formatCompactDate(dateStr?: string | null): string {
@@ -107,8 +80,9 @@ function extractCompactTime(notes?: string | null, timeStr?: string | null): str
 }
 
 export function DayBookReportsManager() {
-  const [rows, setRows] = useState<DayBookRow[]>(INITIAL_DAY_BOOK_ROWS);
+  const [rows, setRows] = useState<DayBookRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [savingId, setSavingId] = useState<string | number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Modal State for Add / Edit Entry
@@ -124,7 +98,7 @@ export function DayBookReportsManager() {
     passenger_name: "",
   });
 
-  // Fetch live PostgreSQL day book entries
+  // Fetch live PostgreSQL day book entries (Only active trips: pending, ongoing, future)
   const fetchLiveEntries = async () => {
     setLoading(true);
     try {
@@ -134,11 +108,15 @@ export function DayBookReportsManager() {
         "Admin@fortunetourism2026";
       const headers: Record<string, string> = { "x-admin-key": adminKey };
 
-      const res = await fetch("/api/business/day_book_entries?limit=200", { headers });
+      const res = await fetch("/api/business/day_book_entries?active=1&limit=500", { headers });
       if (res.ok) {
         const data = await res.json();
-        if (data.success && Array.isArray(data.rows) && data.rows.length > 0) {
-          const liveMapped: DayBookRow[] = data.rows.map((r: any, idx: number) => ({
+        if (data.success && Array.isArray(data.rows)) {
+          // Strictly filter only active trips (pending, ongoing, future - excluding completed/cancelled)
+          // Older trips remain visible if they are still pending
+          const activeRecords = data.rows.filter((r: any) => isActiveTrip(r.status));
+
+          const liveMapped: DayBookRow[] = activeRecords.map((r: any, idx: number) => ({
             id: r.id,
             sl_no: idx + 1,
             date: formatCompactDate(r.booking_date || r.created_at),
@@ -148,23 +126,17 @@ export function DayBookReportsManager() {
             time: extractCompactTime(r.notes, r.pickup_time),
             pax_phone: r.passenger_phone || "—",
             passenger_name: r.passenger_name || "",
+            status: r.status || "Pending",
           }));
 
-          // Merge: Keep reference rows first if not in DB, then add live records
-          const refPhones = new Set(INITIAL_DAY_BOOK_ROWS.map((r) => r.pax_phone));
-          const uniqueLive = liveMapped.filter((r) => !refPhones.has(r.pax_phone));
-          const combined = [...INITIAL_DAY_BOOK_ROWS, ...uniqueLive].map((row, idx) => ({
-            ...row,
-            sl_no: idx + 1,
-          }));
-          setRows(combined);
+          setRows(liveMapped);
           return;
         }
       }
-      setRows(INITIAL_DAY_BOOK_ROWS);
+      setRows([]);
     } catch (err) {
-      console.warn("Using initial day book reference rows:", err);
-      setRows(INITIAL_DAY_BOOK_ROWS);
+      console.warn("Failed to fetch day book entries:", err);
+      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -174,11 +146,62 @@ export function DayBookReportsManager() {
     fetchLiveEntries();
   }, []);
 
-  // Filter rows by search query
+  // Mark Trip as Done -> Save status as 'Completed' in database and immediately remove from Day Book view
+  // Financial amounts and booking records are strictly preserved without being modified
+  const handleMarkTripDone = async (row: DayBookRow) => {
+    if (savingId) return; // Prevent duplicate clicks
+    setSavingId(row.id);
+
+    try {
+      const adminKey =
+        sessionStorage.getItem("fortune_admin_key") ||
+        localStorage.getItem("fortune_admin_key") ||
+        "Admin@fortunetourism2026";
+
+      // 1. Update status to 'Completed' in PostgreSQL
+      const res = await fetch("/api/business/day_book_entries", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-key": adminKey,
+        },
+        body: JSON.stringify({
+          id: row.id,
+          status: "Completed",
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || `Failed to complete trip (status ${res.status})`);
+      }
+
+      // 2. Immediately remove row from Day Book view and re-sequence SL NO
+      setRows((prev) => {
+        const remaining = prev.filter((r) => r.id !== row.id);
+        return remaining.map((r, idx) => ({
+          ...r,
+          sl_no: idx + 1,
+        }));
+      });
+
+      toast.success(`Trip #${row.sl_no} (${row.passenger_name || row.pax_phone}) marked as Completed!`);
+    } catch (err: any) {
+      console.error("Trip Done error:", err);
+      toast.error(err.message || "Failed to mark trip as done. Please try again.");
+      // Row remains visible if saving fails
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  // Filter rows by search query while strictly enforcing active trips rule
   const filteredRows = useMemo(() => {
-    if (!searchQuery.trim()) return rows;
+    const activeOnly = rows.filter((r) => isActiveTrip(r.status));
+    if (!searchQuery.trim()) return activeOnly;
     const q = searchQuery.toLowerCase().trim();
-    return rows.filter((r) => {
+    return activeOnly.filter((r) => {
       return (
         String(r.sl_no).includes(q) ||
         r.date.toLowerCase().includes(q) ||
@@ -186,7 +209,8 @@ export function DayBookReportsManager() {
         r.from.toLowerCase().includes(q) ||
         r.to.toLowerCase().includes(q) ||
         r.time.toLowerCase().includes(q) ||
-        r.pax_phone.toLowerCase().includes(q)
+        r.pax_phone.toLowerCase().includes(q) ||
+        (r.passenger_name && r.passenger_name.toLowerCase().includes(q))
       );
     });
   }, [rows, searchQuery]);
@@ -443,7 +467,7 @@ export function DayBookReportsManager() {
               </th>
               <th
                 rowSpan={2}
-                className="border border-gray-400 py-1.5 px-2 text-center align-middle w-12 print:hidden"
+                className="border border-gray-400 py-1.5 px-3 text-center align-middle w-28 print:hidden"
               >
                 Action
               </th>
@@ -470,10 +494,25 @@ export function DayBookReportsManager() {
               <tr>
                 <td
                   colSpan={8}
-                  className="py-8 text-center text-slate-500 border border-gray-400 bg-white"
+                  className="py-10 text-center text-slate-600 border border-gray-400 bg-white"
                 >
-                  <AlertCircle className="w-6 h-6 mx-auto mb-1 text-slate-400" />
-                  <p className="font-bold">No Day Book entries found.</p>
+                  {rows.length === 0 ? (
+                    <div className="py-4">
+                      <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-emerald-600" />
+                      <p className="text-sm font-bold text-slate-900">No pending or upcoming trips.</p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        All trips have been completed or no active trips are currently scheduled.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="py-4">
+                      <AlertCircle className="w-8 h-8 mx-auto mb-2 text-slate-400" />
+                      <p className="text-sm font-bold text-slate-900">No active trips match your search.</p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Try searching with a different passenger phone, location, or date.
+                      </p>
+                    </div>
+                  )}
                 </td>
               </tr>
             ) : (
@@ -514,24 +553,30 @@ export function DayBookReportsManager() {
                     {r.pax_phone}
                   </td>
 
-                  {/* Row Actions (Edit / Delete) */}
+                  {/* Row Actions: "Trip Done" button + Edit */}
                   <td className="py-1 px-1.5 text-center border border-gray-400 bg-white whitespace-nowrap print:hidden">
-                    <div className="flex items-center justify-center gap-1">
+                    <div className="flex items-center justify-center gap-1.5">
                       <button
                         type="button"
-                        onClick={() => openEditModal(r)}
-                        className="p-1 text-slate-600 hover:text-black hover:bg-slate-100 rounded transition cursor-pointer"
-                        title="Edit Row"
+                        onClick={() => handleMarkTripDone(r)}
+                        disabled={savingId === r.id}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-[11px] rounded shadow-2xs cursor-pointer transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={`Mark Trip #${r.sl_no} as Completed`}
                       >
-                        <Pencil className="w-3 h-3" />
+                        {savingId === r.id ? (
+                          <RefreshCw className="w-3 h-3 animate-spin text-white" />
+                        ) : (
+                          <CheckCircle2 className="w-3 h-3 text-white" />
+                        )}
+                        <span>{savingId === r.id ? "Saving..." : "Trip Done"}</span>
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDeleteRow(r.id)}
-                        className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition cursor-pointer"
-                        title="Delete Row"
+                        onClick={() => openEditModal(r)}
+                        className="p-1 text-slate-400 hover:text-black hover:bg-slate-100 rounded transition cursor-pointer"
+                        title="Edit Row"
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <Pencil className="w-3 h-3" />
                       </button>
                     </div>
                   </td>
@@ -544,10 +589,10 @@ export function DayBookReportsManager() {
         {/* Compact Footer Status */}
         <div className="px-3 py-1.5 bg-gray-50 border-t border-gray-400 flex items-center justify-between text-[11px] text-slate-600 select-none">
           <span>
-            Total Entries: <strong className="text-slate-900">{filteredRows.length}</strong>
+            Active Trips: <strong className="text-slate-900">{filteredRows.length}</strong>
           </span>
           <span className="text-[10px] text-slate-500">
-            Fortune Tourism Day Book Register · Verified against live PostgreSQL
+            Fortune Tourism Day Book Register · Live Active Trips
           </span>
         </div>
       </div>
