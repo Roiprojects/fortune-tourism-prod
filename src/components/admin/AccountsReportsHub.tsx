@@ -153,6 +153,7 @@ export interface TransactionRecord {
 interface AccountsReportsHubProps {
   initialReport?: AccountReportKey;
   onSelectReport?: (reportKey: AccountReportKey) => void;
+  onNavigateToDayBook?: () => void;
 }
 
 export const REPORT_DEFINITIONS: {
@@ -186,14 +187,6 @@ export const REPORT_DEFINITIONS: {
     subtitle: "Audited closed accounts, fully settled vouchers, client sign-offs, and period-end statements.",
     icon: FileCheck,
     color: "text-emerald-500",
-  },
-  {
-    key: "daybook",
-    title: "Day Book Reports",
-    shortTitle: "Day Book Reports",
-    subtitle: "Chronological double-entry cash register showing opening balance, debit expenses, and closing balance.",
-    icon: BookOpen,
-    color: "text-indigo-500",
   },
   {
     key: "credit_debit",
@@ -246,7 +239,7 @@ export const REPORT_DEFINITIONS: {
 ];
 
 // Fallback seed transactions representing live accounting data
-const SEED_TRANSACTIONS: TransactionRecord[] = [
+export const SEED_TRANSACTIONS: TransactionRecord[] = [
   {
     id: "TXN-8091",
     date: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
@@ -425,8 +418,14 @@ function parseToComparableDate(val?: string | null): string {
   return "";
 }
 
-export function AccountsReportsHub({ initialReport = "reports", onSelectReport }: AccountsReportsHubProps) {
-  const [activeReport, setActiveReport] = useState<AccountReportKey>(initialReport);
+export function AccountsReportsHub({
+  initialReport = "reports",
+  onSelectReport,
+  onNavigateToDayBook,
+}: AccountsReportsHubProps) {
+  const [activeReport, setActiveReport] = useState<AccountReportKey>(
+    initialReport === "daybook" ? "reports" : initialReport
+  );
   const [transactions, setTransactions] = useState<TransactionRecord[]>(SEED_TRANSACTIONS);
   const [dailyRecords, setDailyRecords] = useState<DailyReportRecord[]>(INITIAL_DAILY_REPORTS);
   const [loading, setLoading] = useState(false);
@@ -553,12 +552,26 @@ export function AccountsReportsHub({ initialReport = "reports", onSelectReport }
   const [statusFilter, setStatusFilter] = useState("ALL");
 
   useEffect(() => {
+    if (initialReport === "daybook") {
+      if (onNavigateToDayBook) {
+        onNavigateToDayBook();
+      } else {
+        setActiveReport("reports");
+      }
+      return;
+    }
     if (initialReport) {
       setActiveReport(initialReport);
     }
-  }, [initialReport]);
+  }, [initialReport, onNavigateToDayBook]);
 
   const handleReportChange = (key: AccountReportKey) => {
+    if (key === "daybook") {
+      if (onNavigateToDayBook) {
+        onNavigateToDayBook();
+      }
+      return;
+    }
     setActiveReport(key);
     if (onSelectReport) {
       onSelectReport(key);
@@ -1239,7 +1252,7 @@ export function AccountsReportsHub({ initialReport = "reports", onSelectReport }
           <div className="flex items-center justify-between">
             <h3 className="font-black text-slate-900 text-base flex items-center gap-2">
               <LayoutDashboard className="w-4 h-4 text-amber-500" />
-              <span>All 9 Specialized Accounting Reports</span>
+              <span>All 8 Specialized Accounting Reports</span>
             </h3>
             <span className="text-xs text-slate-500 font-bold">Direct Click-Through Access</span>
           </div>

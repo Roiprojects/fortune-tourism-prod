@@ -111,6 +111,7 @@ const LOGIN_DESTINATION_SLIDES = [
   },
 ];
 import {
+  BookOpen,
   Users,
   Car,
   Package,
@@ -511,6 +512,18 @@ function AdminPage() {
     const authStr = sessionStorage.getItem("fortune_admin_auth") || localStorage.getItem("fortune_admin_auth");
 
     if (key === "Admin@fortunetourism2026") {
+      // If admin visits bare /admin without explicit dashboard view, redirect automatically to Day Book
+      const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      const isExplicitDashboard =
+        urlParams?.get("view") === "dashboard" ||
+        urlParams?.has("category") ||
+        urlParams?.has("tab");
+
+      if (!isExplicitDashboard) {
+        window.location.replace("/admin/day-book");
+        return;
+      }
+
       setIsAuthenticated(true);
       setActiveService("home");
       if (authStr) {
@@ -556,9 +569,8 @@ function AdminPage() {
         localStorage.setItem("fortune_admin_key", data.admin_key);
         localStorage.setItem("fortune_admin_auth", JSON.stringify(data.user));
         setAdminUser(data.user);
-        setActiveService("home");
         setIsAuthenticated(true);
-        fetchData();
+        window.location.href = "/admin/day-book";
       } else {
         setLoginError(data.error || "Invalid login credentials.");
         toast.error(data.error || "Invalid Email or Password");
@@ -1249,8 +1261,16 @@ function AdminPage() {
       <nav className="sticky top-13 sm:top-14 z-40 w-full bg-white border-b border-slate-200 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-1.5">
-            {/* Left: Dashboard Button */}
-            <div className="flex items-center">
+            {/* Left: Day Book & Dashboard Buttons (Day Book appears FIRST) */}
+            <div className="flex items-center gap-2">
+              <Link
+                to="/admin/day-book"
+                className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer text-slate-700 hover:text-[#063f2d] hover:bg-slate-100"
+              >
+                <BookOpen className="w-4 h-4" />
+                <span>Day Book</span>
+              </Link>
+
               <button
                 type="button"
                 onClick={() => setActiveService("home")}
