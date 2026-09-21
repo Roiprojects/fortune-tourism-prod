@@ -14,6 +14,7 @@ export interface TicketCopyData {
   tripType: string;
   vehicleOrMode: string;
   boardingPoint: string;
+  boardingAddress: string;
   serviceType?: string;
   vehicleLabel?: string;
 }
@@ -61,7 +62,7 @@ export function downloadTicketCopyPDF(data: TicketCopyData) {
     doc.text("Ticket Copy For Your Journey", 16, 29);
 
     doc.setFontSize(8.5);
-    doc.text(`BOOKING DATE : ${data.bookingDate}`, pageWidth - 16, 29, { align: "right" });
+    doc.text(`BOOKING DATE & TIME : ${data.bookingDate}`, pageWidth - 16, 29, { align: "right" });
 
     // Main Grid Table
     autoTable(doc, {
@@ -123,8 +124,22 @@ export function downloadTicketCopyPDF(data: TicketCopyData) {
           styles: { fontStyle: "bold", fillColor: [245, 245, 245] },
         },
         { content: (data.vehicleOrMode || "MARUTI SUZUKI CIAZ").toUpperCase(), styles: { fontStyle: "bold" } },
-        { content: "Boarding point:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
-        { content: (data.boardingPoint || "BANGALORE AIRPORT").toUpperCase(), styles: { fontStyle: "bold" } },
+        { content: "Boarding Point:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
+        { content: (data.boardingPoint || "N/A").toUpperCase(), styles: { fontStyle: "bold" } },
+      ],
+      [
+        { content: "Boarding Address:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
+        { content: (data.boardingAddress || "N/A").toUpperCase(), colSpan: 5, styles: { fontStyle: "bold" } },
+      ],
+      [
+        { content: "Boarding Point:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
+        {
+          content: (data.boardingPoint || "N/A").toUpperCase(),
+          styles: { fontStyle: "bold" },
+        },
+        { content: "", styles: { cellWidth: 0 } },
+        { content: "Boarding Address:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
+        { content: (data.boardingAddress || "N/A").toUpperCase(), colSpan: 2, styles: { fontStyle: "bold" } },
       ],
     ],
   });

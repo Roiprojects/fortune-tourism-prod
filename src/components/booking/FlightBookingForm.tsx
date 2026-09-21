@@ -64,6 +64,12 @@ export function FlightBookingForm({ formData, onChange, errors, onCompleteBookin
   const handleFinalSubmit = () => {
     const firstP = passengers[0];
     if (!firstP || !firstP.name.trim()) { alert("Please enter Passenger 1 Full Name."); return; }
+    if (!formData.boarding_point || !formData.boarding_point.trim()) {
+      alert("Please enter the Boarding Point."); return;
+    }
+    if (!formData.boarding_address || !formData.boarding_address.trim()) {
+      alert("Please enter the Boarding Address."); return;
+    }
     if (onCompleteBooking) onCompleteBooking();
   };
 
@@ -235,6 +241,29 @@ export function FlightBookingForm({ formData, onChange, errors, onCompleteBookin
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Boarding Point & Address */}
+          <div className="bg-amber-50/50 border border-amber-200 rounded-2xl p-4 space-y-3">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 block">
+              Boarding Details (for driver / pickup from airport)
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Boarding Point *</label>
+                <input type="text" placeholder="e.g. Terminal 1, Exit Gate 3"
+                  value={formData.boarding_point || ""}
+                  onChange={(e) => onChange("boarding_point", e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Full Boarding Address *</label>
+                <input type="text" placeholder="Full address / pickup landmark"
+                  value={formData.boarding_address || ""}
+                  onChange={(e) => onChange("boarding_address", e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-between pt-4 border-t border-slate-100">

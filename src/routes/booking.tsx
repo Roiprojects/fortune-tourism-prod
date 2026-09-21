@@ -229,6 +229,8 @@ function BookingPage() {
   // Passenger state (Cleaned: no predefined values)
   const [passengerName, setPassengerName] = useState("");
   const [passengerPhone, setPassengerPhone] = useState("");
+  const [boardingPoint, setBoardingPoint] = useState("");
+  const [boardingAddress, setBoardingAddress] = useState("");
 
   // Payment state
   const [advanceOption, setAdvanceOption] = useState<number>(100);
@@ -256,21 +258,28 @@ function BookingPage() {
     to_airport: "",
     package_slug: "",
     package_title: "",
+    boarding_point: "",
+    boarding_address: "",
   });
 
   const onOtherChange = useCallback((field: string, value: any) => {
     setOtherFormData((prev: any) => ({ ...prev, [field]: value }));
   }, []);
 
+  const boardingPointDisplay = serviceType === "CAB" ? boardingPoint : (otherFormData.boarding_point || "");
+  const boardingAddressDisplay = serviceType === "CAB" ? boardingAddress : (otherFormData.boarding_address || "");
+
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
 
-  // Today formatted as DD-MM-YYYY
-  const todayFormatted = useMemo(() => {
+  // Booking date and time formatted as DD-MM-YYYY HH:MM (24h)
+  const bookingDateTime = useMemo(() => {
     const d = new Date();
     const day = String(d.getDate()).padStart(2, "0");
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const year = d.getFullYear();
-    return `${day}-${month}-${year}`;
+    const hours = String(d.getHours()).padStart(2, "0");
+    const minutes = String(d.getMinutes()).padStart(2, "0");
+    return `${day}-${month}-${year} ${hours}:${minutes}`;
   }, []);
 
   // Format departure date
@@ -395,6 +404,8 @@ function BookingPage() {
         date: otherFormData.date || today,
         time: otherFormData.time || "07:00",
         passengers: String(pCount),
+        boarding_point: otherFormData.boarding_point || "",
+        boarding_address: otherFormData.boarding_address || "",
         notes: [
           `Ticket No: ${ticketNumber}`,
           `PNR: ${pnrNumber}`,
@@ -463,6 +474,14 @@ function BookingPage() {
       toast.error("Please enter a valid 10-digit mobile number.");
       return;
     }
+    if (!boardingPoint.trim()) {
+      toast.error("Please enter the boarding point.");
+      return;
+    }
+    if (!boardingAddress.trim()) {
+      toast.error("Please enter the boarding address.");
+      return;
+    }
     setStep(4);
     window.scrollTo({ top: 80, behavior: "smooth" });
   };
@@ -485,6 +504,8 @@ function BookingPage() {
         passengers: String(selectedFleet.seats),
         trip_type: cabTripType,
         car_type: vehicleDisplay,
+        boarding_point: boardingPoint,
+        boarding_address: boardingAddress,
         notes: [
           `Ticket No: ${ticketNumber}`,
           `PNR: ${pnrNumber}`,
@@ -531,7 +552,7 @@ function BookingPage() {
     downloadTicketCopyPDF({
       ticketNumber,
       pnrNumber,
-      bookingDate: todayFormatted,
+      bookingDate: bookingDateTime,
       passengerName: passengerName || "GUEST",
       passengerPhone: passengerPhone || "9845003000",
       tourType: tourTypeDisplay,
@@ -540,8 +561,9 @@ function BookingPage() {
       departureOn: departureDateFormatted,
       tripType: cabTripType,
       vehicleOrMode: vehicleDisplay,
-      boardingPoint: fromLocationDisplay,
-      serviceType,
+      boardingPoint: boardingPointDisplay,
+      boardingAddress: boardingAddressDisplay,
+      serviceType: serviceType || undefined,
     });
     toast.success("Ticket PDF downloaded successfully!");
   };
@@ -1332,6 +1354,43 @@ function BookingPage() {
                 </div>
               </div>
 
+              {/* Boarding Point & Address (helps driver locate passenger) */}
+              <div className="space-y-4">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-800 block">
+                  BOARDING DETAILS (For Driver)
+                </span>
+                <p className="text-[11px] text-slate-500 -mt-2">
+                  Enter the exact pick-up location so the driver can locate you easily.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block mb-1.5">
+                      Boarding Point *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. KR Market, MG Road Metro"
+                      value={boardingPoint}
+                      onChange={(e) => setBoardingPoint(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-amber-500 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block mb-1.5">
+                      Boarding Address *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Full address / landmark for pick-up"
+                      value={boardingAddress}
+                      onChange={(e) => setBoardingAddress(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-amber-500 outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Bottom NEXT PAGE Button */}
               <div className="flex justify-between pt-4 border-t border-slate-100">
                 <button
@@ -1621,7 +1680,7 @@ function BookingPage() {
                         Phone No: +91 9740463404
                       </div>
                       <div className="text-xs font-bold text-slate-800 mt-0.5">
-                        BOOKING DATE : <span className="font-extrabold text-slate-950">{todayFormatted}</span>
+                        BOOKING DATE &amp; TIME : <span className="font-extrabold text-slate-950">{bookingDateTime}</span>
                       </div>
                     </div>
                   </div>
@@ -1702,6 +1761,22 @@ function BookingPage() {
                         </td>
                         <td className="p-2.5 font-bold text-slate-900">
                           {departureDateFormatted}
+                        </td>
+                      </tr>
+
+                      {/* Row: Boarding Point | Boarding Address */}
+                      <tr className="border-b border-slate-900 divide-x divide-slate-900">
+                        <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
+                          Boarding Point:
+                        </td>
+                        <td colSpan={2} className="p-2.5 font-bold text-slate-900 uppercase">
+                          {boardingPointDisplay || "—"}
+                        </td>
+                        <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
+                          Boarding Address:
+                        </td>
+                        <td colSpan={2} className="p-2.5 font-bold text-slate-900">
+                          {boardingAddressDisplay || "—"}
                         </td>
                       </tr>
 
