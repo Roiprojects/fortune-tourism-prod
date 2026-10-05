@@ -605,8 +605,9 @@ function BookingPage() {
         {/* Background Image */}
         <div 
           className="fixed inset-0 bg-cover bg-center bg-no-repeat z-0"
-          style={{ backgroundImage: "url('/images/booking-btn-bg.jpg')" }}
+          style={{ backgroundImage: "url('/images/booking-bg.jpg')" }}
         />
+        <div className="fixed inset-0 bg-slate-900/20 z-0 pointer-events-none" />
         <div className="max-w-4xl mx-auto space-y-6 relative z-10">
 
           {/* STEP 0: Initial Page — What would you like to book? (5 Cards ONLY) */}
