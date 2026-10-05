@@ -16,7 +16,7 @@ export function generateBookingPDF(booking: BookingData): jsPDF {
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
   doc.text("South India Car Rentals & Tour Packages", pageWidth / 2, 26, { align: "center" });
-  doc.text("Bengaluru, Karnataka | +91 98765 43210 | hello@fortunetourism.in", pageWidth / 2, 31, { align: "center" });
+  doc.text("Bengaluru, Karnataka | +91 97404 63404 | hello@fortunetourism.in", pageWidth / 2, 31, { align: "center" });
 
   doc.setDrawColor(214, 168, 75);
   doc.setLineWidth(0.5);

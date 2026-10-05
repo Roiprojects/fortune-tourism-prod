@@ -158,7 +158,7 @@ function ContactCards() {
             </div>
           </Card>
           <Card icon={WhatsAppIcon} label="WhatsApp">
-            <p className="mt-1 font-heading text-lg">+91 98765 43210</p>
+            <p className="mt-1 font-heading text-lg">+91 97404 63404</p>
             <p className="mt-1 text-sm text-muted-foreground">Fastest response with a prefilled enquiry.</p>
             <div className="mt-3 flex gap-2">
               <a href={buildWhatsAppUrl()} target="_blank" rel="noopener" className={btnEmerald}>Start Chat</a>

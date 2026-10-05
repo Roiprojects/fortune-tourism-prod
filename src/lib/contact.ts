@@ -1,9 +1,9 @@
 export const CONTACT = {
-  phone: "+91 98765 43210",
-  phoneHref: "tel:+919876543210",
-  whatsapp: "919876543210",
+  phone: "+91 97404 63404",
+  phoneHref: "tel:+919740463404",
+  whatsapp: "919740463404",
   email: "hello@fortunetourism.in",
-  address: "1st Floor, MG Road, Bengaluru, Karnataka 560001, India",
+  address: "Health City, 99, Bommasandra Industrial Area, Bommasandra, Karnataka 560099",
   hours: "Open 24 × 7 for enquiries",
 } as const;
 

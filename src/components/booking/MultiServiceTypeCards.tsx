@@ -17,6 +17,7 @@ const SERVICES: {
   iconColor: string;
   description: string;
   highlight: string;
+  bgImage?: string;
 }[] = [
   {
     id: "CAB",
@@ -54,10 +55,10 @@ export function MultiServiceTypeCards({ selectedService, onSelect }: MultiServic
   return (
     <div className="space-y-4">
       <div className="text-center max-w-xl mx-auto space-y-1">
-        <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+        <h2 className="text-xl sm:text-2xl font-black text-black tracking-tight drop-shadow-[0_1px_2px_rgba(255,255,255,0.8)]">
           What would you like to book?
         </h2>
-        <p className="text-xs sm:text-sm text-slate-500">
+        <p className="text-xs sm:text-sm text-black/80 font-bold drop-shadow-[0_1px_2px_rgba(255,255,255,0.8)]">
           Select a service to load its tailored booking form with live fare calculation.
         </p>
       </div>
@@ -78,14 +79,25 @@ export function MultiServiceTypeCards({ selectedService, onSelect }: MultiServic
                   : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/60 shadow-xs"
               }`}
             >
+              {/* Background Image Layer */}
+              {s.bgImage && (
+                <>
+                  <div 
+                    className="absolute inset-0 bg-cover bg-center z-0 transition-transform duration-700 group-hover:scale-110" 
+                    style={{ backgroundImage: `url(${s.bgImage})` }} 
+                  />
+                  <div className={`absolute inset-0 z-0 transition-colors ${isSelected ? "bg-amber-50/90" : "bg-white/85 group-hover:bg-white/75"}`} />
+                </>
+              )}
+
               {/* Active checkmark badge */}
               {isSelected && (
-                <div className="absolute top-2.5 right-2.5">
+                <div className="absolute top-2.5 right-2.5 z-10">
                   <CheckCircle2 className="w-5 h-5 text-amber-600 fill-amber-100" />
                 </div>
               )}
 
-              <div className="space-y-3">
+              <div className="space-y-3 relative z-10">
                 <div className="flex items-center justify-between">
                   <div
                     className={`w-11 h-11 rounded-xl border flex items-center justify-center transition-all ${
@@ -99,17 +111,17 @@ export function MultiServiceTypeCards({ selectedService, onSelect }: MultiServic
                 </div>
 
                 <div>
-                  <div className="font-extrabold text-slate-900 text-base leading-tight">
+                  <div className="font-black text-slate-900 text-base leading-tight">
                     {s.name}
                   </div>
-                  <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed font-normal">
+                  <p className="text-xs text-slate-600 mt-1 line-clamp-2 leading-relaxed font-bold">
                     {s.description}
                   </p>
                 </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-600">
+              <div className="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-between relative z-10">
+                <span className="text-[11px] font-extrabold text-slate-700">
                   {s.badge}
                 </span>
                 <span

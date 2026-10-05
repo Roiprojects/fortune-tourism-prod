@@ -601,8 +601,13 @@ function BookingPage() {
         }
       `}</style>
 
-      <div className="min-h-screen bg-slate-50 py-6 sm:py-10 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto space-y-6">
+      <div className="min-h-screen relative py-6 sm:py-10 px-4 sm:px-6 lg:px-8">
+        {/* Background Image */}
+        <div 
+          className="fixed inset-0 bg-cover bg-center bg-no-repeat z-0"
+          style={{ backgroundImage: "url('/images/booking-btn-bg.jpg')" }}
+        />
+        <div className="max-w-4xl mx-auto space-y-6 relative z-10">
 
           {/* STEP 0: Initial Page — What would you like to book? (5 Cards ONLY) */}
           {step === 0 && (
@@ -1112,7 +1117,7 @@ function BookingPage() {
                   />
                 )}
                 {serviceType === "TOUR" && (
-                  <TourBookingForm formData={otherFormData} onChange={onOtherChange} errors={errors} />
+                  <TourBookingForm formData={otherFormData} onChange={onOtherChange} errors={errors} onFareCalculated={() => {}} />
                 )}
               </div>
 
@@ -1122,9 +1127,16 @@ function BookingPage() {
                     type="button"
                     onClick={handleCompleteTicketBooking}
                     disabled={isSubmitting}
-                    className="bg-[#f97316] hover:bg-[#ea580c] text-white font-black px-8 py-3.5 rounded-xl uppercase text-sm shadow-md transition-all hover:scale-105 disabled:opacity-60"
+                    className="relative overflow-hidden text-white font-black px-8 py-3.5 rounded-xl uppercase text-sm shadow-md transition-all hover:scale-105 disabled:opacity-60 group flex items-center justify-center min-w-[280px]"
                   >
-                    {isSubmitting ? "Generating Ticket..." : "CONTINUE TO BOOKING →"}
+                    <div 
+                      className="absolute inset-0 bg-cover bg-center z-0 transition-transform duration-500 group-hover:scale-110" 
+                      style={{ backgroundImage: "url('/images/booking-btn-bg.jpg')" }} 
+                    />
+                    <div className="absolute inset-0 bg-black/50 group-hover:bg-black/40 transition-colors z-0" />
+                    <span className="relative z-10 drop-shadow-md tracking-wider">
+                      {isSubmitting ? "Generating Ticket..." : "CONTINUE TO BOOKING →"}
+                    </span>
                   </button>
                 </div>
               )}

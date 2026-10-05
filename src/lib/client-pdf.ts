@@ -61,7 +61,7 @@ function addHeader(doc: jsPDF, subtitle: string): number {
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
   doc.text("South India Car Rentals & Tour Packages", pageWidth / 2, 26, { align: "center" });
-  doc.text("Bengaluru, Karnataka | +91 98765 43210 | hello@fortunetourism.in", pageWidth / 2, 31, { align: "center" });
+  doc.text("Bengaluru, Karnataka | +91 97404 63404 | hello@fortunetourism.in", pageWidth / 2, 31, { align: "center" });
 
   doc.setDrawColor(214, 168, 75);
   doc.setLineWidth(0.5);
@@ -358,7 +358,7 @@ export function generateClientTravelPDF(booking: BookingData): jsPDF {
     "2. Cancellation and refund policies apply as per the operator/airline/railway terms.",
     "3. Any balance payment must be settled before the travel date.",
     "4. Fortune Tourism is not liable for schedule changes or cancellations by the transport operator.",
-    "5. For any queries, contact Fortune Tourism at +91 98765 43210.",
+    "5. For any queries, contact Fortune Tourism at +91 97404 63404.",
   ];
   for (const term of terms) {
     doc.text(term, 15, y);

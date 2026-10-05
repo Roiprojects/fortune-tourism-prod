@@ -60,7 +60,7 @@ export interface PaymentRow {
 const BRAND = {
   name: "FORTUNE TOURISM",
   tagline: "South India Car Rentals & Tour Packages",
-  contact: "Bengaluru, Karnataka | +91 98765 43210 | hello@fortunetourism.in",
+  contact: "Bengaluru, Karnataka | +91 97404 63404 | hello@fortunetourism.in",
 };
 
 function drawHeader(doc: jsPDF, title: string, subtitle?: string): number {
