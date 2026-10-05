@@ -21,21 +21,26 @@ export interface WhatsAppMessage {
   notes?: string;
 }
 
-export function buildWhatsAppUrl(msg: WhatsAppMessage = {}) {
-  const lines = [
-    "Hello Fortune Tourism, I would like to enquire:",
-    msg.service && `• Service: ${msg.service}`,
-    msg.package && `• Package: ${msg.package}`,
-    msg.vehicle && `• Vehicle: ${msg.vehicle}`,
-    msg.pickup && `• Pickup: ${msg.pickup}`,
-    msg.destination && `• Destination: ${msg.destination}`,
-    msg.date && `• Travel date: ${msg.date}`,
-    msg.returnDate && `• Return date: ${msg.returnDate}`,
-    msg.passengers && `• Passengers: ${msg.passengers}`,
-    msg.name && `• Name: ${msg.name}`,
-    msg.phone && `• Phone: ${msg.phone}`,
-    msg.notes && `• Notes: ${msg.notes}`,
-  ].filter(Boolean);
-  const text = encodeURIComponent(lines.join("\n"));
+export function buildWhatsAppUrl(msg: WhatsAppMessage | string = {}) {
+  let text = "";
+  if (typeof msg === "string") {
+    text = encodeURIComponent(msg);
+  } else {
+    const lines = [
+      "Hello Fortune Tourism, I would like to enquire:",
+      msg.service && `• Service: ${msg.service}`,
+      msg.package && `• Package: ${msg.package}`,
+      msg.vehicle && `• Vehicle: ${msg.vehicle}`,
+      msg.pickup && `• Pickup: ${msg.pickup}`,
+      msg.destination && `• Destination: ${msg.destination}`,
+      msg.date && `• Travel date: ${msg.date}`,
+      msg.returnDate && `• Return date: ${msg.returnDate}`,
+      msg.passengers && `• Passengers: ${msg.passengers}`,
+      msg.name && `• Name: ${msg.name}`,
+      msg.phone && `• Phone: ${msg.phone}`,
+      msg.notes && `• Notes: ${msg.notes}`,
+    ].filter(Boolean);
+    text = encodeURIComponent(lines.join("\n"));
+  }
   return `https://wa.me/${CONTACT.whatsapp}?text=${text}`;
 }
