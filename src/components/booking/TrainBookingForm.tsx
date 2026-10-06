@@ -114,75 +114,75 @@ export function TrainBookingForm({ formData, onChange, errors, onCompleteBooking
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-white">
 
       {trainStep === "JOURNEY" ? (
         /* STEP 1: TRAIN JOURNEY DETAILS */
         <div className="space-y-5">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-            <TrainFront className="w-4 h-4 text-amber-600" /> Train Journey Details
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+            <TrainFront className="w-4 h-4 text-[#00c58e]" /> TRAIN JOURNEY DETAILS
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">From Station *</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1.5">From Station *</label>
               <input
                 type="text"
                 placeholder="e.g. Bangalore City (SBC)"
                 value={formData.from_station || ""}
                 onChange={(e) => onChange("from_station", e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white placeholder:text-slate-500 outline-none transition-all shadow-inner"
               />
-              {errors.from_station && <p className="text-xs text-red-600 font-medium mt-1">{errors.from_station}</p>}
+              {errors.from_station && <p className="text-xs text-rose-400 font-medium mt-1">{errors.from_station}</p>}
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">To Station *</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1.5">To Station *</label>
               <input
                 type="text"
                 placeholder="e.g. Chennai Central (MAS)"
                 value={formData.to_station || ""}
                 onChange={(e) => onChange("to_station", e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white placeholder:text-slate-500 outline-none transition-all shadow-inner"
               />
-              {errors.to_station && <p className="text-xs text-red-600 font-medium mt-1">{errors.to_station}</p>}
+              {errors.to_station && <p className="text-xs text-rose-400 font-medium mt-1">{errors.to_station}</p>}
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
-                <Calendar className="w-3.5 h-3.5 inline mr-1 text-amber-600" /> Journey Date *
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+                <Calendar className="w-3.5 h-3.5 inline mr-1 text-[#00c58e]" /> Journey Date *
               </label>
               <input
                 type="date"
                 min={new Date().toISOString().split("T")[0]}
                 value={formData.date || ""}
                 onChange={(e) => onChange("date", e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
               />
-              {errors.date && <p className="text-xs text-red-600 font-medium mt-1">{errors.date}</p>}
+              {errors.date && <p className="text-xs text-rose-400 font-medium mt-1">{errors.date}</p>}
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">Preferred Train</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Preferred Train</label>
               <input
                 type="text"
                 placeholder="e.g. Shatabdi / Rajdhani / Any"
                 value={formData.preferred_train || ""}
                 onChange={(e) => onChange("preferred_train", e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white placeholder:text-slate-500 outline-none transition-all shadow-inner"
               />
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">Class *</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Class *</label>
               <select
                 value={formData.travel_class || "3A"}
                 onChange={(e) => onChange("travel_class", e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 rounded-xl px-3.5 py-2.5 text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
               >
                 {CLASS_OPTIONS.map((c) => (
-                  <option key={c.value} value={c.value}>
+                  <option key={c.value} value={c.value} className="bg-[#0B132B] text-white">
                     {c.label}
                   </option>
                 ))}
@@ -190,14 +190,14 @@ export function TrainBookingForm({ formData, onChange, errors, onCompleteBooking
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">Quota *</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Quota *</label>
               <select
                 value={formData.quota || "General"}
                 onChange={(e) => onChange("quota", e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 rounded-xl px-3.5 py-2.5 text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
               >
                 {QUOTA_OPTIONS.map((q) => (
-                  <option key={q.value} value={q.value}>
+                  <option key={q.value} value={q.value} className="bg-[#0B132B] text-white">
                     {q.label}
                   </option>
                 ))}
@@ -207,34 +207,34 @@ export function TrainBookingForm({ formData, onChange, errors, onCompleteBooking
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">Preferred Time</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Preferred Time</label>
               <input
                 type="time"
                 value={formData.time || "07:00"}
                 onChange={(e) => onChange("time", e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
               />
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">Train Number (Optional)</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Train Number (Optional)</label>
               <input
                 type="text"
                 placeholder="e.g. 12608 / 12028 / Any"
                 value={formData.train_number || ""}
                 onChange={(e) => onChange("train_number", e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white placeholder:text-slate-500 outline-none transition-all shadow-inner"
               />
             </div>
           </div>
 
-          <div className="flex justify-end pt-4 border-t border-slate-100">
+          <div className="flex justify-end pt-4 border-t border-white/10">
             <button
               type="button"
               onClick={handleContinueToPassengers}
-              className="bg-[#f97316] hover:bg-[#ea580c] text-white font-black px-8 py-3.5 rounded-xl uppercase text-sm shadow-md transition-all hover:scale-105"
+              className="bg-[#00c58e] hover:bg-[#00a87a] text-white font-black px-10 py-3.5 rounded-2xl uppercase tracking-wider text-sm shadow-xl shadow-[#00c58e]/30 transition-all hover:scale-105"
             >
-              Continue to Passenger Details →
+              CONTINUE TO PASSENGER DETAILS →
             </button>
           </div>
         </div>
@@ -242,18 +242,18 @@ export function TrainBookingForm({ formData, onChange, errors, onCompleteBooking
         /* STEP 2: PASSENGER DETAILS (Max 6 Members) */
         <div className="space-y-5 animate-in fade-in duration-300">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-              <Users className="w-4 h-4 text-amber-600" /> Passenger Details
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+              <Users className="w-4 h-4 text-[#00c58e]" /> Passenger Details
             </h3>
             <div className="flex items-center gap-2">
-              <label className="text-xs font-bold text-slate-700">Number of Passengers:</label>
+              <label className="text-xs font-bold text-slate-300">Number of Passengers:</label>
               <select
                 value={passengers.length}
                 onChange={(e) => setPassengerCount(Number(e.target.value))}
-                className="bg-white border border-amber-300 rounded-xl px-3 py-1.5 text-sm font-black text-amber-800 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none shadow-2xs"
+                className="bg-[#111c3a]/90 border border-white/15 rounded-xl px-3 py-1.5 text-sm font-bold text-white focus:ring-2 focus:ring-[#00c58e]/20 focus:border-[#00c58e] outline-none shadow-inner [color-scheme:dark]"
               >
                 {[1, 2, 3, 4, 5, 6].map((n) => (
-                  <option key={n} value={n}>{n}</option>
+                  <option key={n} value={n} className="bg-[#0B132B] text-white">{n}</option>
                 ))}
               </select>
             </div>
@@ -263,10 +263,10 @@ export function TrainBookingForm({ formData, onChange, errors, onCompleteBooking
             {passengers.map((p, idx) => (
               <div
                 key={idx}
-                className="bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-2xs"
+                className="bg-[#111c3a]/80 border border-white/15 rounded-xl px-4 py-3 shadow-inner"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-xs font-extrabold text-amber-800 shrink-0 w-5">{idx + 1}.</span>
+                  <span className="text-xs font-extrabold text-[#00c58e] shrink-0 w-5">{idx + 1}.</span>
 
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 flex-1">
                     <div className="sm:col-span-6">
@@ -275,7 +275,7 @@ export function TrainBookingForm({ formData, onChange, errors, onCompleteBooking
                         placeholder="Full Name (as per Aadhaar / ID)"
                         value={p.name}
                         onChange={(e) => updatePassenger(idx, "name", e.target.value)}
-                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                        className="w-full bg-[#0B132B] border border-white/15 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:ring-2 focus:ring-[#00c58e]/20 focus:border-[#00c58e] outline-none"
                       />
                     </div>
 
@@ -287,7 +287,7 @@ export function TrainBookingForm({ formData, onChange, errors, onCompleteBooking
                         placeholder="Age"
                         value={p.age}
                         onChange={(e) => updatePassenger(idx, "age", e.target.value)}
-                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                        className="w-full bg-[#0B132B] border border-white/15 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:ring-2 focus:ring-[#00c58e]/20 focus:border-[#00c58e] outline-none"
                       />
                     </div>
 
@@ -295,11 +295,11 @@ export function TrainBookingForm({ formData, onChange, errors, onCompleteBooking
                       <select
                         value={p.gender}
                         onChange={(e) => updatePassenger(idx, "gender", e.target.value)}
-                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                        className="w-full bg-[#0B132B] border border-white/15 rounded-lg px-3 py-1.5 text-xs font-semibold text-white focus:ring-2 focus:ring-[#00c58e]/20 focus:border-[#00c58e] outline-none [color-scheme:dark]"
                       >
-                        <option>Male</option>
-                        <option>Female</option>
-                        <option>Child</option>
+                        <option className="bg-[#0B132B] text-white">Male</option>
+                        <option className="bg-[#0B132B] text-white">Female</option>
+                        <option className="bg-[#0B132B] text-white">Child</option>
                       </select>
                     </div>
                   </div>
@@ -308,7 +308,7 @@ export function TrainBookingForm({ formData, onChange, errors, onCompleteBooking
                     <button
                       type="button"
                       onClick={() => removePassenger(idx)}
-                      className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                      className="p-1 text-rose-400 hover:text-rose-300 hover:bg-white/10 rounded-lg transition-colors shrink-0"
                       title="Remove"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -320,33 +320,33 @@ export function TrainBookingForm({ formData, onChange, errors, onCompleteBooking
           </div>
 
           {/* Boarding Point & Address */}
-          <div className="bg-amber-50/50 border border-amber-200 rounded-2xl p-4 space-y-3">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 block">
+          <div className="bg-[#111c3a]/90 border border-white/15 rounded-2xl p-4 space-y-3">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300 block">
               Boarding Details (for driver / pickup)
             </span>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Boarding Point *</label>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Boarding Point *</label>
                 <input type="text" placeholder="e.g. City Railway Station, Platform 1"
                   value={formData.boarding_point || ""}
                   onChange={(e) => onChange("boarding_point", e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+                  className="w-full bg-[#0B132B] border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-500 focus:ring-2 focus:ring-[#00c58e]/20 focus:border-[#00c58e] outline-none" />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Full Boarding Address *</label>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Full Boarding Address *</label>
                 <input type="text" placeholder="Full address / landmark for pickup"
                   value={formData.boarding_address || ""}
                   onChange={(e) => onChange("boarding_address", e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none" />
+                  className="w-full bg-[#0B132B] border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-500 focus:ring-2 focus:ring-[#00c58e]/20 focus:border-[#00c58e] outline-none" />
               </div>
             </div>
           </div>
 
-          <div className="flex justify-between pt-4 border-t border-slate-100">
+          <div className="flex justify-between pt-4 border-t border-white/10">
             <button
               type="button"
               onClick={() => setTrainStep("JOURNEY")}
-              className="text-xs font-bold text-slate-600 hover:text-slate-900 px-4 py-2.5 border border-slate-200 rounded-xl hover:bg-slate-50"
+              className="text-xs font-bold text-slate-300 hover:text-white px-4 py-2.5 border border-white/15 bg-white/5 rounded-xl hover:bg-white/10 transition-colors shadow-sm"
             >
               ← Back to Journey Details
             </button>
@@ -355,7 +355,7 @@ export function TrainBookingForm({ formData, onChange, errors, onCompleteBooking
               type="button"
               onClick={handleFinalSubmit}
               disabled={isSubmitting}
-              className="bg-[#f97316] hover:bg-[#ea580c] text-white font-black px-10 py-3.5 rounded-xl uppercase text-sm shadow-md transition-all hover:scale-105 disabled:opacity-60"
+              className="bg-[#00c58e] hover:bg-[#00a87a] text-white font-black px-10 py-3.5 rounded-2xl uppercase tracking-wider text-sm shadow-xl shadow-[#00c58e]/30 transition-all hover:scale-105 disabled:opacity-60"
             >
               {isSubmitting ? "Confirming Ticket Copy..." : "CONTINUE TO BOOKING →"}
             </button>
