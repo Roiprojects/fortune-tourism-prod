@@ -1045,17 +1045,15 @@ function BookingPage() {
             <div className="bg-[#0B132B]/95 backdrop-blur-xl border border-white/15 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/60 space-y-6 animate-in fade-in duration-300 text-white">
               <div className="flex items-center justify-between pb-3 border-b border-white/10">
                 <div>
-                  {(serviceType === "BUS" || serviceType === "FLIGHT" || serviceType === "TOUR") && (
-                    <h2 className="font-extrabold text-white text-lg">
-                      {serviceType === "BUS" && "Bus Ticket Booking Assistance"}
-                      {serviceType === "FLIGHT" && "Domestic & International Flight Booking"}
-                      {serviceType === "TOUR" && "Holiday Tour Packages"}
-                    </h2>
-                  )}
                   {serviceType === "TOUR" && (
-                    <p className="text-xs text-slate-400">
-                      Curated holiday itineraries across South India
-                    </p>
+                    <>
+                      <h2 className="font-extrabold text-white text-lg">
+                        Holiday Tour Packages
+                      </h2>
+                      <p className="text-xs text-slate-400">
+                        Curated holiday itineraries across South India
+                      </p>
+                    </>
                   )}
                 </div>
                 <button

@@ -1,5 +1,5 @@
 import React from "react";
-import { Plane, Calendar, AlertCircle, Trash2, Users } from "lucide-react";
+import { Plane, Calendar, Trash2, Users } from "lucide-react";
 
 interface FlightPassenger { name: string; age: string; gender: string; }
 
@@ -75,15 +75,6 @@ export function FlightBookingForm({ formData, onChange, errors, onCompleteBookin
 
   return (
     <div className="space-y-6 text-white">
-      <div className="flex items-start gap-3 bg-[#111c3a]/90 border border-white/15 rounded-2xl p-4">
-        <AlertCircle className="w-5 h-5 text-[#00c58e] shrink-0 mt-0.5" />
-        <div className="text-sm text-slate-300 leading-relaxed">
-          <strong className="font-bold text-white">Flight Booking Assistance:</strong> Our team will
-          search the best airfares and share flight options with pricing. Final booking
-          confirmed upon payment.
-        </div>
-      </div>
-
       {flightStep === "JOURNEY" ? (
         <div className="space-y-5">
           {/* Trip Type */}

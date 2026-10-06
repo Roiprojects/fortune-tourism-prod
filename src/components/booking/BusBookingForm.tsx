@@ -1,5 +1,5 @@
 import React from "react";
-import { Bus, Calendar, AlertCircle, Trash2, Users } from "lucide-react";
+import { Bus, Calendar, Trash2, Users } from "lucide-react";
 
 interface BusPassenger { name: string; age: string; gender: string; }
 
@@ -71,15 +71,6 @@ export function BusBookingForm({ formData, onChange, errors, onCompleteBooking, 
 
   return (
     <div className="space-y-6 text-white">
-      <div className="flex items-start gap-3 bg-[#111c3a]/90 border border-white/15 rounded-2xl p-4">
-        <AlertCircle className="w-5 h-5 text-[#00c58e] shrink-0 mt-0.5" />
-        <div className="text-sm text-slate-300 leading-relaxed">
-          <strong className="font-bold text-white">Booking Assistance:</strong> Bus ticket fare &
-          availability will be confirmed by our team. Final ticket & boarding pass will be
-          shared after booking.
-        </div>
-      </div>
-
       {busStep === "JOURNEY" ? (
         <div className="space-y-5">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
