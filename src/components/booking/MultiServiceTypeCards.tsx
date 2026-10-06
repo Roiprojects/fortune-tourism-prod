@@ -35,14 +35,7 @@ const SERVICES: {
 
 export function MultiServiceTypeCards({ selectedService, onSelect }: MultiServiceTypeCardsProps) {
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-6 sm:space-y-8">
-      {/* Hero Headline */}
-      <div className="text-center px-4">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tight drop-shadow-[0_2px_15px_rgba(0,0,0,0.85)]">
-          Book your journey here
-        </h1>
-      </div>
-
+    <div className="w-full max-w-5xl mx-auto">
       {/* 3 Separate Standalone Cards (no shared bounding container) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 px-2 sm:px-0">
         {SERVICES.map((s) => {
