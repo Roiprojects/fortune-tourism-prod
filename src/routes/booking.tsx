@@ -601,18 +601,18 @@ function BookingPage() {
         }
       `}</style>
 
-      <div className="min-h-screen relative py-6 sm:py-10 px-4 sm:px-6 lg:px-8">
+      <div className={`min-h-[calc(100vh-5rem)] relative py-6 sm:py-10 px-4 sm:px-6 lg:px-8 ${step === 0 ? "flex flex-col justify-center items-center" : ""}`}>
         {/* Background Image */}
         <div 
           className="fixed inset-0 bg-cover bg-center bg-no-repeat z-0"
           style={{ backgroundImage: "url('/images/booking-bg.jpg')" }}
         />
         <div className="fixed inset-0 bg-slate-900/20 z-0 pointer-events-none" />
-        <div className="max-w-4xl mx-auto space-y-6 relative z-10">
+        <div className="w-full max-w-4xl mx-auto space-y-6 relative z-10">
 
           {/* STEP 0: Initial Page — What would you like to book? (5 Cards ONLY) */}
           {step === 0 && (
-            <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-sm space-y-4">
+            <div className="bg-white/95 backdrop-blur-md border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4 my-auto">
               <MultiServiceTypeCards
                 selectedService={serviceType}
                 onSelect={handleSelectServiceCard}
