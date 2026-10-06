@@ -52,10 +52,12 @@ const SERVICES: {
 export function MultiServiceTypeCards({ selectedService, onSelect }: MultiServiceTypeCardsProps) {
   return (
     <div className="space-y-6">
-      <div className="text-center max-w-xl mx-auto">
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-black tracking-tight drop-shadow-[0_2px_4px_rgba(255,255,255,0.9)]">
-          Book your journey here
-        </h2>
+      <div className="text-center max-w-2xl mx-auto">
+        <div className="inline-block w-full py-3.5 sm:py-4 px-6 sm:px-8 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white shadow-lg shadow-orange-500/20 border border-amber-300/40">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
+            Book your journey here
+          </h2>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 max-w-3xl mx-auto">
