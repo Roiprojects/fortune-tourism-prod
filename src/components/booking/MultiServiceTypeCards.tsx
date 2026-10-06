@@ -15,14 +15,13 @@ const SERVICES: {
   icon: React.ComponentType<{ className?: string }>;
   iconBg: string;
   iconColor: string;
-  description: string;
+  description?: string;
   highlight: string;
   bgImage?: string;
 }[] = [
   {
     id: "CAB",
     name: "Cab Booking",
-    badge: "Instant Confirm",
     icon: Car,
     iconBg: "bg-emerald-50 border-emerald-200",
     iconColor: "text-emerald-700",
@@ -32,21 +31,19 @@ const SERVICES: {
   {
     id: "TICKET",
     name: "Ticket Booking",
-    badge: "Train · Flight · Bus",
     icon: TrainFront,
     iconBg: "bg-amber-50 border-amber-200",
     iconColor: "text-amber-700",
-    description: "IRCTC Train tickets, Domestic & International Flights, and Bus ticket bookings.",
+    description: "",
     highlight: "Fast booking assistance & instant ticket copy",
   },
   {
     id: "TOUR",
     name: "Tour Packages",
-    badge: "All-Inclusive",
     icon: Palmtree,
     iconBg: "bg-purple-50 border-purple-200",
     iconColor: "text-purple-700",
-    description: "Curated holiday itineraries across South India with hotel & cab.",
+    description: "Curated holiday packages & itineraries.",
     highlight: "Custom multi-destination route builder",
   },
 ];
@@ -94,10 +91,10 @@ export function MultiServiceTypeCards({ selectedService, onSelect }: MultiServic
                 </div>
               )}
 
-              <div className="space-y-3 relative z-10">
+              <div className="space-y-3 relative z-10 w-full">
                 <div className="flex items-center justify-between">
                   <div
-                    className={`h-11 ${s.id === "CAB" ? "px-2.5" : "w-11"} rounded-xl border flex items-center justify-center gap-1 transition-all ${
+                    className={`h-11 ${s.id === "CAB" || s.id === "TICKET" ? "px-2.5" : "w-11"} rounded-xl border flex items-center justify-center gap-1 transition-all ${
                       isSelected
                         ? "bg-white shadow-xs " + s.iconColor + " border-amber-200"
                         : s.iconBg + " " + s.iconColor
@@ -108,6 +105,12 @@ export function MultiServiceTypeCards({ selectedService, onSelect }: MultiServic
                         <Car className="w-5 h-5" />
                         <Car className="w-4 h-4 opacity-80" />
                         <Car className="w-3.5 h-3.5 opacity-60" />
+                      </div>
+                    ) : s.id === "TICKET" ? (
+                      <div className="flex items-center gap-1.5">
+                        <TrainFront className="w-4.5 h-4.5" />
+                        <Plane className="w-4 h-4 opacity-85" />
+                        <Bus className="w-4 h-4 opacity-75" />
                       </div>
                     ) : (
                       <Icon className="w-5 h-5" />
@@ -127,17 +130,16 @@ export function MultiServiceTypeCards({ selectedService, onSelect }: MultiServic
                 </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-between relative z-10">
-                <span className="text-[11px] font-extrabold text-slate-700">
-                  {s.badge}
-                </span>
-                <span
-                  className={`text-xs font-extrabold uppercase tracking-wider ${
-                    isSelected ? "text-amber-700" : "text-slate-400 group-hover:text-slate-600"
+              <div className="mt-4 pt-2 relative z-10 w-full">
+                <div
+                  className={`w-full py-2.5 px-4 rounded-xl text-center font-extrabold text-xs uppercase tracking-wider transition-all duration-200 ${
+                    isSelected
+                      ? "bg-amber-600 text-white shadow-sm"
+                      : "bg-slate-900 text-white group-hover:bg-amber-600 shadow-xs"
                   }`}
                 >
-                  {isSelected ? "Selected" : "Choose →"}
-                </span>
+                  {isSelected ? "Selected ✓" : "Select"}
+                </div>
               </div>
             </button>
           );
