@@ -11,6 +11,7 @@ interface LocationSearchInputProps {
   icon?: React.ComponentType<{ className?: string }>;
   error?: string;
   className?: string;
+  dark?: boolean;
 }
 
 export function LocationSearchInput({
@@ -22,6 +23,7 @@ export function LocationSearchInput({
   icon: Icon = MapPin,
   error,
   className = "",
+  dark = false,
 }: LocationSearchInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState(value);
@@ -157,16 +159,22 @@ export function LocationSearchInput({
       )}
 
       <div
-        className={`relative flex items-center bg-white rounded-xl sm:rounded-2xl border transition-all duration-200 ${
-          error
-            ? "border-red-500 ring-2 ring-red-100"
-            : isOpen
-              ? "border-emerald-600 ring-2 ring-emerald-100 shadow-md"
-              : "border-slate-300 hover:border-slate-400"
+        className={`relative flex items-center rounded-xl sm:rounded-2xl border transition-all duration-200 ${
+          dark
+            ? error
+              ? "bg-[#111c3a]/90 border-red-500 ring-2 ring-red-500/20 text-white"
+              : isOpen
+                ? "bg-[#14234b] border-[#00c58e] ring-2 ring-[#00c58e]/25 shadow-lg text-white"
+                : "bg-[#111c3a]/90 border-white/15 hover:border-white/30 text-white shadow-inner"
+            : error
+              ? "bg-white border-red-500 ring-2 ring-red-100"
+              : isOpen
+                ? "bg-white border-emerald-600 ring-2 ring-emerald-100 shadow-md"
+                : "bg-white border-slate-300 hover:border-slate-400"
         }`}
       >
-        <div className="pl-3.5 pr-2 text-slate-400">
-          <Icon className="h-4 w-4 text-slate-500" />
+        <div className="pl-3.5 pr-2">
+          <Icon className={`h-4 w-4 ${dark ? "text-[#00c58e]" : "text-slate-500"}`} />
         </div>
 
         <input
@@ -184,7 +192,11 @@ export function LocationSearchInput({
           aria-expanded={isOpen}
           aria-autocomplete="list"
           aria-controls={listboxId}
-          className="w-full py-3 pr-16 font-semibold text-slate-900 text-xs sm:text-sm focus:outline-none bg-transparent placeholder:text-slate-400 placeholder:font-normal"
+          className={`w-full py-3 pr-16 font-semibold text-xs sm:text-sm focus:outline-none bg-transparent placeholder:font-normal ${
+            dark
+              ? "text-white placeholder:text-slate-400"
+              : "text-slate-900 placeholder:text-slate-400"
+          }`}
         />
 
         <div className="absolute right-2 flex items-center gap-1">
@@ -196,7 +208,9 @@ export function LocationSearchInput({
                 onChange("");
                 inputRef.current?.focus();
               }}
-              className="text-slate-400 hover:text-slate-600 text-xs font-bold p-1"
+              className={`text-xs font-bold p-1 ${
+                dark ? "text-slate-400 hover:text-white" : "text-slate-400 hover:text-slate-600"
+              }`}
               title="Clear input"
             >
               ✕
@@ -208,12 +222,16 @@ export function LocationSearchInput({
             onClick={handleDetectLocation}
             disabled={isDetecting}
             title="Detect Live GPS Location"
-            className="p-1 rounded-md text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 transition"
+            className={`p-1 rounded-md transition ${
+              dark
+                ? "text-[#00c58e] hover:bg-white/10 hover:text-emerald-300"
+                : "text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+            }`}
           >
             {isDetecting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+              <Loader2 className={`h-3.5 w-3.5 animate-spin ${dark ? "text-[#00c58e]" : "text-emerald-600"}`} />
             ) : (
-              <Navigation className="h-3.5 w-3.5 text-emerald-600 fill-emerald-50" />
+              <Navigation className={`h-3.5 w-3.5 ${dark ? "text-[#00c58e] fill-emerald-950/60" : "text-emerald-600 fill-emerald-50"}`} />
             )}
           </button>
         </div>
@@ -226,37 +244,49 @@ export function LocationSearchInput({
         <div
           id={listboxId}
           role="listbox"
-          className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white rounded-2xl shadow-2xl border border-slate-200 max-h-72 overflow-y-auto animate-fadeIn divide-y divide-slate-100"
+          className={`absolute left-0 right-0 top-full mt-1.5 z-50 rounded-2xl shadow-2xl border max-h-72 overflow-y-auto animate-fadeIn divide-y ${
+            dark
+              ? "bg-[#0B132B] border-white/15 divide-white/10 text-white"
+              : "bg-white border-slate-200 divide-slate-100"
+          }`}
         >
           {/* Current Location Option Button */}
           <button
             type="button"
             onClick={handleDetectLocation}
             disabled={isDetecting}
-            className="w-full px-4 py-3 flex items-center justify-between text-left text-xs font-bold text-emerald-700 bg-emerald-50/70 hover:bg-emerald-100 transition cursor-pointer"
+            className={`w-full px-4 py-3 flex items-center justify-between text-left text-xs font-bold transition cursor-pointer ${
+              dark
+                ? "text-emerald-300 bg-emerald-950/70 hover:bg-emerald-900/70"
+                : "text-emerald-700 bg-emerald-50/70 hover:bg-emerald-100"
+            }`}
           >
             <div className="flex items-center gap-2">
               {isDetecting ? (
-                <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
+                <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
               ) : (
-                <Navigation className="h-4 w-4 text-emerald-600 fill-emerald-100" />
+                <Navigation className="h-4 w-4 text-emerald-400 fill-emerald-950" />
               )}
               <span>📍 Use Current Location</span>
             </div>
-            <span className="text-[10px] bg-emerald-200/80 text-emerald-900 px-2 py-0.5 rounded-full font-bold">
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+              dark ? "bg-emerald-900 text-emerald-200" : "bg-emerald-200/80 text-emerald-900"
+            }`}>
               {isDetecting ? "Detecting..." : "GPS"}
             </span>
           </button>
 
           {detectMsg && (
-            <div className="px-4 py-2 bg-slate-900 text-white text-[11px] font-medium animate-fadeIn flex items-center gap-2">
+            <div className={`px-4 py-2 text-[11px] font-medium animate-fadeIn flex items-center gap-2 ${
+              dark ? "bg-black/60 text-slate-200" : "bg-slate-900 text-white"
+            }`}>
               {isDetecting && <Loader2 className="h-3 w-3 animate-spin text-emerald-400" />}
               <span>{detectMsg}</span>
             </div>
           )}
 
           {suggestions.length === 0 ? (
-            <div className="p-4 text-center text-xs text-slate-500">
+            <div className={`p-4 text-center text-xs ${dark ? "text-slate-400" : "text-slate-500"}`}>
               No matching locations found for &ldquo;{query}&rdquo;
             </div>
           ) : (
@@ -270,23 +300,33 @@ export function LocationSearchInput({
                   onClick={() => handleSelect(item)}
                   onMouseEnter={() => setSelectedIndex(idx)}
                   className={`px-4 py-3 cursor-pointer flex items-center justify-between transition ${
-                    isSelected ? "bg-emerald-50 text-emerald-950 font-semibold" : "hover:bg-slate-50 text-slate-800"
+                    isSelected
+                      ? dark
+                        ? "bg-[#182852] text-white font-semibold"
+                        : "bg-emerald-50 text-emerald-950 font-semibold"
+                      : dark
+                        ? "hover:bg-white/5 text-slate-200"
+                        : "hover:bg-slate-50 text-slate-800"
                   }`}
                 >
                   <div className="flex items-start gap-2.5">
-                    <MapPin className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
+                    <MapPin className={`h-4 w-4 shrink-0 mt-0.5 ${dark ? "text-[#00c58e]" : "text-slate-400"}`} />
                     <div>
                       <div className="font-bold text-xs leading-snug">
                         {highlightMatch(item.name, query)}
                       </div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">
+                      <div className={`text-[10px] mt-0.5 ${dark ? "text-slate-400" : "text-slate-500"}`}>
                         {item.city}, {item.state}
                       </div>
                     </div>
                   </div>
 
                   {item.code && (
-                    <span className="shrink-0 text-[10px] font-mono font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200">
+                    <span className={`shrink-0 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border ${
+                      dark
+                        ? "bg-white/10 text-emerald-300 border-white/10"
+                        : "bg-slate-100 text-slate-700 border-slate-200"
+                    }`}>
                       {item.code}
                     </span>
                   )}

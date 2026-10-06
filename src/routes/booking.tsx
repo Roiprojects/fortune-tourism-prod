@@ -632,27 +632,27 @@ function BookingPage() {
 
           {/* STEP 1: Cab Booking Route & Journey Form */}
           {step === 1 && serviceType === "CAB" && (
-            <div className="bg-white rounded-2xl shadow-md border border-slate-200 p-5 sm:p-7 space-y-6 animate-in fade-in duration-300">
+            <div className="bg-[#0B132B]/95 backdrop-blur-xl border border-white/15 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/60 space-y-6 animate-in fade-in duration-300 text-white">
               {/* Top Header with Back */}
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
+              <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xs font-black uppercase tracking-wider text-emerald-300 bg-emerald-950/70 border border-emerald-500/40 rounded-full px-3.5 py-1 shadow-sm">
                     🚕 Cab Booking
                   </span>
-                  <span className="text-slate-500 text-xs font-medium">Select Journey & Schedule</span>
+                  <span className="text-slate-300 text-xs sm:text-sm font-semibold">Select Journey & Schedule</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setStep(0)}
-                  className="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1 px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50"
+                  className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1.5 px-3.5 py-1.5 border border-white/15 bg-white/5 rounded-xl hover:bg-white/10 transition-colors shadow-sm"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5" /> Back to Services
+                  <ArrowLeft className="w-3.5 h-3.5 text-emerald-400" /> Back to Services
                 </button>
               </div>
 
               {/* Trip Type Tabs: ONE WAY | ROUND TRIP | LOCAL | AIRPORT | HOURLY PACKAGE */}
               <div className="flex justify-center">
-                <div className="inline-flex rounded-md border border-slate-300 overflow-hidden text-xs sm:text-sm font-bold bg-white">
+                <div className="inline-flex flex-wrap justify-center rounded-2xl border border-white/15 overflow-hidden text-xs sm:text-sm font-bold bg-[#111c3a]/90 p-1.5 gap-1 shadow-inner backdrop-blur-md">
                   {(["ONE WAY", "ROUND TRIP", "LOCAL", "AIRPORT", "HOURLY PACKAGE"] as CabTripType[]).map((tab) => {
                     const isActive = cabTripType === tab;
                     return (
@@ -660,11 +660,10 @@ function BookingPage() {
                         key={tab}
                         type="button"
                         onClick={() => setCabTripType(tab)}
-                        style={isActive ? { backgroundColor: "#0E6B50", color: "#ffffff" } : undefined}
-                        className={`px-3 sm:px-5 py-2.5 transition-colors uppercase tracking-wider ${
+                        className={`px-3.5 sm:px-5 py-2.5 transition-all rounded-xl uppercase tracking-wider font-extrabold ${
                           isActive
-                            ? "bg-[#0E6B50] text-white font-extrabold shadow-inner"
-                            : "text-slate-700 hover:bg-slate-50 border-r last:border-r-0 border-slate-200"
+                            ? "bg-[#00c58e] text-white shadow-lg shadow-[#00c58e]/30 scale-[1.02]"
+                            : "text-slate-300 hover:text-white hover:bg-white/10"
                         }`}
                       >
                         {tab}
@@ -677,10 +676,10 @@ function BookingPage() {
               {/* PACKAGE SELECTOR BUTTONS IN ONE ROW (Only For HOURLY PACKAGE) */}
               {cabTripType === "HOURLY PACKAGE" && (
                 <div className="flex flex-col items-center justify-center gap-1.5 pt-2 pb-1">
-                  <div className="text-[11px] font-black uppercase tracking-wider text-slate-600 flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-emerald-600" /> SELECT RENTAL PACKAGE
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-[#00c58e]" /> SELECT RENTAL PACKAGE
                   </div>
-                  <div className="inline-flex rounded-lg border border-slate-300 overflow-hidden text-xs sm:text-sm font-bold bg-white shadow-2xs">
+                  <div className="inline-flex rounded-xl border border-white/15 overflow-hidden text-xs sm:text-sm font-bold bg-[#111c3a]/90 p-1 gap-1 shadow-inner">
                     {[
                       { id: "4hr_40km", label: "4 hrs | 40 km" },
                       { id: "8hr_80km", label: "8 hrs | 80 km" },
@@ -692,11 +691,10 @@ function BookingPage() {
                           key={pkg.id}
                           type="button"
                           onClick={() => setLocalPackage(pkg.id as any)}
-                          style={isSelected ? { backgroundColor: "#0E6B50", color: "#ffffff" } : undefined}
-                          className={`px-3 sm:px-5 py-2 transition-all uppercase tracking-wider ${
+                          className={`px-3 sm:px-5 py-2 transition-all uppercase tracking-wider rounded-lg ${
                             isSelected
-                              ? "bg-[#0E6B50] text-white font-extrabold shadow-inner"
-                              : "text-slate-700 hover:bg-slate-50 border-r last:border-r-0 border-slate-200"
+                              ? "bg-[#00c58e] text-white font-extrabold shadow-md shadow-[#00c58e]/30"
+                              : "text-slate-300 hover:text-white hover:bg-white/10"
                           }`}
                         >
                           {pkg.label}
@@ -715,13 +713,14 @@ function BookingPage() {
                     {/* FROM + SWAP + TO (Equal 50/50 Symmetrical Width) */}
                     <div className="md:col-span-6 flex items-end gap-2">
                       <div className="flex-1 min-w-0 space-y-1">
-                        <label className="text-[11px] font-black tracking-wider uppercase text-slate-800">
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
                           FROM
                         </label>
                         <LocationSearchInput
                           value={cabFrom}
                           onChange={setCabFrom}
                           placeholder="Enter Pickup Location"
+                          dark={true}
                         />
                       </div>
 
@@ -729,27 +728,28 @@ function BookingPage() {
                         <button
                           type="button"
                           onClick={swapLocations}
-                          className="w-8 h-8 rounded-full bg-slate-100 border border-slate-300 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-colors shadow-2xs"
+                          className="w-9 h-9 rounded-full bg-[#111c3a] border border-white/20 hover:border-[#00c58e] hover:bg-[#16254c] flex items-center justify-center text-slate-300 transition-all shadow-md hover:scale-105"
                           title="Swap Locations"
                         >
-                          <ArrowLeftRight className="w-4 h-4 text-emerald-600" />
+                          <ArrowLeftRight className="w-4 h-4 text-[#00c58e]" />
                         </button>
                       </div>
 
                       <div className="flex-1 min-w-0 space-y-1">
-                        <label className="text-[11px] font-black tracking-wider uppercase text-slate-800">
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
                           TO
                         </label>
                         <LocationSearchInput
                           value={cabTo}
                           onChange={setCabTo}
                           placeholder="Enter Drop Location"
+                          dark={true}
                         />
                       </div>
                     </div>
 
                     <div className="md:col-span-3 space-y-1">
-                      <label className="text-[11px] font-black tracking-wider uppercase text-slate-800">
+                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
                         PICK UP DATE
                       </label>
                       <input
@@ -757,19 +757,19 @@ function BookingPage() {
                         min={today}
                         value={cabDate}
                         onChange={(e) => setCabDate(e.target.value)}
-                        className="w-full bg-white border-b-2 border-slate-300 focus:border-emerald-600 px-2 py-2 text-xs sm:text-sm font-semibold text-slate-900 outline-none"
+                        className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
                       />
                     </div>
 
                     <div className="md:col-span-3 space-y-1">
-                      <label className="text-[11px] font-black tracking-wider uppercase text-slate-800">
+                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
                         PICK UP TIME
                       </label>
                       <input
                         type="time"
                         value={cabTime}
                         onChange={(e) => setCabTime(e.target.value)}
-                        className="w-full bg-white border-b-2 border-slate-300 focus:border-emerald-600 px-2 py-2 text-xs sm:text-sm font-semibold text-slate-900 outline-none"
+                        className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
                       />
                     </div>
                   </div>
@@ -781,13 +781,14 @@ function BookingPage() {
                     {/* FROM + SWAP + TO (Equal 50/50 Symmetrical Width) */}
                     <div className="md:col-span-6 flex items-end gap-2">
                       <div className="flex-1 min-w-0 space-y-1">
-                        <label className="text-[11px] font-black tracking-wider uppercase text-slate-800">
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
                           FROM
                         </label>
                         <LocationSearchInput
                           value={cabFrom}
                           onChange={setCabFrom}
                           placeholder="Enter Pickup Location"
+                          dark={true}
                         />
                       </div>
 
@@ -795,27 +796,28 @@ function BookingPage() {
                         <button
                           type="button"
                           onClick={swapLocations}
-                          className="w-8 h-8 rounded-full bg-slate-100 border border-slate-300 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-colors shadow-2xs"
+                          className="w-9 h-9 rounded-full bg-[#111c3a] border border-white/20 hover:border-[#00c58e] hover:bg-[#16254c] flex items-center justify-center text-slate-300 transition-all shadow-md hover:scale-105"
                           title="Swap Locations"
                         >
-                          <ArrowLeftRight className="w-4 h-4 text-emerald-600" />
+                          <ArrowLeftRight className="w-4 h-4 text-[#00c58e]" />
                         </button>
                       </div>
 
                       <div className="flex-1 min-w-0 space-y-1">
-                        <label className="text-[11px] font-black tracking-wider uppercase text-slate-800">
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
                           TO
                         </label>
                         <LocationSearchInput
                           value={cabTo}
                           onChange={setCabTo}
                           placeholder="Enter Drop Location"
+                          dark={true}
                         />
                       </div>
                     </div>
 
                     <div className="md:col-span-2 space-y-1">
-                      <label className="text-[11px] font-black tracking-wider uppercase text-slate-800">
+                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
                         PICK UP DATE
                       </label>
                       <input
@@ -823,12 +825,12 @@ function BookingPage() {
                         min={today}
                         value={cabDate}
                         onChange={(e) => setCabDate(e.target.value)}
-                        className="w-full bg-white border-b-2 border-slate-300 focus:border-emerald-600 px-2 py-2 text-xs sm:text-sm font-semibold text-slate-900 outline-none"
+                        className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
                       />
                     </div>
 
                     <div className="md:col-span-2 space-y-1">
-                      <label className="text-[11px] font-black tracking-wider uppercase text-slate-800">
+                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
                         RETURN DATE
                       </label>
                       <input
@@ -836,19 +838,19 @@ function BookingPage() {
                         min={cabDate || today}
                         value={cabReturnDate}
                         onChange={(e) => setCabReturnDate(e.target.value)}
-                        className="w-full bg-white border-b-2 border-slate-300 focus:border-emerald-600 px-2 py-2 text-xs sm:text-sm font-semibold text-slate-900 outline-none"
+                        className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
                       />
                     </div>
 
                     <div className="md:col-span-2 space-y-1">
-                      <label className="text-[11px] font-black tracking-wider uppercase text-slate-800 whitespace-nowrap">
+                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 whitespace-nowrap">
                         PICK UP TIME
                       </label>
                       <input
                         type="time"
                         value={cabTime}
                         onChange={(e) => setCabTime(e.target.value)}
-                        className="w-full min-w-[100px] bg-white border-b-2 border-slate-300 focus:border-emerald-600 px-2 py-2 text-xs sm:text-sm font-semibold text-slate-900 outline-none"
+                        className="w-full min-w-[100px] bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
                       />
                     </div>
                   </div>
@@ -860,13 +862,14 @@ function BookingPage() {
                     {/* FROM + SWAP + TO (Equal 50/50 Symmetrical Width) */}
                     <div className="md:col-span-6 flex items-end gap-2">
                       <div className="flex-1 min-w-0 space-y-1">
-                        <label className="text-[11px] font-black tracking-wider uppercase text-slate-800">
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
                           PICKUP LOCATION
                         </label>
                         <LocationSearchInput
                           value={cabFrom}
                           onChange={setCabFrom}
                           placeholder="Enter Pickup Location"
+                          dark={true}
                         />
                       </div>
 
@@ -874,27 +877,28 @@ function BookingPage() {
                         <button
                           type="button"
                           onClick={swapLocations}
-                          className="w-8 h-8 rounded-full bg-slate-100 border border-slate-300 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-colors shadow-2xs"
+                          className="w-9 h-9 rounded-full bg-[#111c3a] border border-white/20 hover:border-[#00c58e] hover:bg-[#16254c] flex items-center justify-center text-slate-300 transition-all shadow-md hover:scale-105"
                           title="Swap Locations"
                         >
-                          <ArrowLeftRight className="w-4 h-4 text-emerald-600" />
+                          <ArrowLeftRight className="w-4 h-4 text-[#00c58e]" />
                         </button>
                       </div>
 
                       <div className="flex-1 min-w-0 space-y-1">
-                        <label className="text-[11px] font-black tracking-wider uppercase text-slate-800">
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
                           DROP LOCATION
                         </label>
                         <LocationSearchInput
                           value={cabTo}
                           onChange={setCabTo}
                           placeholder="Enter Drop Location"
+                          dark={true}
                         />
                       </div>
                     </div>
 
                     <div className="md:col-span-3 space-y-1">
-                      <label className="text-[11px] font-black tracking-wider uppercase text-slate-800">
+                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
                         PICK UP DATE
                       </label>
                       <input
@@ -902,19 +906,19 @@ function BookingPage() {
                         min={today}
                         value={cabDate}
                         onChange={(e) => setCabDate(e.target.value)}
-                        className="w-full bg-white border-b-2 border-slate-300 focus:border-emerald-600 px-2 py-2 text-xs sm:text-sm font-semibold text-slate-900 outline-none"
+                        className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
                       />
                     </div>
 
                     <div className="md:col-span-3 space-y-1">
-                      <label className="text-[11px] font-black tracking-wider uppercase text-slate-800">
+                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
                         PICK UP TIME
                       </label>
                       <input
                         type="time"
                         value={cabTime}
                         onChange={(e) => setCabTime(e.target.value)}
-                        className="w-full bg-white border-b-2 border-slate-300 focus:border-emerald-600 px-2 py-2 text-xs sm:text-sm font-semibold text-slate-900 outline-none"
+                        className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
                       />
                     </div>
                   </div>
@@ -924,16 +928,16 @@ function BookingPage() {
                 {cabTripType === "AIRPORT" && (
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
                     <div className="md:col-span-2 space-y-1">
-                      <label className="text-[11px] font-black tracking-wider uppercase text-slate-800">
+                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
                         TRIP
                       </label>
                       <select
                         value={airportTripType}
                         onChange={(e) => setAirportTripType(e.target.value as any)}
-                        className="w-full bg-white border-b-2 border-slate-300 focus:border-emerald-600 px-2 py-2 text-xs sm:text-sm font-semibold text-slate-900 outline-none"
+                        className="w-full bg-[#111c3a]/90 border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all [color-scheme:dark]"
                       >
-                        <option value="Drop to Airport">Drop to Airport</option>
-                        <option value="Pickup from Airport">Pickup from Airport</option>
+                        <option value="Drop to Airport" className="bg-[#0B132B] text-white">Drop to Airport</option>
+                        <option value="Pickup from Airport" className="bg-[#0B132B] text-white">Pickup from Airport</option>
                       </select>
                     </div>
 
@@ -941,25 +945,27 @@ function BookingPage() {
                       <>
                         {/* 1. Pickup Location (Search + GPS) */}
                         <div className="md:col-span-3 space-y-1">
-                          <label className="text-[11px] font-black tracking-wider uppercase text-slate-800">
+                          <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
                             PICKUP LOCATION
                           </label>
                           <LocationSearchInput
                             value={cabFrom}
                             onChange={setCabFrom}
                             placeholder="Enter Pickup Location / Area (e.g. Rajajinagar)"
+                            dark={true}
                           />
                         </div>
 
                         {/* 2. Drop Airport (Searchable & Editable) */}
                         <div className="md:col-span-3 space-y-1">
-                          <label className="text-[11px] font-black tracking-wider uppercase text-slate-800">
+                          <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
                             DROP AIRPORT
                           </label>
                           <LocationSearchInput
                             value={airportName}
                             onChange={setAirportName}
                             placeholder="Enter Airport / Terminal (e.g. Terminal 1, BLR)"
+                            dark={true}
                           />
                         </div>
                       </>
@@ -967,32 +973,34 @@ function BookingPage() {
                       <>
                         {/* 1. Pickup Airport (Searchable & Editable) */}
                         <div className="md:col-span-3 space-y-1">
-                          <label className="text-[11px] font-black tracking-wider uppercase text-slate-800">
+                          <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
                             PICKUP AIRPORT
                           </label>
                           <LocationSearchInput
                             value={airportName}
                             onChange={setAirportName}
                             placeholder="Enter Airport / Terminal (e.g. Terminal 2, BLR)"
+                            dark={true}
                           />
                         </div>
 
                         {/* 2. Drop Location (Search + GPS) */}
                         <div className="md:col-span-3 space-y-1">
-                          <label className="text-[11px] font-black tracking-wider uppercase text-slate-800">
+                          <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
                             DROP LOCATION
                           </label>
                           <LocationSearchInput
                             value={cabTo}
                             onChange={setCabTo}
                             placeholder="Enter Drop Location / Area (e.g. Rajajinagar)"
+                            dark={true}
                           />
                         </div>
                       </>
                     )}
 
                     <div className="md:col-span-2 space-y-1">
-                      <label className="text-[11px] font-black tracking-wider uppercase text-slate-800">
+                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
                         PICK UP DATE
                       </label>
                       <input
@@ -1000,31 +1008,31 @@ function BookingPage() {
                         min={today}
                         value={cabDate}
                         onChange={(e) => setCabDate(e.target.value)}
-                        className="w-full bg-white border-b-2 border-slate-300 focus:border-emerald-600 px-2 py-2 text-xs sm:text-sm font-semibold text-slate-900 outline-none"
+                        className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
                       />
                     </div>
 
                     <div className="md:col-span-2 space-y-1">
-                      <label className="text-[11px] font-black tracking-wider uppercase text-slate-800">
+                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
                         PICK UP TIME
                       </label>
                       <input
                         type="time"
                         value={cabTime}
                         onChange={(e) => setCabTime(e.target.value)}
-                        className="w-full bg-white border-b-2 border-slate-300 focus:border-emerald-600 px-2 py-2 text-xs sm:text-sm font-semibold text-slate-900 outline-none"
+                        className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
                       />
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* NEXT PAGE ORANGE BUTTON */}
-              <div className="flex justify-center pt-3 border-t border-slate-100">
+              {/* NEXT PAGE BUTTON */}
+              <div className="flex justify-center pt-4 border-t border-white/10">
                 <button
                   type="button"
                   onClick={handleGoToFleetSelection}
-                  className="bg-[#f97316] hover:bg-[#ea580c] text-white font-black px-10 py-3.5 rounded-xl uppercase tracking-wider text-sm shadow-md transition-all hover:scale-105 flex items-center gap-2"
+                  className="bg-[#00c58e] hover:bg-[#00a87a] text-white font-black px-12 py-3.5 rounded-2xl uppercase tracking-wider text-sm shadow-xl shadow-[#00c58e]/30 transition-all hover:scale-105 flex items-center gap-2"
                 >
                   NEXT PAGE <ArrowRight className="w-4 h-4" />
                 </button>
