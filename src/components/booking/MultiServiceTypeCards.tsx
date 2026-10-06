@@ -43,7 +43,7 @@ const SERVICES: {
     icon: Palmtree,
     iconBg: "bg-purple-50 border-purple-200",
     iconColor: "text-purple-700",
-    description: "Curated holiday packages & itineraries.",
+    description: "",
     highlight: "Custom multi-destination route builder",
   },
 ];
