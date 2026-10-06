@@ -5,7 +5,6 @@ import {
   Users,
   Plus,
   Trash2,
-  AlertCircle,
 } from "lucide-react";
 
 interface Passenger {
@@ -116,15 +115,6 @@ export function TrainBookingForm({ formData, onChange, errors, onCompleteBooking
 
   return (
     <div className="space-y-6">
-      {/* Notice Banner */}
-      <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4">
-        <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-        <div className="text-sm text-amber-900 leading-relaxed">
-          <strong className="font-bold">Booking Assistance Service:</strong> Our team
-          will search IRCTC availability and confirm your train ticket. Final fare &amp; PNR
-          will be shared after reservation.
-        </div>
-      </div>
 
       {trainStep === "JOURNEY" ? (
         /* STEP 1: TRAIN JOURNEY DETAILS */

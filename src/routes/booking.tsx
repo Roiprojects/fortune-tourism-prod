@@ -1045,22 +1045,23 @@ function BookingPage() {
             <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div>
-                  <h2 className="font-extrabold text-slate-900 text-lg">
-                    {serviceType === "TRAIN" && "IRCTC Train Ticket Booking"}
-                    {serviceType === "BUS" && "Bus Ticket Booking Assistance"}
-                    {serviceType === "FLIGHT" && "Domestic & International Flight Booking"}
-                    {serviceType === "TOUR" && "Holiday Tour Packages"}
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    {serviceType !== "TOUR"
-                      ? "Assisted Ticket Booking with Live PNR & Confirmation Voucher"
-                      : "Curated holiday itineraries across South India"}
-                  </p>
+                  {(serviceType === "BUS" || serviceType === "FLIGHT" || serviceType === "TOUR") && (
+                    <h2 className="font-extrabold text-slate-900 text-lg">
+                      {serviceType === "BUS" && "Bus Ticket Booking Assistance"}
+                      {serviceType === "FLIGHT" && "Domestic & International Flight Booking"}
+                      {serviceType === "TOUR" && "Holiday Tour Packages"}
+                    </h2>
+                  )}
+                  {serviceType === "TOUR" && (
+                    <p className="text-xs text-slate-500">
+                      Curated holiday itineraries across South India
+                    </p>
+                  )}
                 </div>
                 <button
                   type="button"
                   onClick={() => setStep(0)}
-                  className="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1 px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50"
+                  className="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1 px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 ml-auto"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" /> Back to Services
                 </button>
