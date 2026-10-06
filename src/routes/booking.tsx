@@ -601,7 +601,7 @@ function BookingPage() {
         }
       `}</style>
 
-      <div className={`min-h-[calc(100vh-5rem)] relative py-6 sm:py-10 px-4 sm:px-6 lg:px-8 ${step === 0 ? "flex flex-col justify-center items-center" : ""}`}>
+      <div className={`min-h-[calc(100vh-5rem)] relative px-4 sm:px-6 lg:px-8 ${step === 0 ? "flex flex-col justify-end items-center pb-8 sm:pb-14 pt-24" : "py-6 sm:py-10"}`}>
         {/* Background Image */}
         <div 
           className="fixed inset-0 bg-cover bg-center bg-no-repeat z-0"
@@ -610,9 +610,9 @@ function BookingPage() {
         <div className="fixed inset-0 bg-slate-950/30 z-0 pointer-events-none" />
         <div className="w-full max-w-4xl mx-auto space-y-6 relative z-10">
 
-          {/* STEP 0: Initial Page — Book your journey here (Matching Luxury Resort Theme) */}
+          {/* STEP 0: Initial Page — Book your journey here (Positioned directly above footer) */}
           {step === 0 && (
-            <div className="w-full my-auto animate-in fade-in duration-300">
+            <div className="w-full animate-in fade-in duration-300">
               <MultiServiceTypeCards
                 selectedService={serviceType}
                 onSelect={handleSelectServiceCard}
