@@ -54,13 +54,10 @@ const SERVICES: {
 export function MultiServiceTypeCards({ selectedService, onSelect }: MultiServiceTypeCardsProps) {
   return (
     <div className="space-y-4">
-      <div className="text-center max-w-xl mx-auto space-y-1">
+      <div className="text-center max-w-xl mx-auto">
         <h2 className="text-xl sm:text-2xl font-black text-black tracking-tight drop-shadow-[0_1px_2px_rgba(255,255,255,0.8)]">
-          What would you like to book?
+          Book your journey here
         </h2>
-        <p className="text-xs sm:text-sm text-black/80 font-bold drop-shadow-[0_1px_2px_rgba(255,255,255,0.8)]">
-          Select a service to load its tailored booking form with live fare calculation.
-        </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
