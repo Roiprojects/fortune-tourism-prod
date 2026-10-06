@@ -564,6 +564,14 @@ function BookingPage() {
       boardingPoint: boardingPointDisplay,
       boardingAddress: boardingAddressDisplay,
       serviceType: serviceType || undefined,
+      fareAmount:
+        serviceType === "CAB" || !serviceType
+          ? advanceOption === 100
+            ? `Rs. ${calculatedFare.toLocaleString()} (Rs. 100 Advance Paid)`
+            : `Rs. ${calculatedFare.toLocaleString()}`
+          : otherFormData.fare
+          ? `Rs. ${otherFormData.fare}`
+          : "AS PER TICKET",
     });
     toast.success("Ticket PDF downloaded successfully!");
   };
@@ -1673,11 +1681,21 @@ function BookingPage() {
                         {pnrNumber}
                       </span>
                     </span>
+                    <span className="flex items-center gap-1.5">
+                      <strong className="text-slate-300 uppercase text-xs font-black">FARE:</strong>{" "}
+                      <span className="font-mono font-black text-[#00c58e] text-base sm:text-lg tracking-wider bg-emerald-950/40 px-2.5 py-0.5 rounded-lg border border-emerald-500/40 shadow-2xs">
+                        {serviceType === "CAB" || !serviceType
+                          ? `₹${calculatedFare.toLocaleString()}`
+                          : otherFormData.fare
+                          ? `₹${otherFormData.fare}`
+                          : "AS PER TICKET"}
+                      </span>
+                    </span>
                   </div>
 
                   <a
                     href={buildWhatsAppUrl(
-                      `Hello Fortune Tourism! I have booked my cab.\n\n*Ticket No:* ${ticketNumber}\n*PNR:* ${pnrNumber}\n*Passenger:* ${passengerName || "GUEST"}\n*Phone:* ${passengerPhone || "9845003000"}\n*From:* ${fromLocationDisplay}\n*To:* ${toLocationDisplay}\n*Date:* ${departureDateFormatted}\n*Vehicle:* ${vehicleDisplay}\n\nPlease confirm driver assignment.`
+                      `Hello Fortune Tourism! I have booked my cab.\n\n*Ticket No:* ${ticketNumber}\n*PNR:* ${pnrNumber}\n*Passenger:* ${passengerName || "GUEST"}\n*Phone:* ${passengerPhone || "9845003000"}\n*From:* ${fromLocationDisplay}\n*To:* ${toLocationDisplay}\n*Date:* ${departureDateFormatted}\n*Vehicle:* ${vehicleDisplay}\n*Fare Amount:* ${serviceType === "CAB" || !serviceType ? `₹${calculatedFare.toLocaleString()}` : "As per ticket"}\n\nPlease confirm driver assignment.`
                     )}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -1812,7 +1830,7 @@ function BookingPage() {
                         </td>
                       </tr>
 
-                      {/* Row 4: Trip Type | Type Of Car:/bus/Flight | Boarding point */}
+                      {/* Row 5: Trip Type | Type Of Cab/Vehicle | Fare Amount */}
                       <tr className="divide-x divide-slate-900">
                         <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
                           Trip Type:
@@ -1835,10 +1853,29 @@ function BookingPage() {
                           {vehicleDisplay}
                         </td>
                         <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
-                          Boarding point:
+                          Fare Amount:
                         </td>
-                        <td className="p-2.5 font-bold text-slate-900 uppercase">
-                          {fromLocationDisplay}
+                        <td className="p-2.5 font-black text-slate-900 whitespace-nowrap">
+                          {serviceType === "CAB" || !serviceType ? (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-black text-emerald-800 text-sm">
+                                ₹{calculatedFare.toLocaleString()}
+                              </span>
+                              {advanceOption === 100 ? (
+                                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 px-1.5 py-0.5 rounded">
+                                  (₹100 Advance Paid)
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-300 px-1.5 py-0.5 rounded">
+                                  (Pay on Boarding)
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="font-bold text-slate-900">
+                              {otherFormData.fare ? `₹${otherFormData.fare}` : "AS PER TICKET"}
+                            </span>
+                          )}
                         </td>
                       </tr>
                     </tbody>

@@ -17,6 +17,7 @@ export interface TicketCopyData {
   boardingAddress: string;
   serviceType?: string;
   vehicleLabel?: string;
+  fareAmount?: string;
 }
 
 export function downloadTicketCopyPDF(data: TicketCopyData) {
@@ -107,6 +108,12 @@ export function downloadTicketCopyPDF(data: TicketCopyData) {
         { content: data.departureOn, styles: { fontStyle: "bold" } },
       ],
       [
+        { content: "Boarding Point:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
+        { content: (data.boardingPoint || "N/A").toUpperCase(), colSpan: 2, styles: { fontStyle: "bold" } },
+        { content: "Boarding Address:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
+        { content: (data.boardingAddress || "N/A").toUpperCase(), colSpan: 2, styles: { fontStyle: "bold" } },
+      ],
+      [
         { content: "Trip Type:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
         { content: (data.tripType || "PACKAGE").toUpperCase(), styles: { fontStyle: "bold" } },
         {
@@ -124,22 +131,8 @@ export function downloadTicketCopyPDF(data: TicketCopyData) {
           styles: { fontStyle: "bold", fillColor: [245, 245, 245] },
         },
         { content: (data.vehicleOrMode || "MARUTI SUZUKI CIAZ").toUpperCase(), styles: { fontStyle: "bold" } },
-        { content: "Boarding Point:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
-        { content: (data.boardingPoint || "N/A").toUpperCase(), styles: { fontStyle: "bold" } },
-      ],
-      [
-        { content: "Boarding Address:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
-        { content: (data.boardingAddress || "N/A").toUpperCase(), colSpan: 5, styles: { fontStyle: "bold" } },
-      ],
-      [
-        { content: "Boarding Point:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
-        {
-          content: (data.boardingPoint || "N/A").toUpperCase(),
-          styles: { fontStyle: "bold" },
-        },
-        { content: "", styles: { cellWidth: 0 } },
-        { content: "Boarding Address:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
-        { content: (data.boardingAddress || "N/A").toUpperCase(), colSpan: 2, styles: { fontStyle: "bold" } },
+        { content: "Fare Amount:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
+        { content: (data.fareAmount || "AS PER TRIP").toUpperCase(), styles: { fontStyle: "bold", textColor: [14, 107, 80] } },
       ],
     ],
   });
