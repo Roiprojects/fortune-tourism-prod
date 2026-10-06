@@ -10,18 +10,42 @@ interface MultiServiceTypeCardsProps {
 const SERVICES: {
   id: ServiceType;
   name: string;
+  cardBg: string;
+  cardBorder: string;
+  selectedRing: string;
+  titleColor: string;
+  btnDefault: string;
+  btnSelected: string;
 }[] = [
   {
     id: "CAB",
     name: "Cab Booking",
+    cardBg: "bg-gradient-to-br from-emerald-50 via-teal-50/80 to-emerald-100/70 hover:from-emerald-100/80 hover:to-teal-100/90",
+    cardBorder: "border-emerald-300/90 hover:border-emerald-500",
+    selectedRing: "ring-2 ring-emerald-500 border-emerald-500 shadow-emerald-500/20",
+    titleColor: "text-emerald-950",
+    btnDefault: "bg-emerald-700 hover:bg-emerald-800 text-white shadow-emerald-700/20",
+    btnSelected: "bg-emerald-900 text-white shadow-md",
   },
   {
     id: "TICKET",
     name: "Ticket Booking",
+    cardBg: "bg-gradient-to-br from-amber-50 via-orange-50/80 to-amber-100/70 hover:from-amber-100/80 hover:to-orange-100/90",
+    cardBorder: "border-amber-300/90 hover:border-amber-500",
+    selectedRing: "ring-2 ring-amber-500 border-amber-500 shadow-amber-500/20",
+    titleColor: "text-amber-950",
+    btnDefault: "bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/20",
+    btnSelected: "bg-amber-800 text-white shadow-md",
   },
   {
     id: "TOUR",
     name: "Tour Packages",
+    cardBg: "bg-gradient-to-br from-purple-50 via-violet-50/80 to-indigo-100/70 hover:from-purple-100/80 hover:to-indigo-100/90",
+    cardBorder: "border-purple-300/90 hover:border-purple-500",
+    selectedRing: "ring-2 ring-purple-500 border-purple-500 shadow-purple-500/20",
+    titleColor: "text-purple-950",
+    btnDefault: "bg-purple-700 hover:bg-purple-800 text-white shadow-purple-700/20",
+    btnSelected: "bg-purple-900 text-white shadow-md",
   },
 ];
 
@@ -46,24 +70,24 @@ export function MultiServiceTypeCards({ selectedService, onSelect }: MultiServic
               key={s.id}
               type="button"
               onClick={() => onSelect(s.id === "TICKET" ? "TRAIN" : s.id)}
-              className={`relative text-center p-6 sm:p-7 rounded-2xl border transition-all duration-200 flex flex-col justify-between items-center group overflow-hidden ${
+              className={`relative text-center p-6 sm:p-7 rounded-2xl border transition-all duration-200 flex flex-col justify-between items-center group overflow-hidden shadow-sm hover:shadow-md hover:scale-[1.01] ${s.cardBg} ${
                 isSelected
-                  ? "bg-amber-50/80 border-amber-500 ring-2 ring-amber-500/30 shadow-md scale-[1.02]"
-                  : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/60 shadow-xs"
+                  ? `${s.selectedRing} scale-[1.02]`
+                  : `${s.cardBorder}`
               }`}
             >
               <div className="w-full my-auto py-3">
-                <div className="font-black text-slate-900 text-lg sm:text-xl md:text-2xl tracking-tight leading-tight">
+                <div className={`font-black text-lg sm:text-xl md:text-2xl tracking-tight leading-tight ${s.titleColor}`}>
                   {s.name}
                 </div>
               </div>
 
               <div className="mt-4 w-full">
                 <div
-                  className={`w-full py-3 px-5 rounded-xl text-center font-black text-sm sm:text-base uppercase tracking-wider transition-all duration-200 ${
+                  className={`w-full py-3 px-5 rounded-xl text-center font-black text-sm sm:text-base uppercase tracking-wider transition-all duration-200 shadow-xs ${
                     isSelected
-                      ? "bg-amber-600 text-white shadow-sm"
-                      : "bg-slate-900 text-white group-hover:bg-amber-600 shadow-xs"
+                      ? s.btnSelected
+                      : s.btnDefault
                   }`}
                 >
                   {isSelected ? "Selected ✓" : "Select"}
