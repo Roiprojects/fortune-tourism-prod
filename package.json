@@ -1,5 +1,5 @@
 {
-  "name": "tanstack_start_ts",
+  "name": "fortune-tourism",
   "private": true,
   "sideEffects": false,
   "type": "module",
@@ -45,8 +45,8 @@
     "@tailwindcss/vite": "^4.2.1",
     "@tanstack/react-query": "^5.101.1",
     "@tanstack/react-router": "^1.170.16",
-    "@tanstack/react-start": "^1.168.26",
-    "@tanstack/router-plugin": "^1.168.18",
+    "@tanstack/react-start": "^1.170.16",
+    "@tanstack/router-plugin": "^1.170.16",
     "@types/pg": "^8.21.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -72,6 +72,9 @@
     "vaul": "^1.1.2",
     "vite-tsconfig-paths": "^6.0.2",
     "zod": "^3.24.2"
+  },
+  "optionalDependencies": {
+    "@img/sharp-linux-x64": "^0.35.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
