@@ -26,7 +26,7 @@ const SERVICES: {
     icon: Car,
     iconBg: "bg-emerald-50 border-emerald-200",
     iconColor: "text-emerald-700",
-    description: "Local hourly rentals, airport transfers, outstation one-way & round trips.",
+    description: "",
     highlight: "Transparent km/hr fare with live breakdown",
   },
   {
@@ -97,13 +97,21 @@ export function MultiServiceTypeCards({ selectedService, onSelect }: MultiServic
               <div className="space-y-3 relative z-10">
                 <div className="flex items-center justify-between">
                   <div
-                    className={`w-11 h-11 rounded-xl border flex items-center justify-center transition-all ${
+                    className={`h-11 ${s.id === "CAB" ? "px-2.5" : "w-11"} rounded-xl border flex items-center justify-center gap-1 transition-all ${
                       isSelected
                         ? "bg-white shadow-xs " + s.iconColor + " border-amber-200"
                         : s.iconBg + " " + s.iconColor
                     }`}
                   >
-                    <Icon className="w-5 h-5" />
+                    {s.id === "CAB" ? (
+                      <div className="flex items-center gap-1">
+                        <Car className="w-5 h-5" />
+                        <Car className="w-4 h-4 opacity-80" />
+                        <Car className="w-3.5 h-3.5 opacity-60" />
+                      </div>
+                    ) : (
+                      <Icon className="w-5 h-5" />
+                    )}
                   </div>
                 </div>
 
@@ -111,9 +119,11 @@ export function MultiServiceTypeCards({ selectedService, onSelect }: MultiServic
                   <div className="font-black text-slate-900 text-base leading-tight">
                     {s.name}
                   </div>
-                  <p className="text-xs text-slate-600 mt-1 line-clamp-2 leading-relaxed font-bold">
-                    {s.description}
-                  </p>
+                  {s.description && (
+                    <p className="text-xs text-slate-600 mt-1 line-clamp-2 leading-relaxed font-bold">
+                      {s.description}
+                    </p>
+                  )}
                 </div>
               </div>
 
