@@ -607,12 +607,12 @@ function BookingPage() {
           className="fixed inset-0 bg-cover bg-center bg-no-repeat z-0"
           style={{ backgroundImage: "url('/images/booking-bg.jpg')" }}
         />
-        <div className="fixed inset-0 bg-slate-900/20 z-0 pointer-events-none" />
+        <div className="fixed inset-0 bg-slate-950/30 z-0 pointer-events-none" />
         <div className="w-full max-w-4xl mx-auto space-y-6 relative z-10">
 
-          {/* STEP 0: Initial Page — What would you like to book? (5 Cards ONLY) */}
+          {/* STEP 0: Initial Page — Book your journey here (Matching Luxury Resort Theme) */}
           {step === 0 && (
-            <div className="bg-white/95 backdrop-blur-md border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4 my-auto">
+            <div className="w-full my-auto animate-in fade-in duration-300">
               <MultiServiceTypeCards
                 selectedService={serviceType}
                 onSelect={handleSelectServiceCard}
