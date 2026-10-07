@@ -17,6 +17,7 @@ import { BillPaymentAdminManager } from "@/components/admin/BillPaymentAdminMana
 import { AccountsReportsHub, type AccountReportKey, REPORT_DEFINITIONS } from "@/components/admin/AccountsReportsHub";
 import { AdminCabBookingFlow } from "@/components/admin/AdminCabBookingFlow";
 import { AdminTicketBookingFlow } from "@/components/admin/AdminTicketBookingFlow";
+import { AdminTourBookingFlow } from "@/components/admin/AdminTourBookingFlow";
 import logoAsset from "@/assets/fortune-tourism-logo.png";
 import fullLogoAsset from "@/assets/fortune-tourism-full-logo.png";
 import keralaHeroImg from "@/assets/kerala-hero.jpg";
@@ -244,7 +245,8 @@ function AdminPage() {
     | "recharge"
     | "bill_payment"
     | "cab_booking_flow"
-    | "ticket_booking_flow";
+    | "ticket_booking_flow"
+    | "tour_booking_flow";
   const [activeService, setActiveService] = useState<ServiceNavKey>("home");
   const [bookingDropdownOpen, setBookingDropdownOpen] = useState(false);
   const bookingDropdownRef = useRef<HTMLDivElement>(null);
@@ -1490,8 +1492,7 @@ function AdminPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setOfflineBookingSource({ enquiry: { category: "CAR", service: "South India Tour Package" } });
-                      setOfflineBookingModalOpen(true);
+                      setActiveService("tour_booking_flow");
                     }}
                     className="relative text-center p-6 sm:p-7 rounded-2xl sm:rounded-3xl border transition-all duration-300 flex flex-col justify-between items-center group overflow-hidden shadow-xl backdrop-blur-xl border-t-4 border-t-purple-400 hover:border-purple-400/80 shadow-purple-500/10 bg-[#0B132B]/95 hover:bg-[#101e42] border-white/15 hover:scale-[1.02] cursor-pointer"
                   >
@@ -1616,6 +1617,14 @@ function AdminPage() {
           {/* TICKET / TRAIN BOOKING FLOW (OFFLINE MULTI-STEP FLOW) */}
           {activeService === "ticket_booking_flow" && (
             <AdminTicketBookingFlow
+              onBack={() => setActiveService("home")}
+              onBookingCompleted={fetchData}
+            />
+          )}
+
+          {/* TOUR PACKAGES BOOKING FLOW (OFFLINE MULTI-STEP FLOW) */}
+          {activeService === "tour_booking_flow" && (
+            <AdminTourBookingFlow
               onBack={() => setActiveService("home")}
               onBookingCompleted={fetchData}
             />
