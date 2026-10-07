@@ -327,6 +327,7 @@ function AdminPage() {
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [offlineBookingModalOpen, setOfflineBookingModalOpen] = useState(false);
+  const [offlineBookingSource, setOfflineBookingSource] = useState<any>({});
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
 
   // Close dropdowns on outside click or Escape key
@@ -1409,33 +1410,101 @@ function AdminPage() {
           {/* HOME SERVICE VIEW: MODERN ADMIN DASHBOARD */}
           {activeService === "home" && (
             <>
-              {/* New Offline Booking Quick Action Bar */}
-              <div className="mb-6 bg-white/95 backdrop-blur-md rounded-2xl border border-white/80 p-5 sm:p-6 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-[#063f2d] to-[#086a46] text-white flex items-center justify-center shadow-md shrink-0">
-                    <Plus className="w-6 h-6 sm:w-7 sm:h-7" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <h3 className="text-lg sm:text-xl font-black text-slate-900">
-                        New Offline Booking
-                      </h3>
-                      <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        Car · Bus · Train · Flight
-                      </span>
+              {/* New Offline Booking Quick Action Bar with Service Selection Buttons */}
+              <div className="mb-6 bg-white/95 backdrop-blur-md rounded-3xl border border-white/80 p-5 sm:p-6 shadow-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-[#063f2d] to-[#086a46] text-white flex items-center justify-center shadow-md shrink-0">
+                      <Plus className="w-6 h-6 sm:w-7 sm:h-7" />
                     </div>
-                    <p className="text-xs sm:text-sm text-slate-600 font-medium max-w-2xl">
-                      Create walk-in or phone reservations, record custom pricing, passenger manifests, and token advance payments.
-                    </p>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <h3 className="text-lg sm:text-xl font-black text-slate-900">
+                          New Offline Booking
+                        </h3>
+                        <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          Car · Bus · Train · Flight
+                        </span>
+                      </div>
+                      <p className="text-xs sm:text-sm text-slate-600 font-medium max-w-2xl">
+                        Create walk-in or phone reservations, record custom pricing, passenger manifests, and token advance payments.
+                      </p>
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOfflineBookingSource({});
+                      setOfflineBookingModalOpen(true);
+                    }}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-[color:var(--color-navy)] px-4 py-2.5 text-xs font-bold text-white shadow hover:brightness-110 cursor-pointer shrink-0 transition-transform hover:scale-105"
+                  >
+                    <Plus className="h-4 w-4" /> Quick Offline Booking
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setOfflineBookingModalOpen(true)}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[color:var(--color-navy)] px-4 py-2 text-xs font-bold text-white shadow hover:brightness-110 cursor-pointer shrink-0 transition-transform hover:scale-105"
-                >
-                  <Plus className="h-4 w-4" /> New Offline Booking
-                </button>
+
+                {/* The 3 Service Selection Cards / Buttons */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 pt-5 border-t border-slate-200/80">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOfflineBookingSource({ enquiry: { category: "CAR" } });
+                      setOfflineBookingModalOpen(true);
+                    }}
+                    className="relative text-center p-6 sm:p-7 rounded-2xl sm:rounded-3xl border transition-all duration-300 flex flex-col justify-between items-center group overflow-hidden shadow-xl backdrop-blur-xl border-t-4 border-t-emerald-400 hover:border-emerald-400/80 shadow-emerald-500/10 bg-[#0B132B]/95 hover:bg-[#101e42] border-white/15 hover:scale-[1.02] cursor-pointer"
+                  >
+                    <div className="w-full my-auto py-3">
+                      <div className="font-black text-xl sm:text-2xl tracking-tight leading-tight text-white group-hover:text-emerald-300 transition-colors">
+                        Cab Booking
+                      </div>
+                    </div>
+                    <div className="mt-4 w-full">
+                      <div className="w-full py-2.5 sm:py-3 px-5 rounded-xl sm:rounded-2xl text-center font-black text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 shadow-md bg-[#00c58e] group-hover:bg-[#00a87a] text-white shadow-[#00c58e]/25">
+                        SELECT
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOfflineBookingSource({ enquiry: { category: "TRAIN" } });
+                      setOfflineBookingModalOpen(true);
+                    }}
+                    className="relative text-center p-6 sm:p-7 rounded-2xl sm:rounded-3xl border transition-all duration-300 flex flex-col justify-between items-center group overflow-hidden shadow-xl backdrop-blur-xl border-t-4 border-t-amber-400 hover:border-amber-400/80 shadow-amber-500/10 bg-[#0B132B]/95 hover:bg-[#101e42] border-white/15 hover:scale-[1.02] cursor-pointer"
+                  >
+                    <div className="w-full my-auto py-3">
+                      <div className="font-black text-xl sm:text-2xl tracking-tight leading-tight text-white group-hover:text-amber-300 transition-colors">
+                        Ticket Booking
+                      </div>
+                    </div>
+                    <div className="mt-4 w-full">
+                      <div className="w-full py-2.5 sm:py-3 px-5 rounded-xl sm:rounded-2xl text-center font-black text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 shadow-md bg-[#00c58e] group-hover:bg-[#00a87a] text-white shadow-[#00c58e]/25">
+                        SELECT
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOfflineBookingSource({ enquiry: { category: "CAR", service: "South India Tour Package" } });
+                      setOfflineBookingModalOpen(true);
+                    }}
+                    className="relative text-center p-6 sm:p-7 rounded-2xl sm:rounded-3xl border transition-all duration-300 flex flex-col justify-between items-center group overflow-hidden shadow-xl backdrop-blur-xl border-t-4 border-t-purple-400 hover:border-purple-400/80 shadow-purple-500/10 bg-[#0B132B]/95 hover:bg-[#101e42] border-white/15 hover:scale-[1.02] cursor-pointer"
+                  >
+                    <div className="w-full my-auto py-3">
+                      <div className="font-black text-xl sm:text-2xl tracking-tight leading-tight text-white group-hover:text-purple-300 transition-colors">
+                        Tour Packages
+                      </div>
+                    </div>
+                    <div className="mt-4 w-full">
+                      <div className="w-full py-2.5 sm:py-3 px-5 rounded-xl sm:rounded-2xl text-center font-black text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 shadow-md bg-[#00c58e] group-hover:bg-[#00a87a] text-white shadow-[#00c58e]/25">
+                        SELECT
+                      </div>
+                    </div>
+                  </button>
+                </div>
               </div>
 
               {/* Booking Itinerary Service Cards */}
@@ -2133,7 +2202,7 @@ function AdminPage() {
           fetchData();
         }}
         mode="create"
-        source={{}}
+        source={offlineBookingSource}
       />
     </SiteLayout>
   );
