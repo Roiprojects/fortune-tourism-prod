@@ -9,6 +9,7 @@ import { ClientStatementsManager } from "@/components/business/ClientStatementsM
 import { DailyExpenseReport } from "@/components/business/DailyExpenseReport";
 import { DayBookingsManager, BookingListManager, PendingPaymentsManager } from "@/components/admin/BookingManager";
 import { BookingsManager } from "@/components/admin/BookingsManager";
+import { BookingFormModal } from "@/components/admin/BookingFormModal";
 import { PaymentHistoryManager } from "@/components/admin/PaymentHistoryManager";
 import { HotelAdminManager } from "@/components/admin/HotelAdminManager";
 import { RechargeAdminManager } from "@/components/admin/RechargeAdminManager";
@@ -325,6 +326,7 @@ function AdminPage() {
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [offlineBookingModalOpen, setOfflineBookingModalOpen] = useState(false);
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
 
   // Close dropdowns on outside click or Escape key
@@ -1396,6 +1398,35 @@ function AdminPage() {
           {/* HOME SERVICE VIEW: MODERN ADMIN DASHBOARD */}
           {activeService === "home" && (
             <>
+              {/* New Offline Booking Quick Action Card */}
+              <div className="mb-6 bg-white/95 backdrop-blur-md rounded-2xl border border-white/80 p-5 sm:p-6 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-[#063f2d] to-[#086a46] text-white flex items-center justify-center shadow-md shrink-0">
+                    <Plus className="w-6 h-6 sm:w-7 sm:h-7" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <h3 className="text-lg sm:text-xl font-black text-slate-900">
+                        New Offline Booking
+                      </h3>
+                      <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        Car · Bus · Train · Flight
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-600 font-medium max-w-2xl">
+                      Create walk-in or phone reservations, record custom pricing, passenger manifests, and token advance payments.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOfflineBookingModalOpen(true)}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[color:var(--color-navy)] px-4 py-2 text-xs font-bold text-white shadow hover:brightness-110 cursor-pointer shrink-0 transition-transform hover:scale-105"
+                >
+                  <Plus className="h-4 w-4" /> New Offline Booking
+                </button>
+              </div>
+
               {/* Booking Itinerary Service Cards */}
               <div className="mb-2">
                 <div className="mb-4">
@@ -1406,6 +1437,14 @@ function AdminPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {[
+                    {
+                      title: "New Offline Booking",
+                      description: "Create direct offline reservations for Car, Bus, Train & Flight with custom pricing",
+                      icon: Plus,
+                      badge: "New Booking",
+                      iconBg: "bg-emerald-50 text-[#063f2d]",
+                      onClick: () => setOfflineBookingModalOpen(true),
+                    },
                     {
                       title: "Cab Booking",
                       description: "Airport transfers, local city rentals & outstation cab fleet tracking",
@@ -2081,6 +2120,17 @@ function AdminPage() {
           </div>
         </div>
       )}
+      {/* Offline Booking Form Modal */}
+      <BookingFormModal
+        open={offlineBookingModalOpen}
+        onClose={() => setOfflineBookingModalOpen(false)}
+        onSaved={() => {
+          setOfflineBookingModalOpen(false);
+          fetchData();
+        }}
+        mode="create"
+        source={{}}
+      />
     </SiteLayout>
   );
 }
