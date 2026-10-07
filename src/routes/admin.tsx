@@ -1398,6 +1398,11 @@ function AdminPage() {
             <>
               {/* Booking Itinerary Service Cards */}
               <div className="mb-2">
+                <div className="mb-4">
+                  <h2 className="text-2xl sm:text-3xl font-black text-white font-heading drop-shadow-md tracking-tight">
+                    Select Your Category
+                  </h2>
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {[
@@ -1473,6 +1478,10 @@ function AdminPage() {
                           <p className="text-xs text-slate-600 mt-1.5 leading-relaxed font-medium">
                             {service.description}
                           </p>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#063f2d] group-hover:text-[#d79a17] transition">
+                          <span>Open Service Panel</span>
+                          <span className="text-sm leading-none transition-transform group-hover:translate-x-1">→</span>
                         </div>
                       </button>
                     );
