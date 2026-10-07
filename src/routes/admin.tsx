@@ -15,6 +15,7 @@ import { HotelAdminManager } from "@/components/admin/HotelAdminManager";
 import { RechargeAdminManager } from "@/components/admin/RechargeAdminManager";
 import { BillPaymentAdminManager } from "@/components/admin/BillPaymentAdminManager";
 import { AccountsReportsHub, type AccountReportKey, REPORT_DEFINITIONS } from "@/components/admin/AccountsReportsHub";
+import { AdminCabBookingFlow } from "@/components/admin/AdminCabBookingFlow";
 import logoAsset from "@/assets/fortune-tourism-logo.png";
 import fullLogoAsset from "@/assets/fortune-tourism-full-logo.png";
 import keralaHeroImg from "@/assets/kerala-hero.jpg";
@@ -240,7 +241,8 @@ function AdminPage() {
     | "packages"
     | "accounts"
     | "recharge"
-    | "bill_payment";
+    | "bill_payment"
+    | "cab_booking_flow";
   const [activeService, setActiveService] = useState<ServiceNavKey>("home");
   const [bookingDropdownOpen, setBookingDropdownOpen] = useState(false);
   const bookingDropdownRef = useRef<HTMLDivElement>(null);
@@ -1448,8 +1450,7 @@ function AdminPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setOfflineBookingSource({ enquiry: { category: "CAR" } });
-                      setOfflineBookingModalOpen(true);
+                      setActiveService("cab_booking_flow");
                     }}
                     className="relative text-center p-6 sm:p-7 rounded-2xl sm:rounded-3xl border transition-all duration-300 flex flex-col justify-between items-center group overflow-hidden shadow-xl backdrop-blur-xl border-t-4 border-t-emerald-400 hover:border-emerald-400/80 shadow-emerald-500/10 bg-[#0B132B]/95 hover:bg-[#101e42] border-white/15 hover:scale-[1.02] cursor-pointer"
                   >
@@ -1602,6 +1603,14 @@ function AdminPage() {
             </>
           )}
       {/* END HOME SERVICE VIEW */}
+
+          {/* CAB BOOKING FLOW (OFFLINE MULTI-STEP FLOW) */}
+          {activeService === "cab_booking_flow" && (
+            <AdminCabBookingFlow
+              onBack={() => setActiveService("home")}
+              onBookingCompleted={fetchData}
+            />
+          )}
 
           {/* FLIGHT MANAGEMENT SECTION */}
           {activeService === "flight" && (
