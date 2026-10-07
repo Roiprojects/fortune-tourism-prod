@@ -1404,88 +1404,85 @@ function AdminPage() {
                   </h2>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {[
-                    {
-                      title: "Cab Booking",
-                      description: "Airport transfers, local city rentals & outstation cab fleet tracking",
-                      icon: Car,
-                      badge: `${vehiclesList.length || 8} Vehicles`,
-                      iconBg: "bg-emerald-50 text-[#063f2d]",
-                      onClick: () => setActiveService("cars"),
-                    },
-                    {
-                      title: "Ticket Booking",
-                      description: "Issue tickets, track PNRs, generate official PDF vouchers & ticket copies",
-                      icon: Ticket,
-                      badge: "Ticketing Hub",
-                      iconBg: "bg-blue-50 text-blue-700",
-                      onClick: () => setActiveTab("bookings"),
-                    },
-                    {
-                      title: "Tour Packages",
-                      description: "Curate South India holiday itineraries, seasonal tariffs & packages",
-                      icon: Package,
-                      badge: `${packagesList.length || 0} Packages`,
-                      iconBg: "bg-amber-50 text-[#d79a17]",
-                      onClick: () => setActiveService("packages"),
-                    },
-                    {
-                      title: "Flight Booking",
-                      description: "Domestic & international airline reservations, flight manifests & airfares",
-                      icon: Plane,
-                      badge: `${bookingStats.flightBookings || 0} Bookings`,
-                      iconBg: "bg-sky-50 text-sky-700",
-                      onClick: () => setActiveService("flight"),
-                    },
-                    {
-                      title: "Bus Booking",
-                      description: "Intercity sleeper, Volvo multi-axle & private bus seat allocations",
-                      icon: Bus,
-                      badge: `${bookingStats.busBookings || 0} Bookings`,
-                      iconBg: "bg-orange-50 text-orange-700",
-                      onClick: () => setActiveService("bus"),
-                    },
-                    {
-                      title: "Hotel Booking",
-                      description: "Resort suites, business hotel reservations, check-in schedules & tariffs",
-                      icon: Hotel,
-                      badge: "Stays & Resorts",
-                      iconBg: "bg-indigo-50 text-indigo-700",
-                      onClick: () => setActiveService("hotel"),
-                    },
-                  ].map((service) => {
-                    const Icon = service.icon;
-                    return (
-                      <button
-                        key={service.title}
-                        type="button"
-                        onClick={service.onClick}
-                        className="bg-white/95 backdrop-blur-md rounded-2xl border border-white/80 p-5 shadow-lg hover:shadow-2xl hover:border-amber-400 hover:bg-white hover:-translate-y-1 transition-all duration-300 text-left flex flex-col justify-between group cursor-pointer"
-                      >
-                        <div>
-                          <div className="flex items-center justify-between mb-3">
-                            <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 shadow-2xs ${service.iconBg}`}>
-                              <Icon className="w-5 h-5" />
-                            </div>
-                            <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 group-hover:bg-amber-100 group-hover:text-amber-900 transition shadow-2xs">
-                              {service.badge}
-                            </span>
-                          </div>
-                          <h3 className="text-base font-extrabold text-slate-900 group-hover:text-[#063f2d] transition">
-                            {service.title}
-                          </h3>
-                          <p className="text-xs text-slate-600 mt-1.5 leading-relaxed font-medium">
-                            {service.description}
-                          </p>
-                        </div>
-                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#063f2d] group-hover:text-[#d79a17] transition">
-                          <span>Open Service Panel</span>
-                          <span className="text-sm leading-none transition-transform group-hover:translate-x-1">→</span>
-                        </div>
-                      </button>
-                    );
-                  })}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 px-2 sm:px-0">
+                  <button
+                    type="button"
+                    onClick={() => setActiveService("cars")}
+                    className="relative text-center p-7 sm:p-8 rounded-3xl border transition-all duration-300 flex flex-col justify-between items-center group overflow-hidden shadow-2xl backdrop-blur-xl border-t-4 border-t-emerald-400 hover:border-emerald-400/80 shadow-emerald-500/10 bg-[#0B132B]/90 hover:bg-[#101e42]/95 border-white/15 hover:scale-[1.03] cursor-pointer"
+                  >
+                    <div className="w-full my-auto py-5">
+                      <div className="font-black text-2xl sm:text-3xl tracking-tight leading-tight text-white group-hover:text-emerald-300 transition-colors">
+                        Cab Booking
+                      </div>
+                    </div>
+                    <div className="mt-6 w-full">
+                      <div className="w-full py-3.5 px-6 rounded-2xl text-center font-black text-sm sm:text-base uppercase tracking-wider transition-all duration-200 shadow-lg bg-[#00c58e] hover:bg-[#00a87a] text-white shadow-[#00c58e]/25 hover:shadow-[#00c58e]/40 hover:scale-[1.02]">
+                        Select
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveService("train")}
+                    className="relative text-center p-7 sm:p-8 rounded-3xl border transition-all duration-300 flex flex-col justify-between items-center group overflow-hidden shadow-2xl backdrop-blur-xl border-t-4 border-t-amber-400 hover:border-amber-400/80 shadow-amber-500/10 bg-[#0B132B]/90 hover:bg-[#101e42]/95 border-white/15 hover:scale-[1.03] cursor-pointer"
+                  >
+                    <div className="w-full my-auto py-5">
+                      <div className="font-black text-2xl sm:text-3xl tracking-tight leading-tight text-white group-hover:text-amber-300 transition-colors">
+                        Ticket Booking
+                      </div>
+                    </div>
+                    <div className="mt-6 w-full">
+                      <div className="w-full py-3.5 px-6 rounded-2xl text-center font-black text-sm sm:text-base uppercase tracking-wider transition-all duration-200 shadow-lg bg-[#00c58e] hover:bg-[#00a87a] text-white shadow-[#00c58e]/25 hover:shadow-[#00c58e]/40 hover:scale-[1.02]">
+                        Select
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveService("packages")}
+                    className="relative text-center p-7 sm:p-8 rounded-3xl border transition-all duration-300 flex flex-col justify-between items-center group overflow-hidden shadow-2xl backdrop-blur-xl border-t-4 border-t-purple-400 hover:border-purple-400/80 shadow-purple-500/10 bg-[#0B132B]/90 hover:bg-[#101e42]/95 border-white/15 hover:scale-[1.03] cursor-pointer"
+                  >
+                    <div className="w-full my-auto py-5">
+                      <div className="font-black text-2xl sm:text-3xl tracking-tight leading-tight text-white group-hover:text-purple-300 transition-colors">
+                        Tour Packages
+                      </div>
+                    </div>
+                    <div className="mt-6 w-full">
+                      <div className="w-full py-3.5 px-6 rounded-2xl text-center font-black text-sm sm:text-base uppercase tracking-wider transition-all duration-200 shadow-lg bg-[#00c58e] hover:bg-[#00a87a] text-white shadow-[#00c58e]/25 hover:shadow-[#00c58e]/40 hover:scale-[1.02]">
+                        Select
+                      </div>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Secondary Services Navigation */}
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setActiveService("flight")}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#0B132B]/85 hover:bg-[#101e42] border border-sky-400/40 text-sky-200 hover:text-white text-xs font-bold transition-all shadow-lg backdrop-blur-md hover:scale-105 cursor-pointer"
+                  >
+                    <Plane className="w-4 h-4 text-sky-400" />
+                    <span>Flight Management</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveService("bus")}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#0B132B]/85 hover:bg-[#101e42] border border-orange-400/40 text-orange-200 hover:text-white text-xs font-bold transition-all shadow-lg backdrop-blur-md hover:scale-105 cursor-pointer"
+                  >
+                    <Bus className="w-4 h-4 text-orange-400" />
+                    <span>Bus Management</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveService("hotel")}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#0B132B]/85 hover:bg-[#101e42] border border-indigo-400/40 text-indigo-200 hover:text-white text-xs font-bold transition-all shadow-lg backdrop-blur-md hover:scale-105 cursor-pointer"
+                  >
+                    <Hotel className="w-4 h-4 text-indigo-400" />
+                    <span>Hotel Management</span>
+                  </button>
                 </div>
               </div>
             </>
