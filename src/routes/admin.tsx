@@ -9,6 +9,7 @@ import { ClientStatementsManager } from "@/components/business/ClientStatementsM
 import { DailyExpenseReport } from "@/components/business/DailyExpenseReport";
 import { DayBookingsManager, BookingListManager, PendingPaymentsManager } from "@/components/admin/BookingManager";
 import { BookingsManager } from "@/components/admin/BookingsManager";
+import { BookingFormModal } from "@/components/admin/BookingFormModal";
 import { PaymentHistoryManager } from "@/components/admin/PaymentHistoryManager";
 import { HotelAdminManager } from "@/components/admin/HotelAdminManager";
 import { RechargeAdminManager } from "@/components/admin/RechargeAdminManager";
@@ -325,6 +326,7 @@ function AdminPage() {
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [offlineBookingModalOpen, setOfflineBookingModalOpen] = useState(false);
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
 
   // Close dropdowns on outside click or Escape key
@@ -1283,6 +1285,17 @@ function AdminPage() {
                 <Home className="w-4 h-4" />
                 <span>Dashboard</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setOfflineBookingModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer bg-[color:var(--color-navy)] hover:brightness-110 text-white shadow-xs hover:scale-102 shrink-0"
+                title="Create walk-in or phone reservations (Car, Bus, Train, Flight)"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">New Offline Booking</span>
+                <span className="sm:hidden">Offline Booking</span>
+              </button>
             </div>
 
             {/* Right: Account with image dropdown */}
@@ -2081,6 +2094,18 @@ function AdminPage() {
           </div>
         </div>
       )}
+
+      {/* Offline Booking Form Modal */}
+      <BookingFormModal
+        open={offlineBookingModalOpen}
+        onClose={() => setOfflineBookingModalOpen(false)}
+        onSaved={() => {
+          setOfflineBookingModalOpen(false);
+          fetchData();
+        }}
+        mode="create"
+        source={{}}
+      />
     </SiteLayout>
   );
 }
