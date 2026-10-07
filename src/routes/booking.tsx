@@ -564,14 +564,6 @@ function BookingPage() {
       boardingPoint: boardingPointDisplay,
       boardingAddress: boardingAddressDisplay,
       serviceType: serviceType || undefined,
-      fareAmount:
-        serviceType === "CAB" || !serviceType
-          ? advanceOption === 100
-            ? `Rs. ${calculatedFare.toLocaleString()} (Rs. 100 Advance Paid)`
-            : `Rs. ${calculatedFare.toLocaleString()}`
-          : otherFormData.fare
-          ? `Rs. ${otherFormData.fare}`
-          : "AS PER TICKET",
     });
     toast.success("Ticket PDF downloaded successfully!");
   };
@@ -1050,40 +1042,42 @@ function BookingPage() {
 
           {/* STEP 1 FOR OTHER SERVICES (Train, Bus, Flight, Tour) */}
           {step === 1 && serviceType !== "CAB" && (
-            <div className="bg-[#0B132B]/95 backdrop-blur-xl border border-white/15 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/60 space-y-6 animate-in fade-in duration-300 text-white">
-              <div className="flex items-center justify-between pb-3 border-b border-white/10">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div>
+                  {(serviceType === "BUS" || serviceType === "FLIGHT" || serviceType === "TOUR") && (
+                    <h2 className="font-extrabold text-slate-900 text-lg">
+                      {serviceType === "BUS" && "Bus Ticket Booking Assistance"}
+                      {serviceType === "FLIGHT" && "Domestic & International Flight Booking"}
+                      {serviceType === "TOUR" && "Holiday Tour Packages"}
+                    </h2>
+                  )}
                   {serviceType === "TOUR" && (
-                    <>
-                      <h2 className="font-extrabold text-white text-lg">
-                        Holiday Tour Packages
-                      </h2>
-                      <p className="text-xs text-slate-400">
-                        Curated holiday itineraries across South India
-                      </p>
-                    </>
+                    <p className="text-xs text-slate-500">
+                      Curated holiday itineraries across South India
+                    </p>
                   )}
                 </div>
                 <button
                   type="button"
                   onClick={() => setStep(0)}
-                  className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1.5 px-3.5 py-1.5 border border-white/15 bg-white/5 rounded-xl hover:bg-white/10 transition-colors shadow-sm ml-auto"
+                  className="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1 px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 ml-auto"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5 text-[#00c58e]" /> Back to Services
+                  <ArrowLeft className="w-3.5 h-3.5" /> Back to Services
                 </button>
               </div>
 
               {/* 3 Ticket Switcher Tabs (Train, Flight, Bus) */}
               {serviceType !== "TOUR" && (
                 <div className="flex justify-center pb-2">
-                  <div className="inline-flex flex-wrap justify-center rounded-2xl border border-white/15 overflow-hidden text-xs sm:text-sm font-bold bg-[#111c3a]/90 p-1.5 gap-1 shadow-inner backdrop-blur-md">
+                  <div className="inline-flex rounded-xl border border-slate-300 overflow-hidden bg-slate-100 p-1 gap-1 shadow-2xs">
                     <button
                       type="button"
                       onClick={() => setServiceType("TRAIN")}
-                      className={`px-4 sm:px-5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${
+                      className={`px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 ${
                         serviceType === "TRAIN"
-                          ? "bg-[#00c58e] text-white shadow-lg shadow-[#00c58e]/30 scale-[1.02] font-extrabold"
-                          : "text-slate-300 hover:text-white hover:bg-white/10"
+                          ? "bg-[#0E6B50] text-white shadow-sm font-extrabold"
+                          : "text-slate-700 hover:bg-slate-200"
                       }`}
                     >
                       <TrainFront className="w-4 h-4" /> Train Booking
@@ -1091,10 +1085,10 @@ function BookingPage() {
                     <button
                       type="button"
                       onClick={() => setServiceType("FLIGHT")}
-                      className={`px-4 sm:px-5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${
+                      className={`px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 ${
                         serviceType === "FLIGHT"
-                          ? "bg-[#00c58e] text-white shadow-lg shadow-[#00c58e]/30 scale-[1.02] font-extrabold"
-                          : "text-slate-300 hover:text-white hover:bg-white/10"
+                          ? "bg-[#0E6B50] text-white shadow-sm font-extrabold"
+                          : "text-slate-700 hover:bg-slate-200"
                       }`}
                     >
                       <Plane className="w-4 h-4" /> Flight Booking
@@ -1102,10 +1096,10 @@ function BookingPage() {
                     <button
                       type="button"
                       onClick={() => setServiceType("BUS")}
-                      className={`px-4 sm:px-5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${
+                      className={`px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 ${
                         serviceType === "BUS"
-                          ? "bg-[#00c58e] text-white shadow-lg shadow-[#00c58e]/30 scale-[1.02] font-extrabold"
-                          : "text-slate-300 hover:text-white hover:bg-white/10"
+                          ? "bg-[#0E6B50] text-white shadow-sm font-extrabold"
+                          : "text-slate-700 hover:bg-slate-200"
                       }`}
                     >
                       <Bus className="w-4 h-4" /> Bus Booking
@@ -1681,21 +1675,11 @@ function BookingPage() {
                         {pnrNumber}
                       </span>
                     </span>
-                    <span className="flex items-center gap-1.5">
-                      <strong className="text-slate-300 uppercase text-xs font-black">FARE:</strong>{" "}
-                      <span className="font-mono font-black text-[#00c58e] text-base sm:text-lg tracking-wider bg-emerald-950/40 px-2.5 py-0.5 rounded-lg border border-emerald-500/40 shadow-2xs">
-                        {serviceType === "CAB" || !serviceType
-                          ? `₹${calculatedFare.toLocaleString()}`
-                          : otherFormData.fare
-                          ? `₹${otherFormData.fare}`
-                          : "AS PER TICKET"}
-                      </span>
-                    </span>
                   </div>
 
                   <a
                     href={buildWhatsAppUrl(
-                      `Hello Fortune Tourism! I have booked my cab.\n\n*Ticket No:* ${ticketNumber}\n*PNR:* ${pnrNumber}\n*Passenger:* ${passengerName || "GUEST"}\n*Phone:* ${passengerPhone || "9845003000"}\n*From:* ${fromLocationDisplay}\n*To:* ${toLocationDisplay}\n*Date:* ${departureDateFormatted}\n*Vehicle:* ${vehicleDisplay}\n*Fare Amount:* ${serviceType === "CAB" || !serviceType ? `₹${calculatedFare.toLocaleString()}` : "As per ticket"}\n\nPlease confirm driver assignment.`
+                      `Hello Fortune Tourism! I have booked my cab.\n\n*Ticket No:* ${ticketNumber}\n*PNR:* ${pnrNumber}\n*Passenger:* ${passengerName || "GUEST"}\n*Phone:* ${passengerPhone || "9845003000"}\n*From:* ${fromLocationDisplay}\n*To:* ${toLocationDisplay}\n*Date:* ${departureDateFormatted}\n*Vehicle:* ${vehicleDisplay}\n\nPlease confirm driver assignment.`
                     )}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -1830,7 +1814,7 @@ function BookingPage() {
                         </td>
                       </tr>
 
-                      {/* Row 5: Trip Type | Type Of Cab/Vehicle | Fare Amount */}
+                      {/* Row 4: Trip Type | Type Of Car:/bus/Flight | Boarding point */}
                       <tr className="divide-x divide-slate-900">
                         <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
                           Trip Type:
@@ -1853,29 +1837,10 @@ function BookingPage() {
                           {vehicleDisplay}
                         </td>
                         <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
-                          Fare Amount:
+                          Boarding point:
                         </td>
-                        <td className="p-2.5 font-black text-slate-900 whitespace-nowrap">
-                          {serviceType === "CAB" || !serviceType ? (
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-black text-emerald-800 text-sm">
-                                ₹{calculatedFare.toLocaleString()}
-                              </span>
-                              {advanceOption === 100 ? (
-                                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 px-1.5 py-0.5 rounded">
-                                  (₹100 Advance Paid)
-                                </span>
-                              ) : (
-                                <span className="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-300 px-1.5 py-0.5 rounded">
-                                  (Pay on Boarding)
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="font-bold text-slate-900">
-                              {otherFormData.fare ? `₹${otherFormData.fare}` : "AS PER TICKET"}
-                            </span>
-                          )}
+                        <td className="p-2.5 font-bold text-slate-900 uppercase">
+                          {fromLocationDisplay}
                         </td>
                       </tr>
                     </tbody>
