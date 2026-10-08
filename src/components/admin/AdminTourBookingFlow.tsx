@@ -6,6 +6,7 @@ import {
   Printer,
   MessageCircle,
   CheckCircle2,
+  Package,
 } from "lucide-react";
 import { generateTicketNumber, generatePNR } from "@/lib/booking-utils";
 import { buildWhatsAppUrl } from "@/lib/contact";
@@ -16,9 +17,14 @@ import { packages } from "@/data/packages";
 interface AdminTourBookingFlowProps {
   onBack: () => void;
   onBookingCompleted?: () => void;
+  onOpenPackagesManagement?: () => void;
 }
 
-export function AdminTourBookingFlow({ onBack, onBookingCompleted }: AdminTourBookingFlowProps) {
+export function AdminTourBookingFlow({
+  onBack,
+  onBookingCompleted,
+  onOpenPackagesManagement,
+}: AdminTourBookingFlowProps) {
   // Step: "FORM" | "CONFIRMED"
   const [step, setStep] = useState<"FORM" | "CONFIRMED">("FORM");
 
@@ -28,7 +34,7 @@ export function AdminTourBookingFlow({ onBack, onBookingCompleted }: AdminTourBo
     package_title: packages[0]?.title || "Bengaluru → Mysuru & Coorg",
     tour_trip_type: "Round Trip",
     itinerary_places: ["Bangalore", "Destination 1", "Return to Bangalore"],
-    date: () => new Date().toISOString().split("T")[0],
+    date: new Date().toISOString().split("T")[0],
     time: "07:00",
     number_of_days: packages[0]?.duration.split(" ")[0] || "3",
     destination: packages[0]?.destinations.join(" → ") || "Mysuru · Coorg",
@@ -55,10 +61,16 @@ export function AdminTourBookingFlow({ onBack, onBookingCompleted }: AdminTourBo
 
   // Departure date formatted as DD-MM-YYYY.HH.MM
   const departureDateFormatted = useMemo(() => {
-    const rawDate = tourFormData.date || today;
-    const [y, m, d] = String(rawDate).split("-");
+    const rawDate =
+      typeof tourFormData.date === "function"
+        ? tourFormData.date()
+        : tourFormData.date || today;
+    const parts = String(rawDate).split("-");
+    const y = parts[0] || "";
+    const m = parts[1] || "";
+    const d = parts[2] || "";
     const rawTime = (tourFormData.time || "07:00").replace(":", ".");
-    return `${d}-${m}-${y}.${rawTime}`;
+    return `${d || "DD"}-${m || "MM"}-${y || "YYYY"}.${rawTime}`;
   }, [tourFormData.date, tourFormData.time, today]);
 
   // Current booking date & time formatted as DD-MM-YYYY HH:MM
@@ -217,13 +229,24 @@ export function AdminTourBookingFlow({ onBack, onBookingCompleted }: AdminTourBo
                   Curated holiday itineraries across South India
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={onBack}
-                className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1.5 px-3.5 py-1.5 border border-white/15 bg-white/5 rounded-xl hover:bg-white/10 transition-colors shadow-sm cursor-pointer ml-auto"
-              >
-                <ArrowLeft className="w-3.5 h-3.5 text-emerald-400" /> Back to Services
-              </button>
+              <div className="flex items-center gap-2 ml-auto">
+                {onOpenPackagesManagement && (
+                  <button
+                    type="button"
+                    onClick={onOpenPackagesManagement}
+                    className="text-xs font-bold text-amber-300 hover:text-amber-200 flex items-center gap-1.5 px-3.5 py-1.5 border border-amber-400/40 bg-amber-500/10 rounded-xl hover:bg-amber-500/20 transition-colors shadow-sm cursor-pointer"
+                  >
+                    <Package className="w-3.5 h-3.5 text-amber-400" /> View / Manage All Packages
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1.5 px-3.5 py-1.5 border border-white/15 bg-white/5 rounded-xl hover:bg-white/10 transition-colors shadow-sm cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 text-emerald-400" /> Back to Dashboard
+                </button>
+              </div>
             </div>
 
             {/* Tour Booking Form Inputs */}

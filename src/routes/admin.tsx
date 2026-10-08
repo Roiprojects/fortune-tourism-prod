@@ -117,6 +117,7 @@ const LOGIN_DESTINATION_SLIDES = [
 ];
 import {
   BookOpen,
+  ArrowLeft,
   Users,
   Car,
   Package,
@@ -581,7 +582,27 @@ function AdminPage() {
       }
 
       setIsAuthenticated(true);
-      setActiveService("home");
+      const catParam =
+        urlParams?.get("category") ||
+        urlParams?.get("tab") ||
+        urlParams?.get("service");
+      if (
+        catParam === "packages" ||
+        catParam === "tour_packages" ||
+        catParam === "tours"
+      ) {
+        setActiveService("packages");
+      } else if (catParam === "tour_booking_flow") {
+        setActiveService("tour_booking_flow");
+      } else if (catParam === "cars") {
+        setActiveService("cars");
+      } else if (catParam === "ticket_booking_flow") {
+        setActiveService("ticket_booking_flow");
+      } else if (catParam === "cab_booking_flow") {
+        setActiveService("cab_booking_flow");
+      } else {
+        setActiveService("home");
+      }
       if (authStr) {
         try {
           setAdminUser(JSON.parse(authStr));
@@ -1342,6 +1363,20 @@ function AdminPage() {
 
               <button
                 type="button"
+                onClick={() => setActiveService("packages")}
+                className={`flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                  activeService === "packages" || activeService === "tour_booking_flow"
+                    ? "bg-[#063f2d] text-white shadow-xs font-extrabold"
+                    : "text-slate-700 hover:text-[#063f2d] hover:bg-slate-100"
+                }`}
+                title="View & manage holiday tour packages"
+              >
+                <Package className="w-4 h-4 text-amber-400" />
+                <span>Tour Packages</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setOfflineBookingModalOpen(true)}
                 className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer bg-[color:var(--color-navy)] hover:brightness-110 text-white shadow-xs hover:scale-102 shrink-0"
                 title="Create walk-in or phone reservations (Car, Bus, Train, Flight)"
@@ -1582,7 +1617,7 @@ function AdminPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setActiveService("tour_booking_flow");
+                      setActiveService("packages");
                     }}
                     className="relative text-center p-6 sm:p-7 rounded-2xl sm:rounded-3xl border transition-all duration-300 flex flex-col justify-between items-center group overflow-hidden shadow-xl backdrop-blur-xl border-t-4 border-t-purple-400 hover:border-purple-400/80 shadow-purple-500/10 bg-[#0B132B]/95 hover:bg-[#101e42] border-white/15 hover:scale-[1.02] cursor-pointer"
                   >
@@ -1590,6 +1625,9 @@ function AdminPage() {
                       <div className="font-black text-xl sm:text-2xl tracking-tight leading-tight text-white group-hover:text-purple-300 transition-colors">
                         Tour Packages
                       </div>
+                      <p className="text-[11px] text-purple-200/80 font-medium mt-1">
+                        Holiday packages, 1-day tours &amp; tariffs
+                      </p>
                     </div>
                     <div className="mt-4 w-full">
                       <div className="w-full py-2.5 sm:py-3 px-5 rounded-xl sm:rounded-2xl text-center font-black text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 shadow-md bg-[#00c58e] group-hover:bg-[#00a87a] text-white shadow-[#00c58e]/25">
@@ -1716,6 +1754,7 @@ function AdminPage() {
           {activeService === "tour_booking_flow" && (
             <AdminTourBookingFlow
               onBack={() => setActiveService("home")}
+              onOpenPackagesManagement={() => setActiveService("packages")}
               onBookingCompleted={fetchData}
             />
           )}
@@ -1954,7 +1993,21 @@ function AdminPage() {
                       Create, customize, price, and manage tour packages across Karnataka, Kerala, Tamil Nadu, Andhra Pradesh, and Goa.
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setActiveService("home")}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-white/5 border border-white/15 hover:bg-white/10 transition cursor-pointer"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5 text-amber-400" /> Back to Dashboard
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveService("tour_booking_flow")}
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white px-4 py-2.5 rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 transition-all cursor-pointer hover:scale-105"
+                    >
+                      <Plus className="w-4 h-4" /> Tour Booking Flow
+                    </button>
                     <button
                       onClick={() => {
                         setEditingPkg(null);
