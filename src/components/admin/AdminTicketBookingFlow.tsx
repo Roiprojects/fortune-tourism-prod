@@ -427,38 +427,41 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
       <div className="w-full max-w-5xl mx-auto space-y-6">
         {step !== "CONFIRMED" ? (
           /* ================= STEP 1 & 2: JOURNEY & PASSENGER FORMS ================= */
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 animate-in fade-in duration-300">
+          <div className="bg-[#0B132B]/95 backdrop-blur-xl border border-white/15 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/60 space-y-6 animate-in fade-in duration-300 text-white">
             {/* Top Header with Back to Services */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-black uppercase tracking-wider text-slate-800">
-                  {serviceType === "TRAIN" && "Train Booking"}
-                  {serviceType === "FLIGHT" && "Flight Booking"}
-                  {serviceType === "BUS" && "Bus Booking"}
+            <div className="flex items-center justify-between pb-4 border-b border-white/10">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-300 bg-emerald-950/70 border border-emerald-500/40 rounded-full px-3.5 py-1 shadow-sm">
+                  {serviceType === "TRAIN" && "🚅 TRAIN BOOKING"}
+                  {serviceType === "FLIGHT" && "✈️ FLIGHT BOOKING"}
+                  {serviceType === "BUS" && "🚌 BUS BOOKING"}
+                </span>
+                <span className="text-slate-300 text-xs sm:text-sm font-semibold">
+                  Select Journey &amp; Schedule
                 </span>
               </div>
               <button
                 type="button"
                 onClick={onBack}
-                className="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1.5 px-3.5 py-1.5 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer ml-auto"
+                className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1.5 px-3.5 py-1.5 border border-white/15 bg-white/5 rounded-xl hover:bg-white/10 transition-colors shadow-sm cursor-pointer ml-auto"
               >
-                <ArrowLeft className="w-3.5 h-3.5 text-slate-700" /> Back to Services
+                <ArrowLeft className="w-3.5 h-3.5 text-emerald-400" /> Back to Services
               </button>
             </div>
 
             {/* 3 Ticket Switcher Tabs (Train Booking, Flight Booking, Bus Booking) */}
             <div className="flex justify-center pb-2">
-              <div className="inline-flex rounded-xl border border-slate-300 overflow-hidden bg-slate-100 p-1 gap-1 shadow-2xs">
+              <div className="inline-flex rounded-full border border-white/15 bg-[#111c3a]/90 p-1.5 gap-1.5 shadow-inner">
                 <button
                   type="button"
                   onClick={() => {
                     setServiceType("TRAIN");
                     setStep("JOURNEY");
                   }}
-                  className={`px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                  className={`px-5 py-2 rounded-full text-xs sm:text-sm font-black transition-all flex items-center gap-2 cursor-pointer ${
                     serviceType === "TRAIN"
-                      ? "bg-[#063f2d] text-white shadow-sm font-extrabold"
-                      : "text-slate-700 hover:bg-slate-200"
+                      ? "bg-[#00c58e] text-white shadow-lg shadow-[#00c58e]/30 font-extrabold"
+                      : "text-slate-300 hover:text-white hover:bg-white/5"
                   }`}
                 >
                   <TrainFront className="w-4 h-4" /> Train Booking
@@ -469,10 +472,10 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                     setServiceType("FLIGHT");
                     setStep("JOURNEY");
                   }}
-                  className={`px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                  className={`px-5 py-2 rounded-full text-xs sm:text-sm font-black transition-all flex items-center gap-2 cursor-pointer ${
                     serviceType === "FLIGHT"
-                      ? "bg-[#063f2d] text-white shadow-sm font-extrabold"
-                      : "text-slate-700 hover:bg-slate-200"
+                      ? "bg-[#00c58e] text-white shadow-lg shadow-[#00c58e]/30 font-extrabold"
+                      : "text-slate-300 hover:text-white hover:bg-white/5"
                   }`}
                 >
                   <Plane className="w-4 h-4" /> Flight Booking
@@ -483,10 +486,10 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                     setServiceType("BUS");
                     setStep("JOURNEY");
                   }}
-                  className={`px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                  className={`px-5 py-2 rounded-full text-xs sm:text-sm font-black transition-all flex items-center gap-2 cursor-pointer ${
                     serviceType === "BUS"
-                      ? "bg-[#063f2d] text-white shadow-sm font-extrabold"
-                      : "text-slate-700 hover:bg-slate-200"
+                      ? "bg-[#00c58e] text-white shadow-lg shadow-[#00c58e]/30 font-extrabold"
+                      : "text-slate-300 hover:text-white hover:bg-white/5"
                   }`}
                 >
                   <Bus className="w-4 h-4" /> Bus Booking
@@ -500,14 +503,14 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                 {step === "JOURNEY" && (
                   /* IMAGE 1: TRAIN JOURNEY DETAILS */
                   <div className="space-y-5 animate-in fade-in duration-200">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                      <TrainFront className="w-4 h-4 text-amber-600" /> TRAIN JOURNEY DETAILS
+                    <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+                      <TrainFront className="w-4 h-4 text-emerald-400" /> TRAIN JOURNEY DETAILS
                     </h3>
 
                     {/* From Station & To Station */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
                           From Station *
                         </label>
                         <input
@@ -517,11 +520,11 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                           onChange={(e) =>
                             setTrainData((prev) => ({ ...prev, from_station: e.target.value }))
                           }
-                          className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                          className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark] placeholder:text-slate-500"
                         />
                       </div>
                       <div>
-                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
                           To Station *
                         </label>
                         <input
@@ -531,7 +534,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                           onChange={(e) =>
                             setTrainData((prev) => ({ ...prev, to_station: e.target.value }))
                           }
-                          className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                          className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark] placeholder:text-slate-500"
                         />
                       </div>
                     </div>
@@ -539,8 +542,8 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                     {/* Journey Date, Preferred Train, Class, Quota */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                       <div>
-                        <label className="text-xs font-bold text-slate-700 block mb-1">
-                          <Calendar className="w-3.5 h-3.5 inline mr-1 text-amber-600" /> Journey Date *
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
+                          <Calendar className="w-3.5 h-3.5 inline mr-1 text-emerald-400" /> Journey Date *
                         </label>
                         <input
                           type="date"
@@ -549,12 +552,12 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                           onChange={(e) =>
                             setTrainData((prev) => ({ ...prev, date: e.target.value }))
                           }
-                          className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                          className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
                         />
                       </div>
 
                       <div>
-                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
                           Preferred Train
                         </label>
                         <input
@@ -564,12 +567,12 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                           onChange={(e) =>
                             setTrainData((prev) => ({ ...prev, preferred_train: e.target.value }))
                           }
-                          className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                          className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark] placeholder:text-slate-500"
                         />
                       </div>
 
                       <div>
-                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
                           Class *
                         </label>
                         <select
@@ -577,10 +580,10 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                           onChange={(e) =>
                             setTrainData((prev) => ({ ...prev, travel_class: e.target.value }))
                           }
-                          className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                          className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
                         >
                           {CLASS_OPTIONS.map((c) => (
-                            <option key={c.value} value={c.value}>
+                            <option key={c.value} value={c.value} className="bg-[#0b1329] text-white">
                               {c.label}
                             </option>
                           ))}
@@ -588,7 +591,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                       </div>
 
                       <div>
-                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
                           Quota *
                         </label>
                         <select
@@ -596,10 +599,10 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                           onChange={(e) =>
                             setTrainData((prev) => ({ ...prev, quota: e.target.value }))
                           }
-                          className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                          className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
                         >
                           {QUOTA_OPTIONS.map((q) => (
-                            <option key={q.value} value={q.value}>
+                            <option key={q.value} value={q.value} className="bg-[#0b1329] text-white">
                               {q.label}
                             </option>
                           ))}
@@ -610,7 +613,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                     {/* Preferred Time & Train Number */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
                           Preferred Time
                         </label>
                         <input
@@ -619,12 +622,12 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                           onChange={(e) =>
                             setTrainData((prev) => ({ ...prev, time: e.target.value }))
                           }
-                          className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                          className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
                         />
                       </div>
 
                       <div>
-                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
                           Train Number (Optional)
                         </label>
                         <input
@@ -634,17 +637,17 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                           onChange={(e) =>
                             setTrainData((prev) => ({ ...prev, train_number: e.target.value }))
                           }
-                          className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                          className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark] placeholder:text-slate-500"
                         />
                       </div>
                     </div>
 
                     {/* Continue Button */}
-                    <div className="flex justify-end pt-4 border-t border-slate-100">
+                    <div className="flex justify-end pt-4 border-t border-white/10">
                       <button
                         type="button"
                         onClick={handleContinueToPassengers}
-                        className="bg-[#f97316] hover:bg-[#ea580c] text-white font-black px-8 py-3.5 rounded-xl uppercase text-sm shadow-md transition-all hover:scale-105 cursor-pointer"
+                        className="bg-[#00c58e] hover:bg-[#00a87a] text-white font-black px-10 sm:px-12 py-3.5 rounded-2xl uppercase tracking-wider text-sm shadow-xl shadow-[#00c58e]/30 transition-all hover:scale-102 active:scale-98 cursor-pointer flex items-center gap-2"
                       >
                         CONTINUE TO PASSENGER DETAILS →
                       </button>
@@ -656,20 +659,20 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                   /* IMAGE 2: PASSENGER DETAILS */
                   <div className="space-y-5 animate-in fade-in duration-200">
                     <div className="flex items-center justify-between flex-wrap gap-3">
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                        <Users className="w-4 h-4 text-amber-600" /> PASSENGER DETAILS
+                      <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+                        <Users className="w-4 h-4 text-emerald-400" /> PASSENGER DETAILS
                       </h3>
                       <div className="flex items-center gap-2">
-                        <label className="text-xs font-bold text-slate-700">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                           Number of Passengers:
                         </label>
                         <select
                           value={passengers.length}
                           onChange={(e) => setPassengerCount(Number(e.target.value))}
-                          className="bg-white border border-amber-400 rounded-xl px-3 py-1.5 text-sm font-black text-amber-800 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none shadow-2xs"
+                          className="bg-[#111c3a] border border-emerald-500/40 rounded-xl px-3 py-1.5 text-sm font-black text-emerald-300 focus:ring-2 focus:ring-[#00c58e]/20 outline-none shadow-inner [color-scheme:dark]"
                         >
                           {[1, 2, 3, 4, 5, 6].map((n) => (
-                            <option key={n} value={n}>
+                            <option key={n} value={n} className="bg-[#0b1329] text-white">
                               {n}
                             </option>
                           ))}
@@ -682,10 +685,10 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                       {passengers.map((p, idx) => (
                         <div
                           key={idx}
-                          className="bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-2xs"
+                          className="bg-[#111c3a]/80 border border-white/10 rounded-2xl p-4 sm:p-5 shadow-inner text-white"
                         >
                           <div className="flex items-center gap-3">
-                            <span className="text-xs font-extrabold text-amber-800 shrink-0 w-5">
+                            <span className="text-xs font-black text-emerald-400 shrink-0 w-5">
                               {idx + 1}.
                             </span>
 
@@ -696,7 +699,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                                   placeholder="Full Name (as per Aadhaar / ID)"
                                   value={p.name}
                                   onChange={(e) => updatePassenger(idx, "name", e.target.value)}
-                                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none"
+                                  className="w-full bg-[#0b1329]/90 border border-white/15 rounded-xl px-3 py-2 text-xs font-bold text-white focus:border-[#00c58e] outline-none placeholder:text-slate-500 [color-scheme:dark]"
                                 />
                               </div>
 
@@ -708,7 +711,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                                   placeholder="Age"
                                   value={p.age}
                                   onChange={(e) => updatePassenger(idx, "age", e.target.value)}
-                                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none"
+                                  className="w-full bg-[#0b1329]/90 border border-white/15 rounded-xl px-3 py-2 text-xs font-bold text-white focus:border-[#00c58e] outline-none placeholder:text-slate-500 [color-scheme:dark]"
                                 />
                               </div>
 
@@ -716,11 +719,11 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                                 <select
                                   value={p.gender}
                                   onChange={(e) => updatePassenger(idx, "gender", e.target.value)}
-                                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none"
+                                  className="w-full bg-[#0b1329]/90 border border-white/15 rounded-xl px-3 py-2 text-xs font-bold text-white focus:border-[#00c58e] outline-none [color-scheme:dark]"
                                 >
-                                  <option>Male</option>
-                                  <option>Female</option>
-                                  <option>Child</option>
+                                  <option className="bg-[#0b1329]">Male</option>
+                                  <option className="bg-[#0b1329]">Female</option>
+                                  <option className="bg-[#0b1329]">Child</option>
                                 </select>
                               </div>
                             </div>
@@ -729,7 +732,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                               <button
                                 type="button"
                                 onClick={() => removePassenger(idx)}
-                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors shrink-0 cursor-pointer"
+                                className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition-colors shrink-0 cursor-pointer"
                                 title="Remove Passenger"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -740,14 +743,14 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                       ))}
                     </div>
 
-                    {/* Yellow Boarding Details Box */}
-                    <div className="bg-amber-50/40 border border-amber-300/80 rounded-2xl p-4 sm:p-5 space-y-3">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-800 block">
+                    {/* Boarding Details Box */}
+                    <div className="bg-[#111c3a]/90 border border-emerald-500/30 rounded-2xl p-4 sm:p-5 space-y-3 shadow-inner">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-emerald-300 block">
                         BOARDING DETAILS (FOR DRIVER / PICKUP)
                       </span>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="text-xs font-bold text-slate-700 block mb-1">
+                          <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1">
                             Boarding Point *
                           </label>
                           <input
@@ -757,11 +760,11 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                             onChange={(e) =>
                               setTrainData((prev) => ({ ...prev, boarding_point: e.target.value }))
                             }
-                            className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                            className="w-full bg-[#0b1329]/90 border border-white/15 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-bold text-white outline-none focus:border-[#00c58e] [color-scheme:dark] placeholder:text-slate-500"
                           />
                         </div>
                         <div>
-                          <label className="text-xs font-bold text-slate-700 block mb-1">
+                          <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1">
                             Full Boarding Address *
                           </label>
                           <input
@@ -771,18 +774,18 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                             onChange={(e) =>
                               setTrainData((prev) => ({ ...prev, boarding_address: e.target.value }))
                             }
-                            className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                            className="w-full bg-[#0b1329]/90 border border-white/15 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-bold text-white outline-none focus:border-[#00c58e] [color-scheme:dark] placeholder:text-slate-500"
                           />
                         </div>
                       </div>
                     </div>
 
                     {/* Bottom Actions */}
-                    <div className="flex justify-between pt-4 border-t border-slate-100">
+                    <div className="flex items-center justify-between pt-4 border-t border-white/10">
                       <button
                         type="button"
                         onClick={() => setStep("JOURNEY")}
-                        className="text-xs font-bold text-slate-600 hover:text-slate-900 px-4 py-2.5 border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer"
+                        className="text-xs font-bold text-slate-300 hover:text-white px-4 py-2.5 border border-white/15 bg-white/5 rounded-xl hover:bg-white/10 transition-colors shadow-sm cursor-pointer"
                       >
                         ← Back to Journey Details
                       </button>
@@ -791,7 +794,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                         type="button"
                         onClick={handleCompleteTrainBooking}
                         disabled={isSubmitting}
-                        className="bg-[#f97316] hover:bg-[#ea580c] text-white font-black px-10 py-3.5 rounded-xl uppercase text-sm shadow-md transition-all hover:scale-105 disabled:opacity-60 cursor-pointer"
+                        className="bg-[#00c58e] hover:bg-[#00a87a] text-white font-black px-10 sm:px-12 py-3.5 rounded-2xl uppercase tracking-wider text-sm shadow-xl shadow-[#00c58e]/30 transition-all hover:scale-102 active:scale-98 disabled:opacity-60 cursor-pointer flex items-center gap-2"
                       >
                         {isSubmitting ? "Generating Ticket..." : "CONTINUE TO BOOKING →"}
                       </button>

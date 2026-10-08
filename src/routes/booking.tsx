@@ -1069,42 +1069,41 @@ function BookingPage() {
 
           {/* STEP 1 FOR OTHER SERVICES (Train, Bus, Flight, Tour) */}
           {step === 1 && serviceType !== "CAB" && (
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <div>
-                  {(serviceType === "BUS" || serviceType === "FLIGHT" || serviceType === "TOUR") && (
-                    <h2 className="font-extrabold text-slate-900 text-lg">
-                      {serviceType === "BUS" && "Bus Ticket Booking Assistance"}
-                      {serviceType === "FLIGHT" && "Domestic & International Flight Booking"}
-                      {serviceType === "TOUR" && "Holiday Tour Packages"}
-                    </h2>
-                  )}
-                  {serviceType === "TOUR" && (
-                    <p className="text-xs text-slate-500">
-                      Curated holiday itineraries across South India
-                    </p>
-                  )}
+            <div className="bg-[#0B132B]/95 backdrop-blur-xl border border-white/15 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/60 space-y-6 animate-in fade-in duration-300 text-white">
+              <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xs font-black uppercase tracking-wider text-emerald-300 bg-emerald-950/70 border border-emerald-500/40 rounded-full px-3.5 py-1 shadow-sm">
+                    {serviceType === "TRAIN" && "🚅 Train Booking"}
+                    {serviceType === "FLIGHT" && "✈️ Flight Booking"}
+                    {serviceType === "BUS" && "🚌 Bus Booking"}
+                    {serviceType === "TOUR" && "🌴 Tour Packages"}
+                  </span>
+                  <span className="text-slate-300 text-xs sm:text-sm font-semibold">
+                    {serviceType === "TOUR"
+                      ? "Curated holiday itineraries across South India"
+                      : "Select Journey & Schedule"}
+                  </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setStep(0)}
-                  className="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1 px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 ml-auto"
+                  className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1.5 px-3.5 py-1.5 border border-white/15 bg-white/5 rounded-xl hover:bg-white/10 transition-colors shadow-sm cursor-pointer ml-auto"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5" /> Back to Services
+                  <ArrowLeft className="w-3.5 h-3.5 text-emerald-400" /> Back to Services
                 </button>
               </div>
 
               {/* 3 Ticket Switcher Tabs (Train, Flight, Bus) */}
               {serviceType !== "TOUR" && (
                 <div className="flex justify-center pb-2">
-                  <div className="inline-flex rounded-xl border border-slate-300 overflow-hidden bg-slate-100 p-1 gap-1 shadow-2xs">
+                  <div className="inline-flex rounded-full border border-white/15 bg-[#111c3a]/90 p-1.5 gap-1.5 shadow-inner">
                     <button
                       type="button"
                       onClick={() => setServiceType("TRAIN")}
-                      className={`px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 ${
+                      className={`px-5 py-2 rounded-full text-xs sm:text-sm font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
                         serviceType === "TRAIN"
-                          ? "bg-[#0E6B50] text-white shadow-sm font-extrabold"
-                          : "text-slate-700 hover:bg-slate-200"
+                          ? "bg-[#00c58e] text-white shadow-lg shadow-[#00c58e]/30"
+                          : "text-slate-300 hover:text-white hover:bg-white/5"
                       }`}
                     >
                       <TrainFront className="w-4 h-4" /> Train Booking
@@ -1112,10 +1111,10 @@ function BookingPage() {
                     <button
                       type="button"
                       onClick={() => setServiceType("FLIGHT")}
-                      className={`px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 ${
+                      className={`px-5 py-2 rounded-full text-xs sm:text-sm font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
                         serviceType === "FLIGHT"
-                          ? "bg-[#0E6B50] text-white shadow-sm font-extrabold"
-                          : "text-slate-700 hover:bg-slate-200"
+                          ? "bg-[#00c58e] text-white shadow-lg shadow-[#00c58e]/30"
+                          : "text-slate-300 hover:text-white hover:bg-white/5"
                       }`}
                     >
                       <Plane className="w-4 h-4" /> Flight Booking
@@ -1123,10 +1122,10 @@ function BookingPage() {
                     <button
                       type="button"
                       onClick={() => setServiceType("BUS")}
-                      className={`px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 ${
+                      className={`px-5 py-2 rounded-full text-xs sm:text-sm font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
                         serviceType === "BUS"
-                          ? "bg-[#0E6B50] text-white shadow-sm font-extrabold"
-                          : "text-slate-700 hover:bg-slate-200"
+                          ? "bg-[#00c58e] text-white shadow-lg shadow-[#00c58e]/30"
+                          : "text-slate-300 hover:text-white hover:bg-white/5"
                       }`}
                     >
                       <Bus className="w-4 h-4" /> Bus Booking
