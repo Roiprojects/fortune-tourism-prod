@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { toast } from "sonner";
 import {
   LayoutDashboard,
   CalendarDays,
@@ -483,46 +484,390 @@ export function AccountsReportsHub({
     appliedDailySearchQuery.trim()
   );
 
-  // Export Daily Reports to formatted Excel CSV
-  const handleExportExcelCSV = () => {
-    const headers = ["SL", "DATE", "TRAV ON", "TRAV BY", "PAX", "PH NO", "FROM", "TO", "PICK UP", "BOOKING", "OFF ADV", "DUE"];
-    const rows = filteredDailyRecords.map((r, idx) => [
-      idx + 1,
-      r.date,
-      r.trav_on,
-      r.trav_by,
-      `"${(r.pax || "").replace(/"/g, '""')}"`,
-      `"${r.ph_no || ""}"`,
-      `"${(r.from || "").replace(/"/g, '""')}"`,
-      `"${(r.to || "").replace(/"/g, '""')}"`,
-      `"${(r.pickup || "").replace(/"/g, '""')}"`,
-      r.booking,
-      r.off_adv,
-      r.due,
-    ]);
-    rows.push([
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "Total Cash",
-      dailyTotals.booking,
-      dailyTotals.offAdv,
-      dailyTotals.due,
-    ]);
+  // Export any active Financial Ledger report to formatted Excel CSV with UTF-8 BOM
+  const handleExportExcel = (reportKey: AccountReportKey = activeReport) => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const bom = "\uFEFF"; // UTF-8 Byte Order Mark for Excel
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
+    if (reportKey === "daily") {
+      const headers = [
+        "SL",
+        "DATE",
+        "TRAV ON",
+        "TRAV BY",
+        "PAX",
+        "PH NO",
+        "FROM",
+        "TO",
+        "PICK UP",
+        "BOOKING (₹)",
+        "OFF ADV (₹)",
+        "DUE (₹)",
+        "STATUS",
+      ];
+      const rows = filteredDailyRecords.map((r, idx) => [
+        idx + 1,
+        `"${r.date}"`,
+        `"${r.trav_on}"`,
+        `"${r.trav_by}"`,
+        `"${(r.pax || "").replace(/"/g, '""')}"`,
+        `"${r.ph_no || ""}"`,
+        `"${(r.from || "").replace(/"/g, '""')}"`,
+        `"${(r.to || "").replace(/"/g, '""')}"`,
+        `"${(r.pickup || "").replace(/"/g, '""')}"`,
+        r.booking,
+        r.off_adv,
+        r.due,
+        `"${r.status || "Pending"}"`,
+      ]);
+      // Total Cash Row
+      rows.push([
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        `"TOTAL CASH"`,
+        dailyTotals.booking,
+        dailyTotals.offAdv,
+        dailyTotals.due,
+        `""`,
+      ]);
+
+      const csvContent = bom + [headers.join(","), ...rows.map((e) => e.join(","))].join("\r\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `fortune_tourism_daily_reports_${todayStr}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success("Daily Reports Excel sheet downloaded successfully!");
+      return;
+    }
+
+    let headers: string[] = [];
+    let rows: (string | number)[][] = [];
+    let filename = `fortune_tourism_${reportKey}_report_${todayStr}.csv`;
+
+    if (reportKey === "credit_debit") {
+      headers = [
+        "Transaction ID",
+        "Date",
+        "Reference No",
+        "Particulars",
+        "Party / Client",
+        "Phone",
+        "Credit / Advance (₹)",
+        "Debit / Payout (₹)",
+        "Net Balance (₹)",
+        "Payment Mode",
+        "Status",
+        "Remarks",
+      ];
+      rows = filteredTransactions.map((t) => [
+        t.id,
+        `"${new Date(t.date).toLocaleDateString("en-IN")}"`,
+        `"${t.ref_number}"`,
+        `"${(t.particulars || "").replace(/"/g, '""')}"`,
+        `"${(t.customer_name || "").replace(/"/g, '""')}"`,
+        `"${t.phone || ""}"`,
+        t.income,
+        t.expense,
+        t.balance,
+        t.payment_method,
+        t.status,
+        `"${(t.notes || "").replace(/"/g, '""')}"`,
+      ]);
+      rows.push([
+        "",
+        "",
+        "",
+        `"TOTAL POSITION"`,
+        "",
+        "",
+        metrics.totalIncome,
+        metrics.totalExpenses,
+        metrics.netBalance,
+        "",
+        "",
+        "",
+      ]);
+    } else if (reportKey === "payment") {
+      headers = [
+        "Transaction ID",
+        "Date",
+        "Voucher No",
+        "Payment Mode",
+        "Amount Received (₹)",
+        "Payout Expense (₹)",
+        "Customer Name",
+        "Phone",
+        "Particulars",
+        "Status",
+        "Notes",
+      ];
+      rows = filteredTransactions.map((t) => [
+        t.id,
+        `"${new Date(t.date).toLocaleDateString("en-IN")}"`,
+        `"${t.ref_number}"`,
+        t.payment_method,
+        t.income,
+        t.expense,
+        `"${(t.customer_name || "").replace(/"/g, '""')}"`,
+        `"${t.phone || ""}"`,
+        `"${(t.particulars || "").replace(/"/g, '""')}"`,
+        t.status,
+        `"${(t.notes || "").replace(/"/g, '""')}"`,
+      ]);
+      rows.push([
+        "",
+        "",
+        `"TOTALS"`,
+        "",
+        metrics.totalIncome,
+        metrics.totalExpenses,
+        "",
+        "",
+        "",
+        "",
+        "",
+      ]);
+    } else if (reportKey === "cash_flow") {
+      headers = [
+        "Transaction ID",
+        "Date",
+        "Particulars",
+        "Voucher Ref",
+        "Payment Channel",
+        "Physical Cash Inflow (₹)",
+        "Online / Bank Inflow (₹)",
+        "Operating Outflow (₹)",
+        "Net Cash Movement (₹)",
+        "Customer",
+        "Notes",
+      ];
+      rows = filteredTransactions.map((t) => {
+        const isCash = t.payment_method === "CASH";
+        return [
+          t.id,
+          `"${new Date(t.date).toLocaleDateString("en-IN")}"`,
+          `"${(t.particulars || "").replace(/"/g, '""')}"`,
+          `"${t.ref_number}"`,
+          t.payment_method,
+          isCash ? t.income : 0,
+          !isCash ? t.income : 0,
+          t.expense,
+          t.balance,
+          `"${(t.customer_name || "").replace(/"/g, '""')}"`,
+          `"${(t.notes || "").replace(/"/g, '""')}"`,
+        ];
+      });
+      rows.push([
+        "",
+        "",
+        `"TOTAL CASH FLOW"`,
+        "",
+        "",
+        metrics.totalCash,
+        metrics.totalOnline,
+        metrics.totalExpenses,
+        metrics.netBalance,
+        "",
+        "",
+      ]);
+    } else if (reportKey === "dues") {
+      headers = [
+        "Transaction ID",
+        "Date",
+        "Booking Ref / Voucher",
+        "Customer Name",
+        "Phone Number",
+        "Service Sector",
+        "Particulars",
+        "Total Billed (₹)",
+        "Outstanding Due (₹)",
+        "Recovery Status",
+        "Notes",
+      ];
+      rows = filteredTransactions.map((t) => [
+        t.id,
+        `"${new Date(t.date).toLocaleDateString("en-IN")}"`,
+        `"${t.ref_number}"`,
+        `"${(t.customer_name || "").replace(/"/g, '""')}"`,
+        `"${t.phone || ""}"`,
+        t.category,
+        `"${(t.particulars || "").replace(/"/g, '""')}"`,
+        t.income,
+        t.income,
+        "PENDING RECOVERY",
+        `"${(t.notes || "").replace(/"/g, '""')}"`,
+      ]);
+      rows.push([
+        "",
+        "",
+        "",
+        `"TOTAL OUTSTANDING DUES"`,
+        "",
+        "",
+        "",
+        metrics.totalIncome,
+        metrics.totalIncome,
+        "",
+        "",
+      ]);
+    } else if (reportKey === "profit_loss") {
+      headers = [
+        "Transaction ID",
+        "Date",
+        "Service Description",
+        "Sector",
+        "Client",
+        "Gross Revenue (₹)",
+        "Direct Operational Cost (₹)",
+        "Net Operating Profit (₹)",
+        "Profit Margin (%)",
+        "Audit Status",
+        "Notes",
+      ];
+      rows = filteredTransactions.map((t) => {
+        const net = t.income - t.expense;
+        const margin = t.income > 0 ? ((net / t.income) * 100).toFixed(1) + "%" : "0.0%";
+        return [
+          t.id,
+          `"${new Date(t.date).toLocaleDateString("en-IN")}"`,
+          `"${(t.particulars || "").replace(/"/g, '""')}"`,
+          t.category,
+          `"${(t.customer_name || "").replace(/"/g, '""')}"`,
+          t.income,
+          t.expense,
+          net,
+          margin,
+          t.status,
+          `"${(t.notes || "").replace(/"/g, '""')}"`,
+        ];
+      });
+      rows.push([
+        "",
+        "",
+        `"CONSOLIDATED P&L"`,
+        "",
+        "",
+        metrics.totalIncome,
+        metrics.totalExpenses,
+        metrics.netBalance,
+        metrics.profitMargin + "%",
+        "",
+        "",
+      ]);
+    } else if (reportKey === "online_cash_inflow") {
+      headers = [
+        "Transaction ID",
+        "Date",
+        "Voucher Ref",
+        "Customer Name",
+        "Phone",
+        "Digital Gateway / UPI (₹)",
+        "Counter Physical Cash (₹)",
+        "Total Intake (₹)",
+        "Mode",
+        "Status",
+        "Notes",
+      ];
+      rows = filteredTransactions.map((t) => {
+        const isCash = t.payment_method === "CASH";
+        return [
+          t.id,
+          `"${new Date(t.date).toLocaleDateString("en-IN")}"`,
+          `"${t.ref_number}"`,
+          `"${(t.customer_name || "").replace(/"/g, '""')}"`,
+          `"${t.phone || ""}"`,
+          !isCash ? t.income : 0,
+          isCash ? t.income : 0,
+          t.income,
+          t.payment_method,
+          t.status,
+          `"${(t.notes || "").replace(/"/g, '""')}"`,
+        ];
+      });
+      rows.push([
+        "",
+        "",
+        "",
+        `"TOTAL INFLOW INTAKE"`,
+        "",
+        metrics.totalOnline,
+        metrics.totalCash,
+        metrics.totalIncome,
+        "",
+        "",
+        "",
+      ]);
+    } else {
+      // Default / Reports / Final Reports
+      headers = [
+        "Transaction ID",
+        "Date",
+        "Voucher / Ref No",
+        "Particulars",
+        "Sector",
+        "Customer",
+        "Phone",
+        "Payment Method",
+        "Status",
+        "Income (₹)",
+        "Expense (₹)",
+        "Balance (₹)",
+        "Notes",
+      ];
+      rows = filteredTransactions.map((t) => [
+        t.id,
+        `"${new Date(t.date).toLocaleDateString("en-IN")}"`,
+        `"${t.ref_number}"`,
+        `"${(t.particulars || "").replace(/"/g, '""')}"`,
+        t.category,
+        `"${(t.customer_name || "").replace(/"/g, '""')}"`,
+        `"${t.phone || ""}"`,
+        t.payment_method,
+        t.status,
+        t.income,
+        t.expense,
+        t.balance,
+        `"${(t.notes || "").replace(/"/g, '""')}"`,
+      ]);
+      rows.push([
+        "",
+        "",
+        "",
+        `"REPORT TOTALS"`,
+        "",
+        "",
+        "",
+        "",
+        "",
+        metrics.totalIncome,
+        metrics.totalExpenses,
+        metrics.netBalance,
+        "",
+      ]);
+    }
+
+    const csvContent = bom + [headers.join(","), ...rows.map((e) => e.join(","))].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Daily_Reports_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success(`${activeDef.shortTitle} Excel sheet downloaded successfully!`);
   };
 
   // Daily Report Add / Edit Modal State
@@ -550,6 +895,52 @@ export function AccountsReportsHub({
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
+
+  const [appliedStartDate, setAppliedStartDate] = useState("");
+  const [appliedEndDate, setAppliedEndDate] = useState("");
+  const [appliedCategoryFilter, setAppliedCategoryFilter] = useState("ALL");
+  const [appliedSearchQuery, setAppliedSearchQuery] = useState("");
+
+  const handleGeneralSearch = () => {
+    if (startDate && endDate && endDate < startDate) {
+      setDateError("To Date cannot be earlier than From Date");
+      return;
+    }
+    setDateError(null);
+    setIsSearching(true);
+    setTimeout(() => setIsSearching(false), 250);
+
+    setAppliedStartDate(startDate);
+    setAppliedEndDate(endDate);
+    setAppliedCategoryFilter(categoryFilter);
+    setAppliedSearchQuery(searchQuery);
+
+    setSearchFeedback("Search applied");
+    setTimeout(() => setSearchFeedback(null), 2500);
+  };
+
+  const handleResetGeneralFilters = () => {
+    setStartDate("");
+    setEndDate("");
+    setCategoryFilter("ALL");
+    setPaymentMethodFilter("ALL");
+    setStatusFilter("ALL");
+    setSearchQuery("");
+    setAppliedStartDate("");
+    setAppliedEndDate("");
+    setAppliedCategoryFilter("ALL");
+    setAppliedSearchQuery("");
+    setDateError(null);
+    setSearchFeedback("Filters reset");
+    setTimeout(() => setSearchFeedback(null), 2000);
+  };
+
+  const hasActiveGeneralFilters = Boolean(
+    appliedStartDate ||
+    appliedEndDate ||
+    appliedCategoryFilter !== "ALL" ||
+    appliedSearchQuery.trim()
+  );
 
   useEffect(() => {
     if (initialReport === "daybook") {
@@ -914,20 +1305,30 @@ export function AccountsReportsHub({
   const filteredTransactions = useMemo(() => {
     return transactions.filter((t) => {
       // Search
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
+      const q = (appliedSearchQuery || searchQuery).toLowerCase().trim();
+      if (q) {
         const matches =
           t.ref_number.toLowerCase().includes(q) ||
           t.particulars.toLowerCase().includes(q) ||
           (t.customer_name && t.customer_name.toLowerCase().includes(q)) ||
           (t.phone && t.phone.includes(q)) ||
+          (t.category && t.category.toLowerCase().includes(q)) ||
+          (t.payment_method && t.payment_method.toLowerCase().includes(q)) ||
           (t.notes && t.notes.toLowerCase().includes(q));
         if (!matches) return false;
       }
 
-      // Category
-      if (categoryFilter !== "ALL" && t.category !== categoryFilter) {
-        return false;
+      // Category / Sector
+      const cat = appliedCategoryFilter !== "ALL" ? appliedCategoryFilter : categoryFilter;
+      if (cat !== "ALL") {
+        const tCat = (t.category || "").toUpperCase();
+        if (cat === "TOUR" && !tCat.includes("TOUR")) return false;
+        if (cat === "CAB" && !tCat.includes("CAB") && !tCat.includes("CAR")) return false;
+        if (cat === "FLIGHT" && !tCat.includes("FLIGHT")) return false;
+        if (cat === "TRAIN" && !tCat.includes("TRAIN")) return false;
+        if (cat === "BUS" && !tCat.includes("BUS")) return false;
+        if (cat === "HOTEL" && !tCat.includes("HOTEL")) return false;
+        if (cat === "GENERAL" && tCat !== "GENERAL") return false;
       }
 
       // Payment method
@@ -948,20 +1349,35 @@ export function AccountsReportsHub({
       }
 
       // Date range filter
-      if (startDate) {
+      const fromD = appliedStartDate || startDate;
+      const toD = appliedEndDate || endDate;
+      if (fromD) {
+        const sTime = new Date(fromD).setHours(0, 0, 0, 0);
         const tTime = new Date(t.date).getTime();
-        const sTime = new Date(startDate).getTime();
         if (tTime < sTime) return false;
       }
-      if (endDate) {
+      if (toD) {
+        const eTime = new Date(toD).setHours(23, 59, 59, 999);
         const tTime = new Date(t.date).getTime();
-        const eTime = new Date(endDate).getTime() + 86400000;
         if (tTime > eTime) return false;
       }
 
       return true;
     });
-  }, [transactions, searchQuery, categoryFilter, paymentMethodFilter, statusFilter, activeReport, startDate, endDate]);
+  }, [
+    transactions,
+    searchQuery,
+    appliedSearchQuery,
+    categoryFilter,
+    appliedCategoryFilter,
+    paymentMethodFilter,
+    statusFilter,
+    activeReport,
+    startDate,
+    appliedStartDate,
+    endDate,
+    appliedEndDate,
+  ]);
 
   // Aggregate Metrics
   const metrics = useMemo(() => {
@@ -1000,89 +1416,9 @@ export function AccountsReportsHub({
     };
   }, [filteredTransactions]);
 
-  // Export to CSV
+  // Export to CSV / Excel
   const handleExportCSV = () => {
-    if (activeReport === "daily") {
-      const headers = [
-        "SL",
-        "DATE",
-        "TRAV ON",
-        "TRAV BY",
-        "PAX",
-        "PH NO",
-        "FROM",
-        "TO",
-        "PICK UP",
-        "BOOKING",
-        "OFF ADV",
-        "DUE",
-      ];
-      const rows = filteredDailyRecords.map((r, idx) => [
-        idx + 1,
-        `"${r.date}"`,
-        `"${r.trav_on}"`,
-        `"${r.trav_by}"`,
-        `"${(r.pax || "").replace(/"/g, '""')}"`,
-        `"${r.ph_no || ""}"`,
-        `"${(r.from || "").replace(/"/g, '""')}"`,
-        `"${(r.to || "").replace(/"/g, '""')}"`,
-        `"${(r.pickup || "").replace(/"/g, '""')}"`,
-        r.booking,
-        r.off_adv,
-        r.due,
-      ]);
-      // Total Cash Row
-      rows.push([
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        `"Total Cash"`,
-        dailyTotals.booking,
-        dailyTotals.offAdv,
-        dailyTotals.due,
-      ]);
-
-      const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `fortune_tourism_daily_reports_${new Date().toISOString().slice(0, 10)}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      return;
-    }
-
-    const headers = ["Transaction ID", "Date", "Voucher/Ref", "Particulars", "Category", "Payment Method", "Status", "Income (₹)", "Expense (₹)", "Balance (₹)", "Customer", "Phone", "Notes"];
-    const rows = filteredTransactions.map((t) => [
-      t.id,
-      new Date(t.date).toLocaleString("en-IN"),
-      `"${t.ref_number}"`,
-      `"${t.particulars.replace(/"/g, '""')}"`,
-      t.category,
-      t.payment_method,
-      t.status,
-      t.income,
-      t.expense,
-      t.balance,
-      `"${(t.customer_name || "").replace(/"/g, '""')}"`,
-      `"${t.phone || ""}"`,
-      `"${(t.notes || "").replace(/"/g, '""')}"`,
-    ]);
-
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `fortune_tourism_${activeReport}_report_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    handleExportExcel(activeReport);
   };
 
   // Print / PDF Download
@@ -1111,36 +1447,34 @@ export function AccountsReportsHub({
             </p>
           </div>
 
-          {/* Action buttons (Hidden on Daily Reports) */}
-          {activeReport !== "daily" && (
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={fetchLiveTransactions}
-                disabled={loading}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition cursor-pointer"
-                title="Refresh ledger from database"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-amber-400" : ""}`} />
-                <span>Refresh</span>
-              </button>
-              <button
-                onClick={handleExportCSV}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-700/80 hover:bg-emerald-600 text-white border border-emerald-500/40 text-xs font-bold transition shadow-xs cursor-pointer"
-                title="Export filtered records to CSV/Excel"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export CSV</span>
-              </button>
-              <button
-                onClick={handlePrint}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow-md cursor-pointer"
-                title="Print report or save as PDF"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Print / PDF</span>
-              </button>
-            </div>
-          )}
+          {/* Action buttons across all Financial Ledger reports */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={fetchLiveTransactions}
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition cursor-pointer"
+              title="Refresh ledger from database"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-amber-400" : ""}`} />
+              <span>Refresh</span>
+            </button>
+            <button
+              onClick={() => handleExportExcel(activeReport)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#107c41] hover:bg-[#0d6535] text-white border border-emerald-500/40 text-xs font-bold transition shadow-xs cursor-pointer"
+              title="Download Excel Sheet (.csv)"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export Excel</span>
+            </button>
+            <button
+              onClick={handlePrint}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow-md cursor-pointer"
+              title="Print report or save as PDF"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Print / PDF</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1268,160 +1602,7 @@ export function AccountsReportsHub({
         </div>
       )}
 
-      {/* Filter Controls Card - Only shown for non-daily reports */}
-      {activeReport !== "daily" && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-amber-500" />
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                Filter &amp; Audit Tools
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-500">
-                Showing <span className="font-bold text-slate-900">{filteredTransactions.length}</span> transactions
-              </span>
-              {(searchQuery || categoryFilter !== "ALL" || paymentMethodFilter !== "ALL" || statusFilter !== "ALL" || startDate || endDate) && (
-                <button
-                  onClick={() => {
-                    setSearchQuery("");
-                    setCategoryFilter("ALL");
-                    setPaymentMethodFilter("ALL");
-                    setStatusFilter("ALL");
-                    setStartDate("");
-                    setEndDate("");
-                    setDatePreset("all");
-                  }}
-                  className="text-xs font-bold text-rose-600 hover:text-rose-800 transition cursor-pointer"
-                >
-                  Reset Filters
-                </button>
-              )}
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            {/* Search Box */}
-            <div className="lg:col-span-2 relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search ID, passenger, phone, voucher..."
-                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-400 outline-none"
-              />
-            </div>
-
-            {/* Booking Type Filter */}
-            <div>
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-400 outline-none font-semibold text-slate-700 cursor-pointer"
-              >
-                <option value="ALL">All Booking Types</option>
-                <option value="FLIGHT">Flight</option>
-                <option value="BUS">Bus</option>
-                <option value="TRAIN">Train</option>
-                <option value="CAR">Car / Taxi</option>
-                <option value="HOTEL">Hotel</option>
-                <option value="TOUR">Tour Package</option>
-              </select>
-            </div>
-
-            {/* Payment Method Filter */}
-            <div>
-              <select
-                value={paymentMethodFilter}
-                onChange={(e) => setPaymentMethodFilter(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-400 outline-none font-semibold text-slate-700 cursor-pointer"
-              >
-                <option value="ALL">All Payment Methods</option>
-                <option value="CASH">Cash Inflow</option>
-                <option value="UPI">UPI / QR Code</option>
-                <option value="CARD">Debit / Credit Card</option>
-                <option value="NETBANKING">Net Banking</option>
-                <option value="RAZORPAY">Razorpay Gateway</option>
-              </select>
-            </div>
-
-            {/* Status Filter */}
-            <div>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-400 outline-none font-semibold text-slate-700 cursor-pointer"
-              >
-                <option value="ALL">All Statuses</option>
-                <option value="PAID">Paid</option>
-                <option value="PENDING">Pending Dues</option>
-                <option value="REFUNDED">Refunded</option>
-                <option value="CANCELLED">Cancelled</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Date Filters Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3 pt-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-600 whitespace-nowrap">From:</span>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-400 outline-none text-slate-700"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-600 whitespace-nowrap">To:</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-400 outline-none text-slate-700"
-              />
-            </div>
-            <div className="flex items-center gap-2 sm:col-span-2">
-              <button
-                onClick={() => {
-                  const today = new Date().toISOString().slice(0, 10);
-                  setStartDate(today);
-                  setEndDate(today);
-                  setDatePreset("today");
-                }}
-                className="px-2.5 py-1.5 text-xs font-bold rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition cursor-pointer"
-              >
-                Today
-              </button>
-              <button
-                onClick={() => {
-                  const now = new Date();
-                  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-                  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
-                  setStartDate(firstDay);
-                  setEndDate(lastDay);
-                  setDatePreset("month");
-                }}
-                className="px-2.5 py-1.5 text-xs font-bold rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition cursor-pointer"
-              >
-                This Month
-              </button>
-              <button
-                onClick={() => {
-                  setStartDate("");
-                  setEndDate("");
-                  setDatePreset("all");
-                }}
-                className="px-2.5 py-1.5 text-xs font-bold rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition cursor-pointer"
-              >
-                All Time
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Transaction Records Table / Daily Reports Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
@@ -1551,7 +1732,7 @@ export function AccountsReportsHub({
               {/* Excel Export Button */}
               <button
                 type="button"
-                onClick={handleExportExcelCSV}
+                onClick={() => handleExportExcel("daily")}
                 className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#107c41] hover:bg-[#0d6535] active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer shrink-0"
                 title="Download Excel Sheet (.csv)"
               >
@@ -1574,21 +1755,158 @@ export function AccountsReportsHub({
             </div>
           </div>
         ) : (
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2">
-              <FileSpreadsheet className="w-4 h-4 text-amber-500" />
-              <h3 className="font-black text-slate-900 text-sm">
-                {activeDef.shortTitle} Statement Transactions ({filteredTransactions.length})
-              </h3>
+          <div className="p-4 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+            {/* Left: Heading with orange icon & record count badge */}
+            <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="w-4 h-4 text-amber-500 shrink-0" />
+                <h3 className="font-black text-slate-900 text-sm whitespace-nowrap">
+                  {activeDef.shortTitle}
+                </h3>
+              </div>
+              <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200 shadow-2xs">
+                {filteredTransactions.length} {filteredTransactions.length === 1 ? "entry" : "entries"}
+              </span>
+              {searchFeedback && (
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full animate-in fade-in duration-150">
+                  {searchFeedback}
+                </span>
+              )}
             </div>
-            <span className="text-[11px] text-slate-500 font-semibold hidden sm:inline">
-              Double-entry verified against PostgreSQL
-            </span>
+
+            {/* Compact Controls: From Date -> To Date -> Sector/Booking Type -> Search Field -> Search Button -> Export Excel -> Reset */}
+            <div className="flex flex-col sm:flex-row sm:flex-wrap xl:flex-nowrap items-stretch sm:items-center gap-2 w-full xl:w-auto">
+              {/* From Date */}
+              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 focus-within:ring-2 focus-within:ring-amber-400 focus-within:border-amber-400 transition">
+                <label htmlFor="gen-from-date" className="text-[11px] font-bold text-slate-600 uppercase tracking-wider whitespace-nowrap">
+                  From:
+                </label>
+                <input
+                  id="gen-from-date"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    if (dateError) setDateError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleGeneralSearch();
+                  }}
+                  className="text-xs font-semibold text-slate-800 bg-transparent outline-none cursor-pointer w-full sm:w-auto"
+                />
+              </div>
+
+              {/* To Date */}
+              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 focus-within:ring-2 focus-within:ring-amber-400 focus-within:border-amber-400 transition">
+                <label htmlFor="gen-to-date" className="text-[11px] font-bold text-slate-600 uppercase tracking-wider whitespace-nowrap">
+                  To:
+                </label>
+                <input
+                  id="gen-to-date"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    if (dateError) setDateError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleGeneralSearch();
+                  }}
+                  className="text-xs font-semibold text-slate-800 bg-transparent outline-none cursor-pointer w-full sm:w-auto"
+                />
+              </div>
+
+              {/* Sector / Booking Types Dropdown */}
+              <div className="relative">
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="w-full sm:w-auto appearance-none bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 pr-8 text-xs font-bold text-slate-800 hover:bg-slate-100 focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none cursor-pointer transition"
+                >
+                  <option value="ALL">All Booking Types</option>
+                  <option value="TOUR">Tour Packages</option>
+                  <option value="CAB">Car / Cab</option>
+                  <option value="FLIGHT">Flight</option>
+                  <option value="TRAIN">Train</option>
+                  <option value="BUS">Bus</option>
+                  <option value="HOTEL">Hotel</option>
+                  <option value="GENERAL">General</option>
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+
+              {/* Search Query Field */}
+              <div className="relative flex-1 sm:w-44 xl:w-52">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleGeneralSearch();
+                  }}
+                  placeholder="Search name, ph, route, ref..."
+                  className="w-full pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setAppliedSearchQuery("");
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full"
+                    title="Clear search text"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+
+              {/* Search Button */}
+              <button
+                type="button"
+                onClick={handleGeneralSearch}
+                disabled={isSearching}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-1.5 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-black text-xs rounded-xl shadow-xs transition cursor-pointer shrink-0 disabled:opacity-75"
+              >
+                {isSearching ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Search className="w-3.5 h-3.5" />
+                )}
+                <span>Search</span>
+              </button>
+
+              {/* Excel Export Button */}
+              <button
+                type="button"
+                onClick={() => handleExportExcel(activeReport)}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#107c41] hover:bg-[#0d6535] active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer shrink-0"
+                title="Download Excel Sheet (.csv)"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export Excel</span>
+              </button>
+
+              {/* Reset Button */}
+              {hasActiveGeneralFilters && (
+                <button
+                  type="button"
+                  onClick={handleResetGeneralFilters}
+                  className="inline-flex items-center justify-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 transition cursor-pointer shrink-0"
+                  title="Reset all filters"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Reset</span>
+                </button>
+              )}
+            </div>
           </div>
         )}
 
         {/* Date Validation Error Message */}
-        {activeReport === "daily" && dateError && (
+        {dateError && (
           <div className="px-4 py-2 bg-rose-50 border-b border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2 animate-in fade-in">
             <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600" />
             <span>{dateError}</span>
@@ -1757,134 +2075,163 @@ export function AccountsReportsHub({
               </div>
             </div>
           ) : (
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[10px]">
-                  <th className="py-3 px-4">Date &amp; ID</th>
-                  <th className="py-3 px-4">Particulars &amp; Voucher</th>
-                  <th className="py-3 px-4">Sector</th>
-                  <th className="py-3 px-4">Customer</th>
-                  <th className="py-3 px-4">Method</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Income (₹)</th>
-                  <th className="py-3 px-4 text-right">Expense (₹)</th>
-                  <th className="py-3 px-4 text-right">Balance (₹)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
-                {filteredTransactions.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="py-12 text-center text-slate-400">
-                      <AlertCircle className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                      <p className="font-bold text-sm">No transaction records match the selected filters.</p>
-                      <p className="text-xs text-slate-400 mt-1">Try clearing your search query or selecting "All Time".</p>
-                    </td>
+            <div className="min-w-full inline-block align-middle">
+              <table className="w-full text-left text-xs border-collapse border border-slate-300 font-sans">
+                <thead>
+                  <tr className="bg-[#107c41] text-white font-black uppercase tracking-wider text-[11px]">
+                    <th className="py-2.5 px-3 text-center w-12 border border-[#0d6535] whitespace-nowrap">SL</th>
+                    <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">DATE</th>
+                    <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535]">PARTICULARS</th>
+                    <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">VOUCHER / REF</th>
+                    <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">SECTOR</th>
+                    <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535]">CUSTOMER</th>
+                    <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">METHOD</th>
+                    <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">STATUS</th>
+                    <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">INCOME</th>
+                    <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">EXPENSE</th>
+                    <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">BALANCE</th>
                   </tr>
-                ) : (
-                  filteredTransactions.map((t) => {
-                    return (
-                      <tr key={t.id} className="hover:bg-slate-50/80 transition">
-                        {/* Date & ID */}
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <p className="font-bold text-slate-900">{t.id}</p>
-                          <p className="text-[10px] text-slate-400">
+                </thead>
+                <tbody className="divide-y divide-slate-200 font-sans">
+                  {filteredTransactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={11} className="py-12 text-center text-slate-400 bg-white">
+                        <AlertCircle className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                        <p className="font-bold text-sm text-slate-600">No transaction records match the selected filters.</p>
+                        <p className="text-xs text-slate-400 mt-1">Try clearing your search query or selecting another date range.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredTransactions.map((t, idx) => {
+                      return (
+                        <tr
+                          key={t.id}
+                          className="odd:bg-white even:bg-[#f9fafb] hover:bg-[#e8f5e9] transition-colors border-b border-slate-300"
+                        >
+                          {/* SL */}
+                          <td className="py-2 px-3 text-center whitespace-nowrap font-bold text-slate-600 border border-slate-300 bg-slate-50/60">
+                            {idx + 1}
+                          </td>
+
+                          {/* Date */}
+                          <td className="py-2 px-3 text-center whitespace-nowrap font-medium text-slate-700 border border-slate-300">
                             {new Date(t.date).toLocaleDateString("en-IN", {
                               day: "2-digit",
-                              month: "short",
+                              month: "2-digit",
                               year: "numeric",
                             })}
-                          </p>
-                        </td>
+                          </td>
 
-                        {/* Particulars & Voucher */}
-                        <td className="py-3 px-4 max-w-xs">
-                          <p className="font-bold text-slate-800 line-clamp-1">{t.particulars}</p>
-                          <p className="text-[10px] font-mono text-slate-400">{t.ref_number}</p>
-                        </td>
+                          {/* Particulars */}
+                          <td className="py-2 px-3 font-semibold text-slate-900 border border-slate-300 max-w-xs truncate">
+                            {t.particulars}
+                          </td>
 
-                        {/* Sector / Category */}
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-700 border border-slate-200">
-                            {t.category}
-                          </span>
-                        </td>
+                          {/* Voucher / Ref */}
+                          <td className="py-2 px-3 text-center whitespace-nowrap font-mono text-slate-700 font-bold border border-slate-300 bg-slate-50/40">
+                            {t.ref_number}
+                          </td>
 
-                        {/* Customer */}
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <p className="font-semibold text-slate-800">{t.customer_name || "—"}</p>
-                          <p className="text-[10px] text-slate-400">{t.phone || ""}</p>
-                        </td>
+                          {/* Sector */}
+                          <td className="py-2 px-3 text-center whitespace-nowrap border border-slate-300">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-800 border border-slate-200">
+                              {t.category}
+                            </span>
+                          </td>
 
-                        {/* Payment Method */}
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                            t.payment_method === "CASH"
-                              ? "bg-amber-100 text-amber-800"
-                              : t.payment_method === "UPI"
-                              ? "bg-indigo-100 text-indigo-800"
-                              : "bg-cyan-100 text-cyan-800"
-                          }`}>
-                            {t.payment_method}
-                          </span>
-                        </td>
+                          {/* Customer */}
+                          <td className="py-2 px-3 whitespace-nowrap font-bold text-slate-800 border border-slate-300">
+                            <div>{t.customer_name || "Direct Customer"}</div>
+                            {t.phone && <div className="text-[10px] text-slate-500 font-normal">{t.phone}</div>}
+                          </td>
 
-                        {/* Status */}
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black ${
-                            t.status === "PAID"
-                              ? "bg-emerald-100 text-emerald-800 border border-emerald-300/60"
-                              : t.status === "PENDING"
-                              ? "bg-amber-100 text-amber-800 border border-amber-300/60"
-                              : t.status === "REFUNDED"
-                              ? "bg-purple-100 text-purple-800 border border-purple-300/60"
-                              : "bg-red-100 text-red-800 border border-red-300/60"
-                          }`}>
-                            {t.status === "PAID" && <CheckCircle2 className="w-3 h-3" />}
-                            {t.status === "PENDING" && <Clock className="w-3 h-3" />}
-                            {t.status === "REFUNDED" && <ArrowLeftRight className="w-3 h-3" />}
-                            {t.status === "CANCELLED" && <XCircle className="w-3 h-3" />}
-                            {t.status}
-                          </span>
-                        </td>
+                          {/* Payment Method */}
+                          <td className="py-2 px-3 text-center whitespace-nowrap border border-slate-300">
+                            <span
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                t.payment_method === "CASH"
+                                  ? "bg-amber-100 text-amber-900"
+                                  : t.payment_method === "UPI"
+                                  ? "bg-indigo-100 text-indigo-900"
+                                  : "bg-cyan-100 text-cyan-900"
+                              }`}
+                            >
+                              {t.payment_method}
+                            </span>
+                          </td>
 
-                        {/* Income */}
-                        <td className="py-3 px-4 text-right whitespace-nowrap font-bold text-emerald-600">
-                          {t.income > 0 ? `+₹${t.income.toLocaleString("en-IN")}` : "—"}
-                        </td>
+                          {/* Status */}
+                          <td className="py-2 px-3 text-center whitespace-nowrap border border-slate-300">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                                t.status === "PAID"
+                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                  : t.status === "PENDING"
+                                  ? "bg-amber-100 text-amber-800 border border-amber-300"
+                                  : "bg-red-100 text-red-800 border border-red-300"
+                              }`}
+                            >
+                              {t.status === "PAID" && <CheckCircle2 className="w-3 h-3" />}
+                              {t.status === "PENDING" && <Clock className="w-3 h-3" />}
+                              {t.status}
+                            </span>
+                          </td>
 
-                        {/* Expense */}
-                        <td className="py-3 px-4 text-right whitespace-nowrap font-bold text-red-600">
-                          {t.expense > 0 ? `-₹${t.expense.toLocaleString("en-IN")}` : "—"}
-                        </td>
+                          {/* Income */}
+                          <td className="py-2 px-3 text-right whitespace-nowrap font-bold text-emerald-700 border border-slate-300 bg-emerald-50/20">
+                            {t.income > 0 ? `₹${Number(t.income).toLocaleString("en-IN")}` : "—"}
+                          </td>
 
-                        {/* Balance */}
-                        <td className="py-3 px-4 text-right whitespace-nowrap font-black text-slate-900">
-                          ₹{t.balance.toLocaleString("en-IN")}
-                        </td>
-                      </tr>
-                    );
-                  })
+                          {/* Expense */}
+                          <td className="py-2 px-3 text-right whitespace-nowrap font-bold text-rose-600 border border-slate-300 bg-rose-50/20">
+                            {t.expense > 0 ? `₹${Number(t.expense).toLocaleString("en-IN")}` : "—"}
+                          </td>
+
+                          {/* Balance */}
+                          <td className="py-2 px-3 text-right whitespace-nowrap font-black text-slate-900 border border-slate-300 bg-slate-50/30">
+                            ₹{Number(t.balance).toLocaleString("en-IN")}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+                {filteredTransactions.length > 0 && (
+                  <tfoot className="bg-[#eef7ee] text-slate-900 font-black border-t-2 border-slate-400 border-b-4 border-double border-slate-500">
+                    <tr>
+                      <td colSpan={8} className="py-2.5 px-3 text-right font-black text-slate-900 whitespace-nowrap text-xs uppercase tracking-wider border border-slate-300 bg-[#d9ebd9]">
+                        Total Summary
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-black text-emerald-800 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
+                        ₹{metrics.totalIncome.toLocaleString("en-IN")}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-black text-rose-700 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
+                        ₹{metrics.totalExpenses.toLocaleString("en-IN")}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-black text-blue-800 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
+                        ₹{metrics.netBalance.toLocaleString("en-IN")}
+                      </td>
+                    </tr>
+                  </tfoot>
                 )}
-              </tbody>
-              {filteredTransactions.length > 0 && (
-                <tfoot className="bg-slate-100 text-slate-900 font-black border-t-2 border-slate-300">
-                  <tr>
-                    <td colSpan={6} className="py-3 px-4 text-right text-xs uppercase tracking-wider">
-                      Report Totals:
-                    </td>
-                    <td className="py-3 px-4 text-right text-emerald-700 text-sm font-black">
-                      ₹{metrics.totalIncome.toLocaleString("en-IN")}
-                    </td>
-                    <td className="py-3 px-4 text-right text-red-700 text-sm font-black">
-                      ₹{metrics.totalExpenses.toLocaleString("en-IN")}
-                    </td>
-                    <td className="py-3 px-4 text-right text-indigo-700 text-sm font-black">
-                      ₹{metrics.netBalance.toLocaleString("en-IN")}
-                    </td>
-                  </tr>
-                </tfoot>
-              )}
-            </table>
+              </table>
+
+              {/* Excel-style Sheet Tab Bar */}
+              <div className="bg-[#f3f4f6] border-t border-slate-300 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 select-none">
+                <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2 px-3 py-1 bg-white border-t-2 border-t-[#107c41] border-x border-b border-slate-300 font-bold text-slate-800 shadow-2xs rounded-t-sm">
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-[#107c41]" />
+                    <span>{activeDef.shortTitle} Sheet</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 text-[11px] font-semibold text-slate-500">
+                  <span>Rows: <strong className="text-slate-800">{filteredTransactions.length}</strong></span>
+                  <span>Total Income: <strong className="text-emerald-700">₹{metrics.totalIncome.toLocaleString("en-IN")}</strong></span>
+                  <span>Total Expense: <strong className="text-rose-700">₹{metrics.totalExpenses.toLocaleString("en-IN")}</strong></span>
+                  <span>Net Balance: <strong className="text-blue-700">₹{metrics.netBalance.toLocaleString("en-IN")}</strong></span>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>
