@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { toast } from "sonner";
 import {
   Palmtree,
   Calendar,
@@ -12,6 +13,7 @@ import {
   Hotel,
   Car,
   CheckCircle2,
+  User,
 } from "lucide-react";
 import { calculateTourFare, FareCalculationResult } from "@/lib/fare-engine";
 import { packages } from "@/data/packages";
@@ -894,6 +896,64 @@ export function TourBookingForm({
             </div>
           </div>
 
+          {/* Section 5.5: Passenger Contact & Boarding Details */}
+          <div className="bg-[#111c3a]/80 border border-white/10 rounded-2xl p-4 sm:p-5 space-y-4 shadow-inner">
+            <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+              <User className="w-4 h-4 text-emerald-400" /> PASSENGER CONTACT &amp; BOARDING DETAILS
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+                  PASSENGER FULL NAME *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter primary passenger name"
+                  value={formData.name || ""}
+                  onChange={(e) => onChange("name", e.target.value)}
+                  className="w-full bg-[#0b1329]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold text-white placeholder:text-slate-500 outline-none transition-all shadow-inner"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+                  MOBILE NUMBER *
+                </label>
+                <input
+                  type="tel"
+                  placeholder="10-digit mobile number"
+                  maxLength={10}
+                  value={formData.phone || ""}
+                  onChange={(e) => onChange("phone", e.target.value)}
+                  className="w-full bg-[#0b1329]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold text-white placeholder:text-slate-500 outline-none transition-all shadow-inner"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+                  BOARDING POINT
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Bangalore Airport / Majestic / Hotel Pickup"
+                  value={formData.boarding_point || ""}
+                  onChange={(e) => onChange("boarding_point", e.target.value)}
+                  className="w-full bg-[#0b1329]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold text-white placeholder:text-slate-500 outline-none transition-all shadow-inner"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+                  BOARDING ADDRESS
+                </label>
+                <input
+                  type="text"
+                  placeholder="Full pickup address / landmark"
+                  value={formData.boarding_address || ""}
+                  onChange={(e) => onChange("boarding_address", e.target.value)}
+                  className="w-full bg-[#0b1329]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold text-white placeholder:text-slate-500 outline-none transition-all shadow-inner"
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Section 6: Bottom Action Bar on Step 2 (Journey Type) */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-white/10">
             <button
@@ -910,7 +970,18 @@ export function TourBookingForm({
             {onCompleteBooking && (
               <button
                 type="button"
-                onClick={onCompleteBooking}
+                onClick={() => {
+                  if (!formData.name?.trim()) {
+                    toast.error("Please enter passenger full name.");
+                    return;
+                  }
+                  const rawPhone = String(formData.phone || "").replace(/\s+/g, "");
+                  if (!rawPhone || !/^[6-9]\d{9}$/.test(rawPhone)) {
+                    toast.error("Please enter a valid 10-digit mobile number.");
+                    return;
+                  }
+                  onCompleteBooking();
+                }}
                 disabled={isSubmitting}
                 className="w-full sm:w-auto bg-[#00c58e] hover:bg-[#00a87a] text-white font-black px-10 sm:px-12 py-3.5 rounded-2xl uppercase tracking-wider text-sm shadow-xl shadow-[#00c58e]/30 transition-all hover:scale-102 active:scale-98 disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2"
               >

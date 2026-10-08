@@ -43,10 +43,10 @@ export function AdminTourBookingFlow({
     infants: 0,
     vehicle_slug: "sedan",
     hotel_tier: "Standard",
-    boarding_point: "—",
-    boarding_address: "—",
-    name: "GUEST",
-    phone: "9845003000",
+    boarding_point: "",
+    boarding_address: "",
+    name: "",
+    phone: "",
   });
 
   const [ticketNumber, setTicketNumber] = useState(() => generateTicketNumber());
@@ -190,8 +190,10 @@ export function AdminTourBookingFlow({
       package_slug: packages[0]?.slug || "bengaluru-mysuru-coorg",
       package_title: packages[0]?.title || "Bengaluru → Mysuru & Coorg",
       date: new Date().toISOString().split("T")[0],
-      name: "GUEST",
-      phone: "9845003000",
+      name: "",
+      phone: "",
+      boarding_point: "",
+      boarding_address: "",
     }));
   };
 
@@ -232,7 +234,7 @@ export function AdminTourBookingFlow({
             <div className="flex items-center justify-between pb-4 border-b border-white/10">
               <div className="flex items-center gap-2.5">
                 <span className="text-xs font-black uppercase tracking-wider text-emerald-300 bg-emerald-950/70 border border-emerald-500/40 rounded-full px-3.5 py-1 shadow-sm">
-                  🌴 Holiday Tour Packages
+                  🌴 TOUR PACKAGES
                 </span>
                 <span className="text-slate-300 text-xs sm:text-sm font-semibold">
                   Curated holiday itineraries across South India
@@ -245,7 +247,7 @@ export function AdminTourBookingFlow({
                     onClick={onOpenPackagesManagement}
                     className="text-xs font-bold text-amber-300 hover:text-amber-200 flex items-center gap-1.5 px-3.5 py-1.5 border border-amber-400/40 bg-amber-500/10 rounded-xl hover:bg-amber-500/20 transition-colors shadow-sm cursor-pointer"
                   >
-                    <Package className="w-3.5 h-3.5 text-amber-400" /> View / Manage All Packages
+                    <Package className="w-3.5 h-3.5 text-amber-400" /> Package Catalog
                   </button>
                 )}
                 <button
@@ -253,7 +255,7 @@ export function AdminTourBookingFlow({
                   onClick={onBack}
                   className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1.5 px-3.5 py-1.5 border border-white/15 bg-white/5 rounded-xl hover:bg-white/10 transition-colors shadow-sm cursor-pointer"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5 text-emerald-400" /> Back to Dashboard
+                  <ArrowLeft className="w-3.5 h-3.5 text-emerald-400" /> Back to Services
                 </button>
               </div>
             </div>
