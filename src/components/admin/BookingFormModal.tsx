@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { X, Palmtree } from "lucide-react";
+import { X } from "lucide-react";
 import { formatCurrency } from "@/lib/booking-utils";
-import { packages } from "@/data/packages";
 
 export interface FormBookingRow {
   id?: number;
@@ -199,10 +198,9 @@ interface Props {
     booking?: FormBookingRow | null;
     enquiry?: any | null;
   };
-  onOpenTourFlow?: () => void;
 }
 
-export function BookingFormModal({ open, onClose, onSaved, mode, source, onOpenTourFlow }: Props) {
+export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props) {
   const [form, setForm] = useState(emptyForm());
   const [passengers, setPassengers] = useState<
     Array<{ name: string; age: string; gender: string; seat_berth: string }>
@@ -472,13 +470,12 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source, onOpenT
 
         <div className="max-h-[70vh] overflow-y-auto p-5 space-y-5">
           {/* Category */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             {[
               ["CAR", "Car"],
               ["BUS", "Bus"],
               ["TRAIN", "Train"],
               ["FLIGHT", "Flight"],
-              ["TOUR", "Tour Package"],
             ].map(([val, label]) => (
               <button
                 key={val}
@@ -495,32 +492,6 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source, onOpenT
               </button>
             ))}
           </div>
-
-          {/* Tour Package Banner to launch full multi-step booking flow */}
-          {cat === "TOUR" && (
-            <div className="bg-emerald-950/60 border border-emerald-500/40 rounded-xl p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-white animate-in fade-in">
-              <div className="space-y-0.5">
-                <div className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
-                  <Palmtree className="w-4 h-4 text-emerald-400" /> Holiday Tour Packages (Same as Booking Page)
-                </div>
-                <div className="text-[11px] text-slate-300">
-                  Select from 26 curated South India holiday packages, 1-day tours, route customizer &amp; live duration calculator.
-                </div>
-              </div>
-              {onOpenTourFlow && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    onOpenTourFlow();
-                  }}
-                  className="px-4 py-2 bg-[#00c58e] hover:bg-[#00a87a] text-white font-black text-xs rounded-xl shadow-md transition-all shrink-0 cursor-pointer hover:scale-105"
-                >
-                  Open Full Tour Booking Flow →
-                </button>
-              )}
-            </div>
-          )}
 
           {/* Customer */}
           <div className="grid gap-4 sm:grid-cols-3">
@@ -559,35 +530,12 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source, onOpenT
               />
             </Field>
             <Field label="Package / Service">
-              {cat === "TOUR" ? (
-                <select
-                  className={inputCls}
-                  value={form.package_name}
-                  onChange={(e) => {
-                    const sel = packages.find((p) => p.title === e.target.value);
-                    set("package_name", e.target.value);
-                    if (sel) {
-                      set("base_amount", String(sel.startingPrice || 4999));
-                      set("number_of_days", sel.duration.split(" ")[0] || "2");
-                      set("to_location", sel.destinations.join(" → "));
-                    }
-                  }}
-                >
-                  <option value="">Select Tour Package...</option>
-                  {packages.map((pkg) => (
-                    <option key={pkg.slug} value={pkg.title}>
-                      {pkg.title} ({pkg.duration} · ₹{pkg.startingPrice?.toLocaleString()})
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  className={inputCls}
-                  value={form.package_name}
-                  onChange={(e) => set("package_name", e.target.value)}
-                  placeholder="e.g. Coorg Package"
-                />
-              )}
+              <input
+                className={inputCls}
+                value={form.package_name}
+                onChange={(e) => set("package_name", e.target.value)}
+                placeholder="e.g. Coorg Package"
+              />
             </Field>
             <Field label="Trip Type">
               <select

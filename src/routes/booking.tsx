@@ -415,7 +415,7 @@ function BookingPage() {
         ? `${otherFormData.passengers[0].name.toUpperCase()} (+${count - 1} OTHERS)`
         : otherFormData.passengers[0].name.toUpperCase();
     }
-    return (otherFormData.name || passengerName || "GUEST").toUpperCase();
+    return (passengerName || "GUEST").toUpperCase();
   }, [serviceType, otherFormData, passengerName]);
 
   const tourTypeDisplay = useMemo(() => {
@@ -462,12 +462,12 @@ function BookingPage() {
       const isBus = serviceType === "BUS";
       const isFlight = serviceType === "FLIGHT";
 
-      const firstPassenger = otherFormData.passengers?.[0]?.name || otherFormData.name || passengerName || "GUEST";
-      const pCount = otherFormData.passengers?.length || (Number(otherFormData.adults || 2) + Number(otherFormData.children || 0));
+      const firstPassenger = otherFormData.passengers?.[0]?.name || passengerName || "GUEST";
+      const pCount = otherFormData.passengers?.length || 1;
 
       const payload = {
         name: firstPassenger,
-        phone: otherFormData.phone || passengerPhone || "9845003000",
+        phone: passengerPhone || "9845003000",
         service: isTrain ? "Train" : isBus ? "Bus" : isFlight ? "Flight" : "Tour",
         booking_type: serviceType,
         pickup: isTrain ? otherFormData.from_station : isBus ? otherFormData.from_location : otherFormData.from_airport || "BANGALORE",
@@ -624,13 +624,13 @@ function BookingPage() {
       ticketNumber,
       pnrNumber,
       bookingDate: bookingDateTime,
-      passengerName: primaryPassengerName,
-      passengerPhone: otherFormData.phone || passengerPhone || "9845003000",
+      passengerName: passengerName || "GUEST",
+      passengerPhone: passengerPhone || "9845003000",
       tourType: tourTypeDisplay,
       fromLocation: fromLocationDisplay,
       toLocation: toLocationDisplay,
       departureOn: departureDateFormatted,
-      tripType: serviceType === "TOUR" ? (otherFormData.tour_trip_type || "ROUND TRIP") : cabTripType,
+      tripType: cabTripType,
       vehicleOrMode: vehicleDisplay,
       boardingPoint: boardingPointDisplay,
       boardingAddress: boardingAddressDisplay,

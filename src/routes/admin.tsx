@@ -1554,7 +1554,7 @@ function AdminPage() {
                           New Offline Booking
                         </h3>
                         <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                          Tour Packages · Car · Bus · Train · Flight
+                          Car · Bus · Train · Flight
                         </span>
                       </div>
                       <p className="text-xs sm:text-sm text-slate-600 font-medium max-w-2xl">
@@ -1617,7 +1617,7 @@ function AdminPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setActiveService("tour_booking_flow");
+                      setActiveService("packages");
                     }}
                     className="relative text-center p-6 sm:p-7 rounded-2xl sm:rounded-3xl border transition-all duration-300 flex flex-col justify-between items-center group overflow-hidden shadow-xl backdrop-blur-xl border-t-4 border-t-purple-400 hover:border-purple-400/80 shadow-purple-500/10 bg-[#0B132B]/95 hover:bg-[#101e42] border-white/15 hover:scale-[1.02] cursor-pointer"
                   >
@@ -1670,7 +1670,7 @@ function AdminPage() {
                       icon: Package,
                       badge: `${packagesList.length || 0} Packages`,
                       iconBg: "bg-amber-50 text-[#d79a17]",
-                      onClick: () => setActiveService("tour_booking_flow"),
+                      onClick: () => setActiveService("packages"),
                     },
                     {
                       title: "Flight Booking",
@@ -2463,10 +2463,6 @@ function AdminPage() {
         }}
         mode="create"
         source={offlineBookingSource}
-        onOpenTourFlow={() => {
-          setOfflineBookingModalOpen(false);
-          setActiveService("tour_booking_flow");
-        }}
       />
     </SiteLayout>
   );
