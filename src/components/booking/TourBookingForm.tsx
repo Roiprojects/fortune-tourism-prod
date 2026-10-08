@@ -106,7 +106,51 @@ export function TourBookingForm({
     onChange("itinerary_places", destinations.filter((_, idx) => idx !== i));
   };
 
-  const indianPackages = packages.slice(0, 16);
+  const [durationFilter, setDurationFilter] = useState<string>("ALL");
+
+  const DURATION_FILTER_TABS = [
+    { key: "ALL", label: "All Packages", icon: "✨" },
+    { key: "1", label: "1 Day Trip", icon: "⚡", badge: "Same Day" },
+    { key: "2", label: "2 Days", icon: "🌿", badge: "1 Night" },
+    { key: "3", label: "3 Days", icon: "🌄", badge: "2 Nights" },
+    { key: "4", label: "4 Days", icon: "🏖️", badge: "3 Nights" },
+    { key: "5+", label: "5+ Days", icon: "🌟", badge: "Extended" },
+  ];
+
+  const filteredPackages = useMemo(() => {
+    if (durationFilter === "ALL") return packages;
+    if (durationFilter === "1") {
+      return packages.filter((p) => {
+        const d = (p.duration || "").toLowerCase();
+        return d.includes("1 day") || d.startsWith("1");
+      });
+    }
+    if (durationFilter === "2") {
+      return packages.filter((p) => {
+        const d = (p.duration || "").toLowerCase();
+        return d.includes("2 day") || d.startsWith("2");
+      });
+    }
+    if (durationFilter === "3") {
+      return packages.filter((p) => {
+        const d = (p.duration || "").toLowerCase();
+        return d.includes("3 day") || d.startsWith("3");
+      });
+    }
+    if (durationFilter === "4") {
+      return packages.filter((p) => {
+        const d = (p.duration || "").toLowerCase();
+        return d.includes("4 day") || d.startsWith("4");
+      });
+    }
+    if (durationFilter === "5+") {
+      return packages.filter((p) => {
+        const num = parseInt((p.duration || "").split(" ")[0], 10);
+        return !isNaN(num) && num >= 5;
+      });
+    }
+    return packages;
+  }, [durationFilter]);
 
   return (
     <div className="space-y-6 text-white">
@@ -169,17 +213,78 @@ export function TourBookingForm({
       {/* ================= PAGE 1: SELECT YOUR TOUR PACKAGE ================= */}
       {tourStep === "PACKAGE" && (
         <div className="space-y-6 animate-in fade-in duration-300">
-          <div className="space-y-1">
-            <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2">
-              <Palmtree className="w-4 h-4 text-emerald-400" /> SELECT YOUR TOUR PACKAGE
-            </h3>
-            <p className="text-xs text-slate-400">
-              Choose a curated South India holiday package or customize your trip.
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+                <Palmtree className="w-4 h-4 text-emerald-400" /> SELECT YOUR TOUR PACKAGE
+              </h3>
+              <p className="text-xs text-slate-400">
+                Choose a curated South India holiday package or filter by your trip duration.
+              </p>
+            </div>
+
+            {durationFilter !== "ALL" && (
+              <button
+                type="button"
+                onClick={() => setDurationFilter("ALL")}
+                className="text-xs font-bold text-amber-300 hover:text-amber-200 underline cursor-pointer self-start sm:self-auto"
+              >
+                Clear filter (Show All)
+              </button>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[440px] overflow-y-auto pr-1">
-            {indianPackages.map((pkg) => {
+          {/* Duration Filter Selector Bar */}
+          <div className="bg-[#111c3a]/90 border border-white/15 rounded-2xl p-3 shadow-inner space-y-2">
+            <div className="flex items-center justify-between text-xs px-1">
+              <div className="font-bold text-slate-300 flex items-center gap-2">
+                <span>Select Trip Duration:</span>
+                {durationFilter === "1" ? (
+                  <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 rounded-full text-[10px] font-black animate-pulse">
+                    ⚡ 1-Day Same Day Tours ({filteredPackages.length} packages available)
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-slate-400 font-medium">
+                    ({filteredPackages.length} packages available)
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {DURATION_FILTER_TABS.map((tab) => {
+                const active = durationFilter === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setDurationFilter(tab.key)}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                      active
+                        ? "bg-[#00c58e] text-white shadow-lg shadow-[#00c58e]/30 scale-[1.02] ring-2 ring-[#00c58e]/50 font-black"
+                        : "bg-[#0b1329] text-slate-300 border border-white/10 hover:border-white/30 hover:bg-[#162544] hover:text-white"
+                    }`}
+                  >
+                    <span>{tab.icon}</span>
+                    <span>{tab.label}</span>
+                    {tab.badge && (
+                      <span
+                        className={`text-[9px] px-1.5 py-0.2 rounded font-extrabold ${
+                          active ? "bg-white/25 text-white" : "bg-white/10 text-slate-400"
+                        }`}
+                      >
+                        {tab.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Packages Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[460px] overflow-y-auto pr-1">
+            {filteredPackages.map((pkg) => {
               const isSelected = (formData.package_slug || selectedPkg?.slug) === pkg.slug;
               return (
                 <button
@@ -188,7 +293,11 @@ export function TourBookingForm({
                   onClick={() => {
                     onChange("package_slug", pkg.slug);
                     onChange("package_title", pkg.title);
-                    onChange("number_of_days", pkg.duration.split(" ")[0]);
+                    const daysNum = pkg.duration.split(" ")[0];
+                    onChange("number_of_days", Number(daysNum) || 1);
+                    if (daysNum === "1") {
+                      onChange("tour_trip_type", "Same Day / Return");
+                    }
                     onChange("destination", pkg.destinations.join(" → "));
                   }}
                   className={`text-left rounded-2xl border overflow-hidden transition-all bg-[#111c3a]/80 shadow-inner group cursor-pointer ${
@@ -204,6 +313,11 @@ export function TourBookingForm({
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#0b1329] via-[#0b1329]/40 to-transparent" />
+                    <div className="absolute top-2 left-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 bg-[#0B132B]/85 px-2 py-0.5 rounded-md border border-amber-500/30">
+                        {pkg.duration}
+                      </span>
+                    </div>
                     <div className="absolute bottom-2 left-3 right-3">
                       <div className="text-sm font-extrabold text-white leading-tight drop-shadow-sm">
                         {pkg.title}
@@ -218,7 +332,7 @@ export function TourBookingForm({
                   <div className="p-3 flex items-center justify-between">
                     <div>
                       <span className="text-[11px] font-medium text-slate-300">
-                        {pkg.duration}
+                        From {pkg.from}
                       </span>
                       <div className="text-[11px] text-slate-400">
                         {pkg.destinations.slice(0, 2).join(" · ")}
@@ -236,6 +350,19 @@ export function TourBookingForm({
               );
             })}
           </div>
+
+          {filteredPackages.length === 0 && (
+            <div className="text-center py-8 bg-[#111c3a]/50 rounded-2xl border border-white/10">
+              <p className="text-sm text-slate-300 font-bold">No packages found for this duration.</p>
+              <button
+                type="button"
+                onClick={() => setDurationFilter("ALL")}
+                className="mt-2 text-xs text-emerald-400 font-bold hover:underline cursor-pointer"
+              >
+                Reset filter to view all packages
+              </button>
+            </div>
+          )}
 
           {errors.package_slug && (
             <p className="text-xs text-rose-400 font-medium mt-1">{errors.package_slug}</p>
@@ -445,7 +572,12 @@ export function TourBookingForm({
                     <button
                       key={item.days}
                       type="button"
-                      onClick={() => onChange("number_of_days", item.days)}
+                      onClick={() => {
+                        onChange("number_of_days", item.days);
+                        if (item.days === 1) {
+                          onChange("tour_trip_type", "Same Day / Return");
+                        }
+                      }}
                       className={`px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                         isSelected
                           ? "bg-[#00c58e] text-white font-black shadow-lg shadow-[#00c58e]/30 scale-105 border border-[#00c58e]"
@@ -457,6 +589,146 @@ export function TourBookingForm({
                   );
                 })}
               </div>
+
+              {/* Display 1-Day Packages when 1 Day Trip is selected */}
+              {Number(formData.number_of_days) === 1 && (
+                <div className="mt-3 bg-[#0b1329]/90 border border-emerald-500/40 rounded-2xl p-4 shadow-xl space-y-3 animate-in fade-in duration-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
+                      <span className="text-xs font-black uppercase tracking-wider text-emerald-300">
+                        ⚡ What Are The 1-Day Packages (Click any to select):
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDurationFilter("1");
+                        setTourStep("PACKAGE");
+                        window.scrollTo({ top: 120, behavior: "smooth" });
+                      }}
+                      className="text-[11px] font-bold text-amber-300 hover:text-amber-200 underline cursor-pointer"
+                    >
+                      Browse full details in Step 1 →
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                    {packages
+                      .filter((p) => (p.duration || "").toLowerCase().includes("1 day") || (p.duration || "").startsWith("1"))
+                      .map((p) => {
+                        const isCurrent = (formData.package_slug || selectedPkg?.slug) === p.slug;
+                        return (
+                          <button
+                            key={p.slug}
+                            type="button"
+                            onClick={() => {
+                              onChange("package_slug", p.slug);
+                              onChange("package_title", p.title);
+                              onChange("destination", p.destinations.join(" → "));
+                              onChange("number_of_days", 1);
+                              onChange("tour_trip_type", "Same Day / Return");
+                            }}
+                            className={`p-2.5 rounded-xl border text-left flex items-center gap-3 transition-all cursor-pointer ${
+                              isCurrent
+                                ? "bg-emerald-950/80 border-[#00c58e] ring-2 ring-[#00c58e]/50 shadow-md scale-[1.01]"
+                                : "bg-[#111c3a]/80 border-white/10 hover:border-white/30 hover:bg-[#162544]"
+                            }`}
+                          >
+                            <img
+                              src={p.image}
+                              alt={p.title}
+                              className="w-12 h-12 rounded-lg object-cover shrink-0 border border-white/15"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-black text-white truncate">{p.title}</p>
+                              <p className="text-[10px] text-slate-300 truncate">{p.destinations.slice(0, 2).join(" · ")}</p>
+                              <div className="flex items-center justify-between mt-0.5">
+                                <span className="text-[10px] text-amber-300 font-bold">{p.duration}</span>
+                                <span className="text-xs font-black text-emerald-400">
+                                  ₹{(p.startingPrice || 3999).toLocaleString("en-IN")}
+                                </span>
+                              </div>
+                            </div>
+                            {isCurrent && (
+                              <CheckCircle2 className="w-4 h-4 text-[#00c58e] shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
+              {/* Display 2-Day Packages preview when 2 Days is selected */}
+              {Number(formData.number_of_days) === 2 && (
+                <div className="mt-3 bg-[#0b1329]/90 border border-emerald-500/30 rounded-2xl p-4 shadow-xl space-y-3 animate-in fade-in duration-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0" />
+                      <span className="text-xs font-black uppercase tracking-wider text-emerald-300">
+                        🌿 Popular 2-Day Packages (Click any to select):
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDurationFilter("2");
+                        setTourStep("PACKAGE");
+                        window.scrollTo({ top: 120, behavior: "smooth" });
+                      }}
+                      className="text-[11px] font-bold text-amber-300 hover:text-amber-200 underline cursor-pointer"
+                    >
+                      Browse full details in Step 1 →
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                    {packages
+                      .filter((p) => (p.duration || "").toLowerCase().includes("2 day") || (p.duration || "").startsWith("2"))
+                      .slice(0, 6)
+                      .map((p) => {
+                        const isCurrent = (formData.package_slug || selectedPkg?.slug) === p.slug;
+                        return (
+                          <button
+                            key={p.slug}
+                            type="button"
+                            onClick={() => {
+                              onChange("package_slug", p.slug);
+                              onChange("package_title", p.title);
+                              onChange("destination", p.destinations.join(" → "));
+                              onChange("number_of_days", 2);
+                            }}
+                            className={`p-2.5 rounded-xl border text-left flex items-center gap-3 transition-all cursor-pointer ${
+                              isCurrent
+                                ? "bg-emerald-950/80 border-[#00c58e] ring-2 ring-[#00c58e]/50 shadow-md scale-[1.01]"
+                                : "bg-[#111c3a]/80 border-white/10 hover:border-white/30 hover:bg-[#162544]"
+                            }`}
+                          >
+                            <img
+                              src={p.image}
+                              alt={p.title}
+                              className="w-12 h-12 rounded-lg object-cover shrink-0 border border-white/15"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-black text-white truncate">{p.title}</p>
+                              <p className="text-[10px] text-slate-300 truncate">{p.destinations.slice(0, 2).join(" · ")}</p>
+                              <div className="flex items-center justify-between mt-0.5">
+                                <span className="text-[10px] text-amber-300 font-bold">{p.duration}</span>
+                                <span className="text-xs font-black text-emerald-400">
+                                  ₹{(p.startingPrice || 4999).toLocaleString("en-IN")}
+                                </span>
+                              </div>
+                            </div>
+                            {isCurrent && (
+                              <CheckCircle2 className="w-4 h-4 text-[#00c58e] shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">

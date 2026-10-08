@@ -31,6 +31,7 @@ import fleetDzireImg from "@/assets/fleet-dzire-hero.jpg";
 import fleetHondaImg from "@/assets/fleet-honda-hero.jpg";
 import fleetUrbaniaImg from "@/assets/fleet-urbania-hero.png";
 import { BUSINESS_RESOURCES } from "@/lib/business-schema";
+import { packages } from "@/data/packages";
 
 const LOGIN_DESTINATION_SLIDES = [
   {
@@ -408,7 +409,50 @@ function AdminPage() {
 
   // Data states
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
-  const [packagesList, setPackagesList] = useState<TourPackageItem[]>([]);
+  const [packagesList, setPackagesList] = useState<TourPackageItem[]>(() =>
+    packages.map((p, idx) => ({
+      id: `pkg-${idx}`,
+      slug: p.slug,
+      title: p.title,
+      duration: p.duration,
+      from_city: p.from,
+      starting_price: p.startingPrice || 4999,
+      image: p.image,
+      summary: p.summary,
+    }))
+  );
+  const [adminPkgDurationFilter, setAdminPkgDurationFilter] = useState<string>("ALL");
+
+  const filteredAdminPackages = useMemo(() => {
+    if (adminPkgDurationFilter === "ALL") return packagesList;
+    if (adminPkgDurationFilter === "1") {
+      return packagesList.filter(
+        (p) => (p.duration || "").toLowerCase().includes("1 day") || (p.duration || "").startsWith("1")
+      );
+    }
+    if (adminPkgDurationFilter === "2") {
+      return packagesList.filter(
+        (p) => (p.duration || "").toLowerCase().includes("2 day") || (p.duration || "").startsWith("2")
+      );
+    }
+    if (adminPkgDurationFilter === "3") {
+      return packagesList.filter(
+        (p) => (p.duration || "").toLowerCase().includes("3 day") || (p.duration || "").startsWith("3")
+      );
+    }
+    if (adminPkgDurationFilter === "4") {
+      return packagesList.filter(
+        (p) => (p.duration || "").toLowerCase().includes("4 day") || (p.duration || "").startsWith("4")
+      );
+    }
+    if (adminPkgDurationFilter === "5+") {
+      return packagesList.filter((p) => {
+        const num = parseInt((p.duration || "").split(" ")[0], 10);
+        return !isNaN(num) && num >= 5;
+      });
+    }
+    return packagesList;
+  }, [packagesList, adminPkgDurationFilter]);
   const [vehiclesList, setVehiclesList] = useState<VehicleItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("All");
@@ -492,7 +536,9 @@ function AdminPage() {
       }
       if (pkgRes.ok) {
         const d = await pkgRes.json();
-        if (d.success) setPackagesList(d.packages || []);
+        if (d.success && Array.isArray(d.packages) && d.packages.length > 0) {
+          setPackagesList(d.packages);
+        }
       }
       if (vehRes.ok) {
         const d = await vehRes.json();
@@ -2102,9 +2148,49 @@ function AdminPage() {
                 </form>
               )}
 
+              {/* Trip Duration Filter Bar in Admin */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase text-slate-700">Filter by Trip Days:</span>
+                  {adminPkgDurationFilter === "1" ? (
+                    <span className="bg-amber-100 text-amber-800 border border-amber-300 px-2.5 py-0.5 rounded-full text-[10px] font-black animate-pulse">
+                      ⚡ 1-Day Same Day Tours ({filteredAdminPackages.length} packages)
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-bold text-slate-500">
+                      ({filteredAdminPackages.length} packages available)
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                  {[
+                    { key: "ALL", label: "All Packages", icon: "✨" },
+                    { key: "1", label: "⚡ 1 Day Trip", icon: "⚡" },
+                    { key: "2", label: "2 Days (1N)", icon: "🌿" },
+                    { key: "3", label: "3 Days (2N)", icon: "🌄" },
+                    { key: "4", label: "4 Days (3N)", icon: "🏖️" },
+                    { key: "5+", label: "5+ Days", icon: "🌟" },
+                  ].map((f) => (
+                    <button
+                      key={f.key}
+                      type="button"
+                      onClick={() => setAdminPkgDurationFilter(f.key)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap flex items-center gap-1 ${
+                        adminPkgDurationFilter === f.key
+                          ? "bg-amber-500 text-slate-900 font-black shadow-xs ring-2 ring-amber-500/50"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      <span>{f.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Packages Cards Grid */}
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {packagesList.map((pkg) => (
+                {filteredAdminPackages.map((pkg) => (
                   <div key={pkg.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between hover:shadow-md transition">
                     <div>
                       {pkg.image && (
@@ -2147,6 +2233,19 @@ function AdminPage() {
                   </div>
                 ))}
               </div>
+
+              {filteredAdminPackages.length === 0 && (
+                <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 p-6 space-y-2">
+                  <p className="text-sm font-bold text-slate-700">No packages found for this duration filter.</p>
+                  <button
+                    type="button"
+                    onClick={() => setAdminPkgDurationFilter("ALL")}
+                    className="text-xs font-bold text-amber-600 hover:underline cursor-pointer"
+                  >
+                    Reset filter to view all packages
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
