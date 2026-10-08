@@ -13,6 +13,7 @@ import {
   Eye,
   ArrowRight,
   ClipboardList,
+  ChevronDown,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/booking-utils";
 import { BookingFormModal } from "./BookingFormModal";
@@ -89,20 +90,32 @@ function todayStr(): string {
   return new Date().toISOString().split("T")[0];
 }
 
-const TABS: Array<{ key: TabKey; label: string }> = [
+const PAYMENT_TABS: Array<{ key: TabKey; label: string }> = [
+  { key: "outstanding", label: "Outstanding Payments" },
+  { key: "fully_paid", label: "Fully Paid" },
+  { key: "partially_paid", label: "Partially Paid" },
+  { key: "pending_payment", label: "Pending Payment" },
+];
+
+const PRIMARY_TABS: Array<{ key: TabKey; label: string }> = [
   { key: "all", label: "All Bookings" },
   { key: "enquiries", label: "New Enquiries" },
   { key: "CAR", label: "Car / Cab" },
   { key: "BUS", label: "Bus" },
   { key: "TRAIN", label: "Train" },
   { key: "FLIGHT", label: "Flight" },
-  { key: "outstanding", label: "Outstanding Payments" },
+];
+
+const SECONDARY_TABS: Array<{ key: TabKey; label: string }> = [
   { key: "upcoming", label: "Upcoming" },
-  { key: "fully_paid", label: "Fully Paid" },
-  { key: "partially_paid", label: "Partially Paid" },
-  { key: "pending_payment", label: "Pending Payment" },
   { key: "completed", label: "Completed" },
   { key: "cancelled", label: "Cancelled" },
+];
+
+const TABS: Array<{ key: TabKey; label: string }> = [
+  ...PRIMARY_TABS,
+  ...PAYMENT_TABS,
+  ...SECONDARY_TABS,
 ];
 
 function tabParams(tab: TabKey): Record<string, string> {
@@ -193,6 +206,21 @@ export function BookingsManager({ initialTab = "all" }: { initialTab?: TabKey } 
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [formSource, setFormSource] = useState<{ booking?: any; enquiry?: any }>({});
   const [convertingId, setConvertingId] = useState<number | null>(null);
+  const [paymentsDropdownOpen, setPaymentsDropdownOpen] = useState(false);
+  const paymentsDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        paymentsDropdownRef.current &&
+        !paymentsDropdownRef.current.contains(event.target as Node)
+      ) {
+        setPaymentsDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
@@ -316,8 +344,26 @@ export function BookingsManager({ initialTab = "all" }: { initialTab?: TabKey } 
     [stats],
   );
 
+  const isPaymentTabActive = PAYMENT_TABS.some((pt) => pt.key === tab);
+  const activePaymentTab = PAYMENT_TABS.find((pt) => pt.key === tab);
+  const totalPaymentCount =
+    (counts.outstanding || 0) +
+    (counts.fully_paid || 0) +
+    (counts.partially_paid || 0) +
+    (counts.pending_payment || 0);
+  const displayedPaymentCount =
+    isPaymentTabActive && activePaymentTab
+      ? counts[activePaymentTab.key]
+      : totalPaymentCount > 0
+        ? totalPaymentCount
+        : undefined;
+
   return (
-    <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
+    <div
+      className={`rounded-2xl border border-border bg-white shadow-sm ${
+        paymentsDropdownOpen ? "overflow-visible" : "overflow-hidden"
+      }`}
+    >
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-border p-5">
         <div>
@@ -363,12 +409,117 @@ export function BookingsManager({ initialTab = "all" }: { initialTab?: TabKey } 
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-border gap-1 overflow-x-auto px-3 pt-2">
-        {TABS.map((t) => (
+      <div
+        className={`flex border-b border-border gap-1 px-3 pt-2 relative z-30 ${
+          paymentsDropdownOpen ? "overflow-visible" : "overflow-x-auto"
+        }`}
+      >
+        {PRIMARY_TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`whitespace-nowrap px-3 pb-2 pt-1 text-xs font-bold transition border-b-2 ${
+            className={`whitespace-nowrap px-3 pb-2 pt-1 text-xs font-bold transition border-b-2 cursor-pointer ${
+              tab === t.key
+                ? "border-[color:var(--color-navy)] text-[color:var(--color-navy)]"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t.label}
+            {counts[t.key] != null && (
+              <span
+                className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] ${
+                  tab === t.key
+                    ? "bg-[color:var(--color-navy)] text-white"
+                    : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {counts[t.key]}
+              </span>
+            )}
+          </button>
+        ))}
+
+        {/* Payments Dropdown Tab */}
+        <div ref={paymentsDropdownRef} className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setPaymentsDropdownOpen((prev) => !prev)}
+            className={`whitespace-nowrap px-3 pb-2 pt-1 text-xs font-bold transition border-b-2 inline-flex items-center gap-1.5 cursor-pointer ${
+              isPaymentTabActive
+                ? "border-[color:var(--color-navy)] text-[color:var(--color-navy)] font-extrabold"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            aria-expanded={paymentsDropdownOpen}
+          >
+            <span>Payments</span>
+            {isPaymentTabActive && activePaymentTab && (
+              <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-full">
+                {activePaymentTab.label}
+              </span>
+            )}
+            <ChevronDown
+              className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                paymentsDropdownOpen ? "rotate-180" : ""
+              }`}
+            />
+            {displayedPaymentCount != null && (
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                  isPaymentTabActive
+                    ? "bg-[color:var(--color-navy)] text-white"
+                    : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {displayedPaymentCount}
+              </span>
+            )}
+          </button>
+
+          {paymentsDropdownOpen && (
+            <div className="absolute left-0 top-full mt-1 w-64 rounded-2xl bg-white border border-slate-200 shadow-xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150 ring-1 ring-black/5">
+              <div className="px-2.5 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
+                Payment Status
+              </div>
+              <div className="space-y-1">
+                {PAYMENT_TABS.map((pt) => {
+                  const isSel = tab === pt.key;
+                  return (
+                    <button
+                      key={pt.key}
+                      type="button"
+                      onClick={() => {
+                        setTab(pt.key);
+                        setPaymentsDropdownOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-bold transition text-left cursor-pointer ${
+                        isSel
+                          ? "bg-[color:var(--color-navy)] text-white shadow-xs font-extrabold"
+                          : "text-slate-700 hover:text-slate-900 hover:bg-slate-100"
+                      }`}
+                    >
+                      <span>{pt.label}</span>
+                      {counts[pt.key] != null && (
+                        <span
+                          className={`ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                            isSel ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          {counts[pt.key]}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {SECONDARY_TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`whitespace-nowrap px-3 pb-2 pt-1 text-xs font-bold transition border-b-2 cursor-pointer ${
               tab === t.key
                 ? "border-[color:var(--color-navy)] text-[color:var(--color-navy)]"
                 : "border-transparent text-muted-foreground hover:text-foreground"
