@@ -1578,7 +1578,7 @@ function AdminPage() {
                       icon: Ticket,
                       badge: "Ticketing Hub",
                       iconBg: "bg-blue-50 text-blue-700",
-                      onClick: () => setActiveTab("bookings"),
+                      onClick: () => setActiveService("ticket_booking_flow"),
                     },
                     {
                       title: "Tour Packages",

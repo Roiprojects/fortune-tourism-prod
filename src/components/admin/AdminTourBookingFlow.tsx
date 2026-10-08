@@ -205,24 +205,24 @@ export function AdminTourBookingFlow({ onBack, onBookingCompleted }: AdminTourBo
 
       <div className="w-full max-w-5xl mx-auto space-y-6">
         {step === "FORM" ? (
-          /* ================= STEP 1: HOLIDAY TOUR PACKAGES FORM (Image 1) ================= */
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 animate-in fade-in duration-300">
+          /* ================= STEP 1: HOLIDAY TOUR PACKAGES FORM ================= */
+          <div className="bg-[#0B132B]/95 backdrop-blur-xl border border-white/15 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/60 space-y-6 animate-in fade-in duration-300 text-white">
             {/* Top Header with Back to Services */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div>
-                <h2 className="font-extrabold text-slate-900 text-lg sm:text-xl">
-                  Holiday Tour Packages
-                </h2>
-                <p className="text-xs text-slate-500">
+            <div className="flex items-center justify-between pb-4 border-b border-white/10">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-300 bg-emerald-950/70 border border-emerald-500/40 rounded-full px-3.5 py-1 shadow-sm">
+                  🌴 Holiday Tour Packages
+                </span>
+                <span className="text-slate-300 text-xs sm:text-sm font-semibold">
                   Curated holiday itineraries across South India
-                </p>
+                </span>
               </div>
               <button
                 type="button"
                 onClick={onBack}
-                className="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1.5 px-3.5 py-1.5 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer ml-auto"
+                className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1.5 px-3.5 py-1.5 border border-white/15 bg-white/5 rounded-xl hover:bg-white/10 transition-colors shadow-sm cursor-pointer ml-auto"
               >
-                <ArrowLeft className="w-3.5 h-3.5 text-slate-700" /> Back to Services
+                <ArrowLeft className="w-3.5 h-3.5 text-emerald-400" /> Back to Services
               </button>
             </div>
 

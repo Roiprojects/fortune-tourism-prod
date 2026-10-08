@@ -109,22 +109,22 @@ export function TourBookingForm({
   const indianPackages = packages.slice(0, 16);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-white">
       {/* ================= STEP INDICATOR TABS ================= */}
-      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-        <div className="flex items-center gap-2 sm:gap-4">
+      <div className="flex items-center justify-between pb-3 border-b border-white/10">
+        <div className="inline-flex rounded-full border border-white/15 bg-[#111c3a]/90 p-1.5 gap-1.5 shadow-inner">
           <button
             type="button"
             onClick={() => setTourStep("PACKAGE")}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${
               tourStep === "PACKAGE"
-                ? "bg-purple-600 text-white shadow-xs"
-                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                ? "bg-[#00c58e] text-white shadow-lg shadow-[#00c58e]/30 font-black"
+                : "text-slate-300 hover:text-white hover:bg-white/5"
             }`}
           >
             <span
               className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${
-                tourStep === "PACKAGE" ? "bg-white text-purple-700" : "bg-purple-600 text-white"
+                tourStep === "PACKAGE" ? "bg-white text-[#0B132B]" : "bg-emerald-500/20 text-emerald-300"
               }`}
             >
               {tourStep === "JOURNEY" ? "✓" : "1"}
@@ -132,20 +132,18 @@ export function TourBookingForm({
             <span>1. Select Package</span>
           </button>
 
-          <span className="text-slate-300 font-bold">→</span>
-
           <button
             type="button"
             onClick={() => setTourStep("JOURNEY")}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${
               tourStep === "JOURNEY"
-                ? "bg-purple-600 text-white shadow-xs"
-                : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                ? "bg-[#00c58e] text-white shadow-lg shadow-[#00c58e]/30 font-black"
+                : "text-slate-300 hover:text-white hover:bg-white/5"
             }`}
           >
             <span
               className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${
-                tourStep === "JOURNEY" ? "bg-white text-purple-700" : "bg-slate-300 text-slate-700"
+                tourStep === "JOURNEY" ? "bg-white text-[#0B132B]" : "bg-white/10 text-slate-300"
               }`}
             >
               2
@@ -161,9 +159,9 @@ export function TourBookingForm({
               setTourStep("PACKAGE");
               window.scrollTo({ top: 120, behavior: "smooth" });
             }}
-            className="hidden sm:flex items-center gap-1.5 text-xs font-bold text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-xl border border-purple-200 transition-colors cursor-pointer"
+            className="hidden sm:flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 px-3.5 py-1.5 rounded-xl border border-white/15 transition-colors cursor-pointer"
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to Packages
+            <ArrowLeft className="w-3.5 h-3.5 text-emerald-400" /> Back to Packages
           </button>
         )}
       </div>
@@ -172,10 +170,10 @@ export function TourBookingForm({
       {tourStep === "PACKAGE" && (
         <div className="space-y-6 animate-in fade-in duration-300">
           <div className="space-y-1">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-              <Palmtree className="w-4 h-4 text-purple-600" /> SELECT YOUR TOUR PACKAGE
+            <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+              <Palmtree className="w-4 h-4 text-emerald-400" /> SELECT YOUR TOUR PACKAGE
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-400">
               Choose a curated South India holiday package or customize your trip.
             </p>
           </div>
@@ -193,43 +191,43 @@ export function TourBookingForm({
                     onChange("number_of_days", pkg.duration.split(" ")[0]);
                     onChange("destination", pkg.destinations.join(" → "));
                   }}
-                  className={`text-left rounded-2xl border overflow-hidden transition-all bg-white shadow-2xs group cursor-pointer ${
+                  className={`text-left rounded-2xl border overflow-hidden transition-all bg-[#111c3a]/80 shadow-inner group cursor-pointer ${
                     isSelected
-                      ? "border-purple-500 ring-2 ring-purple-500/40 shadow-md scale-[1.01]"
-                      : "border-slate-200 hover:border-purple-300 hover:shadow-xs"
+                      ? "border-[#00c58e] ring-2 ring-[#00c58e]/30 bg-[#162544]/95 shadow-xl shadow-black/40 scale-[1.01]"
+                      : "border-white/10 hover:border-white/25 hover:bg-[#111c3a]"
                   }`}
                 >
-                  <div className="relative h-28 bg-slate-100 overflow-hidden">
+                  <div className="relative h-28 bg-[#0b1329] overflow-hidden">
                     <img
                       src={pkg.image}
                       alt={pkg.title}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/85 via-slate-900/30 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0b1329] via-[#0b1329]/40 to-transparent" />
                     <div className="absolute bottom-2 left-3 right-3">
                       <div className="text-sm font-extrabold text-white leading-tight drop-shadow-sm">
                         {pkg.title}
                       </div>
                     </div>
                     {isSelected && (
-                      <div className="absolute top-2 right-2 bg-purple-600 text-white rounded-full p-1 shadow-xs flex items-center justify-center">
-                        <CheckCircle2 className="w-3.5 h-3.5 fill-white text-purple-600" />
+                      <div className="absolute top-2 right-2 bg-[#00c58e] text-white rounded-full p-1 shadow-xs flex items-center justify-center">
+                        <CheckCircle2 className="w-3.5 h-3.5 fill-white text-[#00c58e]" />
                       </div>
                     )}
                   </div>
                   <div className="p-3 flex items-center justify-between">
                     <div>
-                      <span className="text-[11px] font-medium text-slate-600">
+                      <span className="text-[11px] font-medium text-slate-300">
                         {pkg.duration}
                       </span>
-                      <div className="text-[11px] text-slate-500">
+                      <div className="text-[11px] text-slate-400">
                         {pkg.destinations.slice(0, 2).join(" · ")}
                         {pkg.destinations.length > 2 && ` +${pkg.destinations.length - 2}`}
                       </div>
                     </div>
                     <div className="text-right">
                       <span className="text-[10px] text-slate-400">from</span>
-                      <div className="text-sm font-black text-purple-700">
+                      <div className="text-sm font-black text-emerald-400">
                         ₹{(pkg.startingPrice || 4999).toLocaleString("en-IN")}
                       </div>
                     </div>
@@ -240,27 +238,27 @@ export function TourBookingForm({
           </div>
 
           {errors.package_slug && (
-            <p className="text-xs text-red-600 font-medium mt-1">{errors.package_slug}</p>
+            <p className="text-xs text-rose-400 font-medium mt-1">{errors.package_slug}</p>
           )}
 
           {/* Bottom Action Bar on Step 1 */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100 bg-slate-50/70 p-4 rounded-2xl border border-slate-200/80">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-white/10 bg-[#111c3a]/80 p-4 rounded-2xl border border-white/10 shadow-inner">
             <div className="flex items-center gap-3 w-full sm:w-auto">
               {selectedPkg && (
                 <>
                   <img
                     src={selectedPkg.image}
                     alt={selectedPkg.title}
-                    className="w-12 h-12 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0"
+                    className="w-12 h-12 rounded-xl object-cover border border-white/15 shadow-inner shrink-0"
                   />
                   <div>
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300 bg-emerald-950/70 px-2 py-0.5 rounded border border-emerald-500/40">
                       Selected Package
                     </span>
-                    <h4 className="text-xs sm:text-sm font-black text-slate-900 mt-0.5">
+                    <h4 className="text-xs sm:text-sm font-black text-white mt-0.5">
                       {selectedPkg.title}
                     </h4>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[11px] text-slate-300">
                       {selectedPkg.duration} · From ₹
                       {(selectedPkg.startingPrice || 4999).toLocaleString("en-IN")}
                     </p>
@@ -281,7 +279,7 @@ export function TourBookingForm({
                 setTourStep("JOURNEY");
                 window.scrollTo({ top: 120, behavior: "smooth" });
               }}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-800 text-white font-black px-8 py-3.5 rounded-xl uppercase text-xs tracking-wider shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.02] cursor-pointer"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#00c58e] hover:bg-[#00a87a] text-white font-black px-10 sm:px-12 py-3.5 rounded-2xl uppercase tracking-wider text-sm shadow-xl shadow-[#00c58e]/30 transition-all hover:scale-102 active:scale-98 cursor-pointer"
             >
               <span>CONTINUE TO JOURNEY TYPE</span>
               <ArrowRight className="w-4 h-4" />
@@ -295,28 +293,30 @@ export function TourBookingForm({
         <div className="space-y-6 animate-in fade-in duration-300">
           {/* Selected Package Banner with Quick Switch */}
           {selectedPkg && (
-            <div className="bg-gradient-to-r from-purple-50 via-indigo-50/50 to-slate-50 border border-purple-200/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="bg-[#111c3a]/90 border border-white/15 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
               <div className="flex items-center gap-3">
                 <img
                   src={selectedPkg.image}
                   alt={selectedPkg.title}
-                  className="w-14 h-14 rounded-xl object-cover border border-purple-200 shadow-2xs shrink-0"
+                  className="w-14 h-14 rounded-xl object-cover border border-white/15 shadow-inner shrink-0"
                 />
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-purple-800 bg-purple-100/80 px-2 py-0.5 rounded border border-purple-200">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-300 bg-emerald-950/70 px-2 py-0.5 rounded border border-emerald-500/40">
                       Selected Itinerary
                     </span>
-                    <span className="text-[11px] font-semibold text-slate-500">
+                    <span className="text-[11px] font-semibold text-slate-400">
                       {selectedPkg.duration}
                     </span>
                   </div>
-                  <h4 className="text-sm sm:text-base font-black text-slate-900 mt-0.5">
+                  <h4 className="text-sm sm:text-base font-black text-white mt-0.5">
                     {selectedPkg.title}
                   </h4>
-                  <p className="text-[11px] text-slate-600">
-                    {selectedPkg.destinations.join(" · ")} · Starting from ₹
-                    {(selectedPkg.startingPrice || 4999).toLocaleString("en-IN")}
+                  <p className="text-[11px] text-slate-300">
+                    {selectedPkg.destinations.join(" · ")} · Starting from{" "}
+                    <span className="text-emerald-400 font-bold">
+                      ₹{(selectedPkg.startingPrice || 4999).toLocaleString("en-IN")}
+                    </span>
                   </p>
                 </div>
               </div>
@@ -327,7 +327,7 @@ export function TourBookingForm({
                   setTourStep("PACKAGE");
                   window.scrollTo({ top: 120, behavior: "smooth" });
                 }}
-                className="self-start sm:self-center text-xs font-bold text-purple-700 hover:text-purple-900 bg-white hover:bg-purple-50 border border-purple-300 px-3.5 py-1.5 rounded-xl transition shadow-2xs cursor-pointer shrink-0"
+                className="self-start sm:self-center text-xs font-bold text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/15 px-3.5 py-1.5 rounded-xl transition shadow-sm cursor-pointer shrink-0"
               >
                 Change Package
               </button>
@@ -336,17 +336,19 @@ export function TourBookingForm({
 
           {/* Section 1: Journey Type (One Way | Round Trip) */}
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-700 block">Journey Type</label>
-            <div className="flex gap-2">
+            <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block">
+              Journey Type
+            </label>
+            <div className="inline-flex rounded-xl border border-white/15 bg-[#111c3a]/90 p-1 gap-1 shadow-inner w-full sm:w-auto">
               {["One Way", "Round Trip"].map((t) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => onChange("tour_trip_type", t)}
-                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs border transition-all cursor-pointer ${
+                  className={`flex-1 sm:flex-initial px-6 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
                     tripType === t
-                      ? "bg-purple-600 text-white border-purple-600 shadow-xs"
-                      : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300"
+                      ? "bg-[#00c58e] text-white font-extrabold shadow-md shadow-[#00c58e]/30"
+                      : "text-slate-300 hover:text-white hover:bg-white/10"
                   }`}
                 >
                   {t}
@@ -356,15 +358,15 @@ export function TourBookingForm({
           </div>
 
           {/* Section 2: Itinerary Builder ("Your Tour Route") */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+          <div className="bg-[#111c3a]/80 border border-white/10 rounded-2xl p-4 sm:p-5 space-y-3 shadow-inner">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 text-purple-600" /> Your Tour Route
+              <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-emerald-400" /> Your Tour Route
               </span>
               <button
                 type="button"
                 onClick={addDestination}
-                className="text-xs font-bold text-purple-800 flex items-center gap-1 bg-purple-50 hover:bg-purple-100 px-2.5 py-1 rounded-lg border border-purple-200 transition cursor-pointer"
+                className="text-xs font-bold text-emerald-300 flex items-center gap-1 bg-emerald-950/60 hover:bg-emerald-900/60 px-3 py-1.5 rounded-xl border border-emerald-500/30 transition cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" /> Add Place
               </button>
@@ -373,20 +375,20 @@ export function TourBookingForm({
             <div className="space-y-2">
               {destinations.map((d, idx) => (
                 <div key={idx} className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-slate-200 border border-slate-300 flex items-center justify-center text-[10px] font-extrabold text-purple-700 shrink-0">
+                  <div className="w-6 h-6 rounded-full bg-[#0b1329] border border-emerald-500/40 flex items-center justify-center text-[10px] font-extrabold text-emerald-300 shrink-0">
                     {idx + 1}
                   </div>
                   <input
                     type="text"
                     value={d}
                     onChange={(e) => updateDestination(idx, e.target.value)}
-                    className="flex-1 bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-900 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
+                    className="flex-1 bg-[#0b1329]/90 border border-white/15 rounded-xl px-3 py-2 text-xs font-bold text-white focus:border-[#00c58e] outline-none [color-scheme:dark]"
                   />
                   {destinations.length > 2 && (
                     <button
                       type="button"
                       onClick={() => removeDestination(idx)}
-                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg cursor-pointer"
+                      className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg cursor-pointer"
                       title="Remove place"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -396,15 +398,15 @@ export function TourBookingForm({
               ))}
             </div>
 
-            <div className="pt-2 border-t border-slate-200 text-[11px] text-slate-500 flex flex-wrap items-center gap-1.5">
-              <span className="font-bold text-slate-700">Route:</span>
+            <div className="pt-2 border-t border-white/10 text-[11px] text-slate-400 flex flex-wrap items-center gap-1.5">
+              <span className="font-bold text-slate-300">Route:</span>
               {destinations.map((d, i) => (
                 <React.Fragment key={i}>
-                  <span className="bg-white border border-slate-200 px-2 py-0.5 rounded text-purple-800 font-semibold shadow-2xs">
+                  <span className="bg-[#0b1329] border border-white/15 px-2.5 py-0.5 rounded text-emerald-300 font-semibold shadow-inner">
                     {d}
                   </span>
                   {i < destinations.length - 1 && (
-                    <ArrowRight className="w-3 h-3 text-slate-400" />
+                    <ArrowRight className="w-3 h-3 text-slate-500" />
                   )}
                 </React.Fragment>
               ))}
@@ -414,22 +416,22 @@ export function TourBookingForm({
           {/* Section 3: Travel Date & Duration */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
-                <Calendar className="w-3.5 h-3.5 inline mr-1 text-amber-600" /> Travel Date *
+              <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
+                <Calendar className="w-3.5 h-3.5 inline mr-1 text-emerald-400" /> Travel Date *
               </label>
               <input
                 type="date"
                 min={new Date().toISOString().split("T")[0]}
                 value={formData.date || ""}
                 onChange={(e) => onChange("date", e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
               />
               {errors.date && (
-                <p className="text-xs text-red-600 font-medium mt-1">{errors.date}</p>
+                <p className="text-xs text-rose-400 font-medium mt-1">{errors.date}</p>
               )}
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
+              <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
                 Number of Days
               </label>
               <input
@@ -438,26 +440,26 @@ export function TourBookingForm({
                 max="30"
                 value={formData.number_of_days || 2}
                 onChange={(e) => onChange("number_of_days", e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
+              <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
                 Number of Nights
               </label>
               <input
                 type="number"
                 readOnly
                 value={Math.max(0, Number(formData.number_of_days || 2) - 1)}
-                className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-500 cursor-not-allowed"
+                className="w-full bg-[#0b1329]/90 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-400 cursor-not-allowed shadow-inner"
               />
             </div>
           </div>
 
           {/* Section 4: Group Members */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-              <Users className="w-4 h-4 text-purple-600" /> GROUP MEMBERS
+          <div className="bg-[#111c3a]/80 border border-white/10 rounded-2xl p-4 sm:p-5 space-y-3 shadow-inner">
+            <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+              <Users className="w-4 h-4 text-emerald-400" /> GROUP MEMBERS
             </h3>
             <div className="grid grid-cols-3 gap-4">
               {[
@@ -466,8 +468,8 @@ export function TourBookingForm({
                 { key: "infants", label: "Infants", sub: "(0–2 yrs)" },
               ].map(({ key, label, sub }) => (
                 <div key={key} className="text-center">
-                  <div className="text-xs font-bold text-slate-800 mb-0.5">{label}</div>
-                  <div className="text-[11px] text-slate-500 mb-2">{sub}</div>
+                  <div className="text-xs font-bold text-white mb-0.5">{label}</div>
+                  <div className="text-[11px] text-slate-400 mb-2">{sub}</div>
                   <div className="flex items-center justify-center gap-2">
                     <button
                       type="button"
@@ -480,11 +482,11 @@ export function TourBookingForm({
                           )
                         )
                       }
-                      className="w-8 h-8 rounded-xl bg-white border border-slate-300 text-slate-800 font-bold text-lg flex items-center justify-center hover:bg-slate-100 shadow-2xs cursor-pointer"
+                      className="w-8 h-8 rounded-xl bg-[#0b1329] border border-white/15 text-white font-bold text-lg flex items-center justify-center hover:bg-[#16244a] shadow-inner cursor-pointer"
                     >
                       −
                     </button>
-                    <span className="w-8 text-center font-black text-lg text-slate-900">
+                    <span className="w-8 text-center font-black text-lg text-white">
                       {formData[key] || (key === "adults" ? 2 : 0)}
                     </span>
                     <button
@@ -495,7 +497,7 @@ export function TourBookingForm({
                           Number(formData[key] || (key === "adults" ? 2 : 0)) + 1
                         )
                       }
-                      className="w-8 h-8 rounded-xl bg-white border border-slate-300 text-slate-800 font-bold text-lg flex items-center justify-center hover:bg-slate-100 shadow-2xs cursor-pointer"
+                      className="w-8 h-8 rounded-xl bg-[#0b1329] border border-white/15 text-white font-bold text-lg flex items-center justify-center hover:bg-[#16244a] shadow-inner cursor-pointer"
                     >
                       +
                     </button>
@@ -508,8 +510,8 @@ export function TourBookingForm({
           {/* Section 5: Vehicle Preference & Hotel Preference */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <Car className="w-3.5 h-3.5 text-amber-600" /> Vehicle Preference
+              <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 flex items-center gap-1.5">
+                <Car className="w-3.5 h-3.5 text-emerald-400" /> Vehicle Preference
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {VEHICLE_OPTIONS.map((v) => (
@@ -517,10 +519,10 @@ export function TourBookingForm({
                     key={v.slug}
                     type="button"
                     onClick={() => onChange("vehicle_slug", v.slug)}
-                    className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                    className={`py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                       (formData.vehicle_slug || "sedan") === v.slug
-                        ? "bg-amber-500 text-slate-950 border-amber-500 shadow-xs"
-                        : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300"
+                        ? "bg-[#00c58e] text-white border-[#00c58e] shadow-md shadow-[#00c58e]/30 font-extrabold"
+                        : "bg-[#0b1329] border-white/15 text-slate-300 hover:text-white hover:bg-white/5"
                     }`}
                   >
                     {v.name}
@@ -530,8 +532,8 @@ export function TourBookingForm({
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <Hotel className="w-3.5 h-3.5 text-purple-600" /> Hotel / Stay Preference
+              <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 flex items-center gap-1.5">
+                <Hotel className="w-3.5 h-3.5 text-emerald-400" /> Hotel / Stay Preference
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {HOTEL_TIERS.map((h) => (
@@ -541,16 +543,16 @@ export function TourBookingForm({
                     onClick={() => onChange("hotel_tier", h.id)}
                     className={`py-2 rounded-xl text-xs font-bold border transition-all text-left px-3 cursor-pointer ${
                       (formData.hotel_tier || "Standard") === h.id
-                        ? "bg-purple-600 text-white border-purple-600 shadow-xs"
-                        : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300"
+                        ? "bg-[#00c58e] text-white border-[#00c58e] shadow-md shadow-[#00c58e]/30 font-extrabold"
+                        : "bg-[#0b1329] border-white/15 text-slate-300 hover:text-white hover:bg-white/5"
                     }`}
                   >
                     <div>{h.id}</div>
                     <div
                       className={`text-[10px] font-normal ${
                         (formData.hotel_tier || "Standard") === h.id
-                          ? "text-purple-100"
-                          : "text-slate-500"
+                          ? "text-emerald-100"
+                          : "text-slate-400"
                       }`}
                     >
                       {h.desc.split(" — ")[0]}
@@ -562,16 +564,16 @@ export function TourBookingForm({
           </div>
 
           {/* Section 6: Bottom Action Bar on Step 2 (Journey Type) */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-white/10">
             <button
               type="button"
               onClick={() => {
                 setTourStep("PACKAGE");
                 window.scrollTo({ top: 120, behavior: "smooth" });
               }}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 px-4 py-3 rounded-xl transition shadow-2xs cursor-pointer"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/15 px-4 py-3 rounded-xl transition shadow-sm cursor-pointer"
             >
-              <ArrowLeft className="w-3.5 h-3.5 text-slate-600" /> Back to Packages
+              <ArrowLeft className="w-3.5 h-3.5 text-emerald-400" /> Back to Packages
             </button>
 
             {onCompleteBooking && (
@@ -579,16 +581,9 @@ export function TourBookingForm({
                 type="button"
                 onClick={onCompleteBooking}
                 disabled={isSubmitting}
-                className="w-full sm:w-auto relative overflow-hidden text-white font-black px-8 py-3.5 rounded-xl uppercase text-sm shadow-md transition-all hover:scale-105 disabled:opacity-60 group flex items-center justify-center min-w-[280px] cursor-pointer"
+                className="w-full sm:w-auto bg-[#00c58e] hover:bg-[#00a87a] text-white font-black px-10 sm:px-12 py-3.5 rounded-2xl uppercase tracking-wider text-sm shadow-xl shadow-[#00c58e]/30 transition-all hover:scale-102 active:scale-98 disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2"
               >
-                <div
-                  className="absolute inset-0 bg-cover bg-center z-0 transition-transform duration-500 group-hover:scale-110"
-                  style={{ backgroundImage: "url('/images/booking-btn-bg.jpg')" }}
-                />
-                <div className="absolute inset-0 bg-black/50 group-hover:bg-black/40 transition-colors z-0" />
-                <span className="relative z-10 drop-shadow-md tracking-wider">
-                  {isSubmitting ? "Generating Ticket..." : "CONTINUE TO BOOKING →"}
-                </span>
+                {isSubmitting ? "Generating Ticket..." : "CONTINUE TO BOOKING →"}
               </button>
             )}
           </div>
