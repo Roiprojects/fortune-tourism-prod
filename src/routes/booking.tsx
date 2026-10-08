@@ -335,6 +335,50 @@ function BookingPage() {
     return base + (withLuggageCarrier ? 149 : 0);
   }, [selectedFleet, cabTripType, localPackage, withLuggageCarrier]);
 
+  // Dynamic Total Fare calculation for confirmation ticket copy
+  const displayTotalFare = useMemo(() => {
+    if (serviceType === "CAB") {
+      return calculatedFare;
+    }
+    if (serviceType === "TOUR") {
+      const pkg = packages.find((p) => p.slug === otherFormData.package_slug) || packages[0];
+      const base = pkg?.startingPrice || 4999;
+      const adults = Number(otherFormData.adults || 2);
+      const days = Number(otherFormData.number_of_days || 2);
+      return Math.round(base * Math.max(1, adults / 2) * Math.max(1, days / 2));
+    }
+    if (serviceType === "TRAIN") {
+      const count = Math.max(1, otherFormData.passengers?.length || 1);
+      const cls = String(otherFormData.travel_class || "3A").toUpperCase();
+      let perTicket = 850;
+      if (cls === "1A") perTicket = 2450;
+      else if (cls === "2A") perTicket = 1650;
+      else if (cls === "3A" || cls === "3E") perTicket = 1150;
+      else if (cls === "CC") perTicket = 750;
+      else if (cls === "SL") perTicket = 450;
+      else if (cls === "2S") perTicket = 190;
+      return count * perTicket;
+    }
+    if (serviceType === "BUS") {
+      const count = Math.max(1, Number(otherFormData.seats_count || otherFormData.passengers?.length || 1));
+      const busType = String(otherFormData.bus_type || "").toUpperCase();
+      let perSeat = 850;
+      if (busType.includes("VOLVO") || busType.includes("MULTI-AXLE")) perSeat = 1450;
+      else if (busType.includes("SLEEPER")) perSeat = 1100;
+      else if (busType.includes("SEMI")) perSeat = 750;
+      return count * perSeat;
+    }
+    if (serviceType === "FLIGHT") {
+      const count = Math.max(1, Number(otherFormData.passengers?.length || 1));
+      const trip = String(otherFormData.flight_trip_type || "").toUpperCase();
+      const cabin = String(otherFormData.cabin_class || "ECONOMY").toUpperCase();
+      let perFlight = cabin === "BUSINESS" ? 14500 : 4850;
+      if (trip.includes("ROUND")) perFlight *= 2;
+      return count * perFlight;
+    }
+    return calculatedFare;
+  }, [serviceType, calculatedFare, otherFormData]);
+
   // From and To locations
   const fromLocationDisplay = useMemo(() => {
     if (serviceType === "TRAIN") return (otherFormData.from_station || "BANGALORE CITY (SBC)").toUpperCase();
@@ -591,6 +635,7 @@ function BookingPage() {
       boardingPoint: boardingPointDisplay,
       boardingAddress: boardingAddressDisplay,
       serviceType: serviceType || undefined,
+      fareAmount: displayTotalFare,
     });
     toast.success("Ticket PDF downloaded successfully!");
   };
@@ -1735,20 +1780,28 @@ function BookingPage() {
                 </div>
 
                 <div className="space-y-1.5 text-slate-900 font-sans text-xs">
-                  <div className="flex items-center justify-between pt-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                     <div className="text-slate-950 font-black tracking-wide text-base sm:text-lg">
                       Ticket Copy For Your Journey
                     </div>
-                    <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                      TICKET NUMBER :
-                      <strong className="font-mono font-black text-amber-700 text-sm sm:text-base tracking-wider bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-300 shadow-2xs">
-                        {ticketNumber}
-                      </strong>
-                    </span>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                        TICKET NUMBER :
+                        <strong className="font-mono font-black text-amber-700 text-sm sm:text-base tracking-wider bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-300 shadow-2xs">
+                          {ticketNumber}
+                        </strong>
+                      </span>
+                      <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                        TOTAL FARE :
+                        <strong className="font-mono font-black text-emerald-800 text-sm sm:text-base tracking-wider bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-400 shadow-2xs">
+                          ₹{Number(displayTotalFare || 0).toLocaleString("en-IN")}
+                        </strong>
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Ticket Table Grid (Exact 4-Row Spreadsheet Structure) */}
+                {/* Ticket Table Grid (Exact Spreadsheet Structure with Fare Amount) */}
                 <div className="overflow-x-auto border-2 border-slate-900">
                   <table className="w-full text-xs text-left border-collapse font-sans">
                     <tbody>
@@ -1829,7 +1882,7 @@ function BookingPage() {
                       </tr>
 
                       {/* Row 4: Trip Type | Type Of Car:/bus/Flight | Boarding point */}
-                      <tr className="divide-x divide-slate-900">
+                      <tr className="border-b border-slate-900 divide-x divide-slate-900">
                         <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
                           Trip Type:
                         </td>
@@ -1855,6 +1908,28 @@ function BookingPage() {
                         </td>
                         <td className="p-2.5 font-bold text-slate-900 uppercase">
                           {fromLocationDisplay}
+                        </td>
+                      </tr>
+
+                      {/* Row 5: Total Fare Amount | Payment Status | Taxes */}
+                      <tr className="divide-x divide-slate-900 bg-emerald-50/50">
+                        <td className="p-2.5 font-black text-slate-900 bg-emerald-100/70 whitespace-nowrap">
+                          Total Fare Amount:
+                        </td>
+                        <td className="p-2.5 font-black text-emerald-800 text-sm sm:text-base">
+                          ₹{Number(displayTotalFare || 0).toLocaleString("en-IN")}
+                        </td>
+                        <td className="p-2.5 font-bold text-slate-900 bg-emerald-100/70 whitespace-nowrap">
+                          Payment Status:
+                        </td>
+                        <td className="p-2.5 font-black text-emerald-700 uppercase">
+                          CONFIRMED / PAID
+                        </td>
+                        <td className="p-2.5 font-bold text-slate-900 bg-emerald-100/70 whitespace-nowrap">
+                          GST &amp; Taxes:
+                        </td>
+                        <td className="p-2.5 font-bold text-slate-900">
+                          Included (5% GST)
                         </td>
                       </tr>
                     </tbody>

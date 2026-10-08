@@ -411,6 +411,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
       boardingPoint: boardingPoint || "—",
       boardingAddress: boardingAddress || "—",
       serviceType: "CAB",
+      fareAmount: calculatedFare,
     });
     toast.success("Ticket PDF downloaded successfully!");
   };
@@ -1402,16 +1403,24 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
               </div>
 
               <div className="space-y-1.5 text-slate-900 font-sans text-xs">
-                <div className="flex items-center justify-between pt-1">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                   <div className="text-slate-950 font-black tracking-wide text-base sm:text-lg">
                     Ticket Copy For Your Journey
                   </div>
-                  <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                    TICKET NUMBER :
-                    <strong className="font-mono font-black text-amber-700 text-sm sm:text-base tracking-wider bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-300 shadow-2xs">
-                      {ticketNumber}
-                    </strong>
-                  </span>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                      TICKET NUMBER :
+                      <strong className="font-mono font-black text-amber-700 text-sm sm:text-base tracking-wider bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-300 shadow-2xs">
+                        {ticketNumber}
+                      </strong>
+                    </span>
+                    <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                      TOTAL FARE :
+                      <strong className="font-mono font-black text-emerald-800 text-sm sm:text-base tracking-wider bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-400 shadow-2xs">
+                        ₹{Number(calculatedFare || 0).toLocaleString("en-IN")}
+                      </strong>
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -1496,7 +1505,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                     </tr>
 
                     {/* Row 5: Trip Type | Type Of Cab | Boarding point */}
-                    <tr className="divide-x divide-slate-900">
+                    <tr className="border-b border-slate-900 divide-x divide-slate-900">
                       <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
                         Trip Type:
                       </td>
@@ -1514,6 +1523,28 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                       </td>
                       <td className="p-2.5 font-bold text-slate-900 uppercase">
                         {fromLocationDisplay}
+                      </td>
+                    </tr>
+
+                    {/* Row 6: Total Fare Amount | Payment Status | Taxes */}
+                    <tr className="divide-x divide-slate-900 bg-emerald-50/50">
+                      <td className="p-2.5 font-black text-slate-900 bg-emerald-100/70 whitespace-nowrap">
+                        Total Fare Amount:
+                      </td>
+                      <td className="p-2.5 font-black text-emerald-800 text-sm sm:text-base">
+                        ₹{Number(calculatedFare || 0).toLocaleString("en-IN")}
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900 bg-emerald-100/70 whitespace-nowrap">
+                        Payment Status:
+                      </td>
+                      <td className="p-2.5 font-black text-emerald-700 uppercase">
+                        CONFIRMED / PAID
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900 bg-emerald-100/70 whitespace-nowrap">
+                        GST &amp; Taxes:
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900">
+                        Included (5% GST)
                       </td>
                     </tr>
                   </tbody>

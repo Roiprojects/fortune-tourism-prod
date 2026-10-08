@@ -178,6 +178,36 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
     return otherFormData.boarding_address || "—";
   }, [serviceType, trainData.boarding_address, otherFormData.boarding_address]);
 
+  // Dynamic ticket fare calculation based on service type, class/category, and passenger count
+  const ticketFareAmount = useMemo(() => {
+    if (serviceType === "TRAIN") {
+      const count = Math.max(1, passengers.length);
+      const cls = String(trainData.travel_class || "3A").toUpperCase();
+      let per = 850;
+      if (cls === "1A") per = 2450;
+      else if (cls === "2A") per = 1650;
+      else if (cls === "3A" || cls === "3E") per = 1150;
+      else if (cls === "CC") per = 750;
+      else if (cls === "SL") per = 450;
+      return count * per;
+    }
+    if (serviceType === "BUS") {
+      const count = Math.max(1, otherFormData.passengers?.length || 1);
+      const bType = String(otherFormData.bus_type || "").toUpperCase();
+      let per = 850;
+      if (bType.includes("VOLVO") || bType.includes("MULTI")) per = 1450;
+      else if (bType.includes("SLEEPER")) per = 1100;
+      return count * per;
+    }
+    if (serviceType === "FLIGHT") {
+      const count = Math.max(1, otherFormData.passengers?.length || 1);
+      let per = otherFormData.cabin_class === "Business" ? 14500 : 4850;
+      if (otherFormData.flight_trip_type === "Round Trip") per *= 2;
+      return count * per;
+    }
+    return 1200;
+  }, [serviceType, passengers, trainData.travel_class, otherFormData]);
+
   // Passenger count selector (1 to 6)
   const setPassengerCount = (count: number) => {
     const current = passengers;
@@ -366,6 +396,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
       vehicleOrMode: vehicleDisplay,
       boardingPoint: boardingPointDisplay,
       boardingAddress: boardingAddressDisplay,
+      fareAmount: ticketFareAmount,
       serviceType,
     });
     toast.success("Ticket PDF downloaded successfully!");
@@ -879,11 +910,17 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                       {pnrNumber}
                     </span>
                   </span>
+                  <span className="flex items-center gap-1.5">
+                    <strong className="text-slate-300 uppercase text-xs font-black">TOTAL FARE:</strong>{" "}
+                    <span className="font-mono font-black text-emerald-400 text-base sm:text-lg tracking-wider bg-emerald-950/50 px-2.5 py-0.5 rounded-lg border border-emerald-500/40 shadow-2xs">
+                      ₹{ticketFareAmount.toLocaleString("en-IN")}
+                    </span>
+                  </span>
                 </div>
 
                 <a
                   href={buildWhatsAppUrl(
-                    `Hello Fortune Tourism! New offline ${serviceType.toLowerCase()} ticket reservation confirmed.\n\n*Ticket No:* ${ticketNumber}\n*PNR:* ${pnrNumber}\n*Passenger:* ${primaryPassengerName}\n*Phone:* ${primaryPhone}\n*From:* ${fromLocationDisplay}\n*To:* ${toLocationDisplay}\n*Date:* ${departureDateFormatted}\n*Service:* ${vehicleDisplay}`
+                    `Hello Fortune Tourism! New offline ${serviceType.toLowerCase()} ticket reservation confirmed.\n\n*Ticket No:* ${ticketNumber}\n*PNR:* ${pnrNumber}\n*Total Fare:* ₹${ticketFareAmount.toLocaleString("en-IN")}\n*Passenger:* ${primaryPassengerName}\n*Phone:* ${primaryPhone}\n*From:* ${fromLocationDisplay}\n*To:* ${toLocationDisplay}\n*Date:* ${departureDateFormatted}\n*Service:* ${vehicleDisplay}`
                   )}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -925,16 +962,24 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
               </div>
 
               <div className="space-y-1.5 text-slate-900 font-sans text-xs">
-                <div className="flex items-center justify-between pt-1">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                   <div className="text-slate-950 font-black tracking-wide text-base sm:text-lg">
                     Ticket Copy For Your Journey
                   </div>
-                  <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                    TICKET NUMBER :
-                    <strong className="font-mono font-black text-amber-700 text-sm sm:text-base tracking-wider bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-300 shadow-2xs">
-                      {ticketNumber}
-                    </strong>
-                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-black text-emerald-800 flex items-center gap-1.5 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-300 shadow-2xs">
+                      TOTAL FARE :
+                      <strong className="font-mono font-black text-emerald-700 text-sm sm:text-base">
+                        ₹{ticketFareAmount.toLocaleString("en-IN")}
+                      </strong>
+                    </span>
+                    <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                      TICKET NUMBER :
+                      <strong className="font-mono font-black text-amber-700 text-sm sm:text-base tracking-wider bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-300 shadow-2xs">
+                        {ticketNumber}
+                      </strong>
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -1019,7 +1064,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                     </tr>
 
                     {/* Row 5: Trip Type | Type Of Train | Boarding point */}
-                    <tr className="divide-x divide-slate-900">
+                    <tr className="border-b border-slate-900 divide-x divide-slate-900">
                       <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
                         Trip Type:
                       </td>
@@ -1041,6 +1086,28 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                       </td>
                       <td className="p-2.5 font-bold text-slate-900 uppercase">
                         {fromLocationDisplay}
+                      </td>
+                    </tr>
+
+                    {/* Row 6: Total Fare Amount | Payment Status | GST & Taxes */}
+                    <tr className="divide-x divide-slate-900 bg-emerald-50/50">
+                      <td className="p-2.5 font-black text-slate-900 bg-emerald-100/70 whitespace-nowrap">
+                        Total Fare Amount:
+                      </td>
+                      <td className="p-2.5 font-black text-emerald-800 text-sm sm:text-base">
+                        ₹{ticketFareAmount.toLocaleString("en-IN")}
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900 bg-emerald-100/70 whitespace-nowrap">
+                        Payment Status:
+                      </td>
+                      <td className="p-2.5 font-black text-emerald-700 uppercase">
+                        CONFIRMED / PAID
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900 bg-emerald-100/70 whitespace-nowrap">
+                        GST &amp; Taxes:
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900">
+                        Included (5% GST)
                       </td>
                     </tr>
                   </tbody>

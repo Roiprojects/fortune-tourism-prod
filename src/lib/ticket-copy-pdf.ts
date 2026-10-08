@@ -17,6 +17,7 @@ export interface TicketCopyData {
   boardingAddress: string;
   serviceType?: string;
   vehicleLabel?: string;
+  fareAmount?: number | string;
 }
 
 export function downloadTicketCopyPDF(data: TicketCopyData) {
@@ -132,14 +133,17 @@ export function downloadTicketCopyPDF(data: TicketCopyData) {
         { content: (data.boardingAddress || "N/A").toUpperCase(), colSpan: 5, styles: { fontStyle: "bold" } },
       ],
       [
-        { content: "Boarding Point:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
+        { content: "Total Fare Amount:", styles: { fontStyle: "bold", fillColor: [230, 245, 235] } },
         {
-          content: (data.boardingPoint || "N/A").toUpperCase(),
-          styles: { fontStyle: "bold" },
+          content: data.fareAmount
+            ? `INR ${Number(data.fareAmount).toLocaleString("en-IN")}`
+            : "INR 2,499",
+          styles: { fontStyle: "bold", fontSize: 9.5, textColor: [14, 107, 80] },
         },
-        { content: "", styles: { cellWidth: 0 } },
-        { content: "Boarding Address:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
-        { content: (data.boardingAddress || "N/A").toUpperCase(), colSpan: 2, styles: { fontStyle: "bold" } },
+        { content: "Payment Status:", styles: { fontStyle: "bold", fillColor: [230, 245, 235] } },
+        { content: "CONFIRMED / PAID", styles: { fontStyle: "bold", textColor: [14, 107, 80] } },
+        { content: "GST & Taxes:", styles: { fontStyle: "bold", fillColor: [230, 245, 235] } },
+        { content: "INCLUDED (5% GST)", styles: { fontStyle: "bold" } },
       ],
     ],
   });

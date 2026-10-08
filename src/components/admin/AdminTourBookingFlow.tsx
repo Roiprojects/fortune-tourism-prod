@@ -89,6 +89,14 @@ export function AdminTourBookingFlow({
     return (pkg?.title || tourFormData.package_title || "South India Tour Package").toUpperCase();
   }, [tourFormData.package_slug, tourFormData.package_title]);
 
+  const tourFareAmount = useMemo(() => {
+    const selectedPkg = packages.find((p) => p.slug === tourFormData.package_slug);
+    const base = selectedPkg?.startingPrice || 4999;
+    const adults = Number(tourFormData.adults || 2);
+    const days = Number(tourFormData.number_of_days || 2);
+    return Math.round(base * Math.max(1, adults / 2) * Math.max(1, days / 2));
+  }, [tourFormData.package_slug, tourFormData.adults, tourFormData.number_of_days]);
+
   const handleCompleteTourBooking = async () => {
     setIsSubmitting(true);
     try {
@@ -164,6 +172,7 @@ export function AdminTourBookingFlow({
       boardingPoint: tourFormData.boarding_point || "—",
       boardingAddress: tourFormData.boarding_address || "—",
       serviceType: "TOUR",
+      fareAmount: tourFareAmount,
     });
     toast.success("Tour Ticket PDF downloaded successfully!");
   };
@@ -359,16 +368,24 @@ export function AdminTourBookingFlow({
               </div>
 
               <div className="space-y-1.5 text-slate-900 font-sans text-xs">
-                <div className="flex items-center justify-between pt-1">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                   <div className="text-slate-950 font-black tracking-wide text-base sm:text-lg">
                     Ticket Copy For Your Journey
                   </div>
-                  <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                    TICKET NUMBER :
-                    <strong className="font-mono font-black text-amber-700 text-sm sm:text-base tracking-wider bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-300 shadow-2xs">
-                      {ticketNumber}
-                    </strong>
-                  </span>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                      TICKET NUMBER :
+                      <strong className="font-mono font-black text-amber-700 text-sm sm:text-base tracking-wider bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-300 shadow-2xs">
+                        {ticketNumber}
+                      </strong>
+                    </span>
+                    <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                      TOTAL FARE :
+                      <strong className="font-mono font-black text-emerald-800 text-sm sm:text-base tracking-wider bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-400 shadow-2xs">
+                        ₹{Number(tourFareAmount || 0).toLocaleString("en-IN")}
+                      </strong>
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -453,7 +470,7 @@ export function AdminTourBookingFlow({
                     </tr>
 
                     {/* Row 5: Trip Type | Tour Package | Boarding point */}
-                    <tr className="divide-x divide-slate-900">
+                    <tr className="border-b border-slate-900 divide-x divide-slate-900">
                       <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
                         Trip Type:
                       </td>
@@ -471,6 +488,28 @@ export function AdminTourBookingFlow({
                       </td>
                       <td className="p-2.5 font-bold text-slate-900 uppercase">
                         BANGALORE
+                      </td>
+                    </tr>
+
+                    {/* Row 6: Total Fare Amount | Payment Status | Taxes */}
+                    <tr className="divide-x divide-slate-900 bg-emerald-50/50">
+                      <td className="p-2.5 font-black text-slate-900 bg-emerald-100/70 whitespace-nowrap">
+                        Total Fare Amount:
+                      </td>
+                      <td className="p-2.5 font-black text-emerald-800 text-sm sm:text-base">
+                        ₹{Number(tourFareAmount || 0).toLocaleString("en-IN")}
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900 bg-emerald-100/70 whitespace-nowrap">
+                        Payment Status:
+                      </td>
+                      <td className="p-2.5 font-black text-emerald-700 uppercase">
+                        CONFIRMED / PAID
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900 bg-emerald-100/70 whitespace-nowrap">
+                        GST &amp; Taxes:
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900">
+                        Included (5% GST)
                       </td>
                     </tr>
                   </tbody>
