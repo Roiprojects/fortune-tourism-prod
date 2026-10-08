@@ -2002,13 +2002,50 @@ function AdminPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-600 uppercase">Duration</label>
-                    <input
+                    <label className="text-xs font-semibold text-slate-600 uppercase">Duration (Select Days of Trip)</label>
+                    <select
                       value={newPkg.duration}
                       onChange={(e) => setNewPkg({ ...newPkg, duration: e.target.value })}
-                      placeholder="3 Days · 2 Nights"
-                      className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:ring-2 focus:ring-amber-500 outline-none"
-                    />
+                      className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-amber-500 outline-none"
+                    >
+                      <option value="1 Day · Same Day">1 Day · Same Day Return</option>
+                      <option value="2 Days · 1 Night">2 Days · 1 Night</option>
+                      <option value="3 Days · 2 Nights">3 Days · 2 Nights</option>
+                      <option value="4 Days · 3 Nights">4 Days · 3 Nights</option>
+                      <option value="5 Days · 4 Nights">5 Days · 4 Nights</option>
+                      <option value="6 Days · 5 Nights">6 Days · 5 Nights</option>
+                      <option value="7 Days · 6 Nights">7 Days · 6 Nights</option>
+                      <option value="8 Days · 7 Nights">8 Days · 7 Nights</option>
+                      <option value="10 Days · 9 Nights">10 Days · 9 Nights</option>
+                      <option value="12 Days · 11 Nights">12 Days · 11 Nights</option>
+                      <option value="14 Days · 13 Nights">14 Days · 13 Nights</option>
+                    </select>
+
+                    {/* Quick selection day buttons */}
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {[
+                        "1 Day",
+                        "2 Days · 1 Night",
+                        "3 Days · 2 Nights",
+                        "4 Days · 3 Nights",
+                        "5 Days · 4 Nights",
+                        "6 Days · 5 Nights",
+                        "7 Days · 6 Nights",
+                      ].map((d) => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => setNewPkg({ ...newPkg, duration: d })}
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition cursor-pointer ${
+                            newPkg.duration === d
+                              ? "bg-amber-500 text-slate-900 border-amber-600 font-extrabold shadow-xs"
+                              : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                          }`}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-slate-600 uppercase">From City</label>

@@ -413,46 +413,105 @@ export function TourBookingForm({
             </div>
           </div>
 
-          {/* Section 3: Travel Date & Duration */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
-                <Calendar className="w-3.5 h-3.5 inline mr-1 text-emerald-400" /> Travel Date *
-              </label>
-              <input
-                type="date"
-                min={new Date().toISOString().split("T")[0]}
-                value={formData.date || ""}
-                onChange={(e) => onChange("date", e.target.value)}
-                className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
-              />
-              {errors.date && (
-                <p className="text-xs text-rose-400 font-medium mt-1">{errors.date}</p>
-              )}
+          {/* Section 3: Travel Date & Trip Duration */}
+          <div className="space-y-4 bg-[#111c3a]/80 border border-white/10 rounded-2xl p-4 sm:p-5 shadow-inner">
+            <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-white/10">
+              <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-emerald-400" /> SCHEDULE &amp; TRIP DURATION
+              </span>
+              <span className="text-[11px] font-extrabold text-emerald-300 bg-[#0b1329] px-3.5 py-1 rounded-full border border-emerald-500/30 shadow-inner">
+                {Number(formData.number_of_days || 2)} Days · {Math.max(0, Number(formData.number_of_days || 2) - 1)} Nights
+              </span>
             </div>
+
+            {/* Quick Trip Days Selection Buttons */}
             <div>
-              <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
-                Number of Days
+              <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-2">
+                Select Days of Trip (Quick Buttons)
               </label>
-              <input
-                type="number"
-                min="1"
-                max="30"
-                value={formData.number_of_days || 2}
-                onChange={(e) => onChange("number_of_days", e.target.value)}
-                className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
-              />
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { days: 1, label: "1 Day (Same Day)" },
+                  { days: 2, label: "2 Days (1N)" },
+                  { days: 3, label: "3 Days (2N)" },
+                  { days: 4, label: "4 Days (3N)" },
+                  { days: 5, label: "5 Days (4N)" },
+                  { days: 6, label: "6 Days (5N)" },
+                  { days: 7, label: "7 Days (6N)" },
+                  { days: 10, label: "10 Days (9N)" },
+                ].map((item) => {
+                  const isSelected = Number(formData.number_of_days || 2) === item.days;
+                  return (
+                    <button
+                      key={item.days}
+                      type="button"
+                      onClick={() => onChange("number_of_days", item.days)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-[#00c58e] text-white font-black shadow-lg shadow-[#00c58e]/30 scale-105 border border-[#00c58e]"
+                          : "bg-[#0b1329] border border-white/15 text-slate-300 hover:text-white hover:bg-white/10"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <div>
-              <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
-                Number of Nights
-              </label>
-              <input
-                type="number"
-                readOnly
-                value={Math.max(0, Number(formData.number_of_days || 2) - 1)}
-                className="w-full bg-[#0b1329]/90 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-400 cursor-not-allowed shadow-inner"
-              />
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+              <div>
+                <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
+                  <Calendar className="w-3.5 h-3.5 inline mr-1 text-emerald-400" /> Travel Date *
+                </label>
+                <input
+                  type="date"
+                  min={new Date().toISOString().split("T")[0]}
+                  value={formData.date || ""}
+                  onChange={(e) => onChange("date", e.target.value)}
+                  className="w-full bg-[#0b1329]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
+                />
+                {errors.date && (
+                  <p className="text-xs text-rose-400 font-medium mt-1">{errors.date}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
+                  Select Days of Trip (Dropdown)
+                </label>
+                <select
+                  value={String(formData.number_of_days || 2)}
+                  onChange={(e) => onChange("number_of_days", Number(e.target.value))}
+                  className="w-full bg-[#0b1329]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
+                >
+                  <option value="1" className="bg-[#0b1329] text-white">1 Day (Same Day Return)</option>
+                  <option value="2" className="bg-[#0b1329] text-white">2 Days · 1 Night</option>
+                  <option value="3" className="bg-[#0b1329] text-white">3 Days · 2 Nights</option>
+                  <option value="4" className="bg-[#0b1329] text-white">4 Days · 3 Nights</option>
+                  <option value="5" className="bg-[#0b1329] text-white">5 Days · 4 Nights</option>
+                  <option value="6" className="bg-[#0b1329] text-white">6 Days · 5 Nights</option>
+                  <option value="7" className="bg-[#0b1329] text-white">7 Days · 6 Nights</option>
+                  <option value="8" className="bg-[#0b1329] text-white">8 Days · 7 Nights</option>
+                  <option value="9" className="bg-[#0b1329] text-white">9 Days · 8 Nights</option>
+                  <option value="10" className="bg-[#0b1329] text-white">10 Days · 9 Nights</option>
+                  <option value="12" className="bg-[#0b1329] text-white">12 Days · 11 Nights</option>
+                  <option value="14" className="bg-[#0b1329] text-white">14 Days · 13 Nights</option>
+                  <option value="15" className="bg-[#0b1329] text-white">15 Days · 14 Nights</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
+                  Calculated Duration
+                </label>
+                <input
+                  type="text"
+                  readOnly
+                  value={`${Number(formData.number_of_days || 2)} Days (${Math.max(0, Number(formData.number_of_days || 2) - 1)} Nights)`}
+                  className="w-full bg-[#0b1329]/90 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-bold text-emerald-300 cursor-not-allowed shadow-inner"
+                />
+              </div>
             </div>
           </div>
 
