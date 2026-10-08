@@ -232,7 +232,7 @@ export function AdminTourBookingFlow({
             <div className="flex items-center justify-between pb-4 border-b border-white/10">
               <div className="flex items-center gap-2.5">
                 <span className="text-xs font-black uppercase tracking-wider text-emerald-300 bg-emerald-950/70 border border-emerald-500/40 rounded-full px-3.5 py-1 shadow-sm">
-                  🌴 Holiday Tour Packages
+                  🌴 TOUR PACKAGES
                 </span>
                 <span className="text-slate-300 text-xs sm:text-sm font-semibold">
                   Curated holiday itineraries across South India
@@ -253,7 +253,7 @@ export function AdminTourBookingFlow({
                   onClick={onBack}
                   className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1.5 px-3.5 py-1.5 border border-white/15 bg-white/5 rounded-xl hover:bg-white/10 transition-colors shadow-sm cursor-pointer"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5 text-emerald-400" /> Back to Dashboard
+                  <ArrowLeft className="w-3.5 h-3.5 text-emerald-400" /> Back to Services
                 </button>
               </div>
             </div>

@@ -1617,7 +1617,7 @@ function AdminPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setActiveService("packages");
+                      setActiveService("tour_booking_flow");
                     }}
                     className="relative text-center p-6 sm:p-7 rounded-2xl sm:rounded-3xl border transition-all duration-300 flex flex-col justify-between items-center group overflow-hidden shadow-xl backdrop-blur-xl border-t-4 border-t-purple-400 hover:border-purple-400/80 shadow-purple-500/10 bg-[#0B132B]/95 hover:bg-[#101e42] border-white/15 hover:scale-[1.02] cursor-pointer"
                   >
