@@ -1144,31 +1144,6 @@ export function AccountsReportsHub({
         </div>
       </div>
 
-      {/* Ribbon Navigation for all 10 Reports */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-2 shadow-xs">
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1">
-          {REPORT_DEFINITIONS.map((r) => {
-            const Icon = r.icon;
-            const isSel = activeReport === r.key;
-            return (
-              <button
-                key={r.key}
-                type="button"
-                onClick={() => handleReportChange(r.key)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer shrink-0 ${
-                  isSel
-                    ? "bg-[#0b1329] text-amber-400 shadow-sm border border-amber-400/40 font-extrabold"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                }`}
-              >
-                <Icon className={`w-3.5 h-3.5 ${isSel ? "text-amber-400" : r.color}`} />
-                <span>{r.shortTitle}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
       {/* 4 Key Metric Cards (Hidden on Daily Reports) */}
       {activeReport !== "daily" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

@@ -329,6 +329,7 @@ function AdminPage() {
 
   // Account Menu dropdown states & handlers
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [financialLedgersOpen, setFinancialLedgersOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
@@ -1336,9 +1337,9 @@ function AdminPage() {
 
               {/* Account Dropdown Menu: Profile, Settings, Logout */}
               {accountMenuOpen && (
-                <div className="absolute right-0 top-full pt-1.5 w-60 z-50 animate-in fade-in zoom-in-95 duration-150">
-                  <div className="rounded-2xl bg-white border border-slate-200 shadow-xl p-2 ring-1 ring-black/5">
-                    <div className="px-3 py-2 border-b border-slate-100 mb-1">
+                <div className="absolute right-0 top-full pt-1.5 w-72 sm:w-80 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="rounded-2xl bg-white border border-slate-200 shadow-xl p-2.5 ring-1 ring-black/5">
+                    <div className="px-3 py-2 border-b border-slate-100 mb-1.5">
                       <p className="text-xs font-bold text-slate-900 truncate">{adminUser?.name || "Fortune Tourism Administrator"}</p>
                       <p className="text-[11px] text-slate-500 truncate">{adminUser?.email || "adminfortunetourism@gmail.com"}</p>
                     </div>
@@ -1352,7 +1353,7 @@ function AdminPage() {
                       }}
                       className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50 transition text-left cursor-pointer"
                     >
-                      <User className="w-4 h-4 text-emerald-600" />
+                      <User className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span>Profile</span>
                     </button>
 
@@ -1365,22 +1366,65 @@ function AdminPage() {
                       }}
                       className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50 transition text-left cursor-pointer"
                     >
-                      <Settings className="w-4 h-4 text-amber-600" />
+                      <Settings className="w-4 h-4 text-amber-600 shrink-0" />
                       <span>Settings</span>
                     </button>
 
-                    {/* Financial Ledgers */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAccountMenuOpen(false);
-                        setActiveService("accounts");
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50 transition text-left cursor-pointer"
-                    >
-                      <IndianRupee className="w-4 h-4 text-blue-600" />
-                      <span>Financial Ledgers</span>
-                    </button>
+                    {/* Financial Ledgers with Dropdown */}
+                    <div className="mt-0.5 space-y-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFinancialLedgersOpen((prev) => !prev);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition text-left cursor-pointer ${
+                          financialLedgersOpen || activeService === "accounts"
+                            ? "bg-emerald-50 text-[#063f2d] border border-emerald-200/50"
+                            : "text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50/60"
+                        }`}
+                        aria-expanded={financialLedgersOpen}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <IndianRupee className="w-4 h-4 text-blue-600 shrink-0" />
+                          <span>Financial Ledgers</span>
+                        </div>
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                            financialLedgersOpen ? "rotate-180 text-[#063f2d]" : ""
+                          }`}
+                        />
+                      </button>
+
+                      {financialLedgersOpen && (
+                        <div className="pl-1 pr-1 py-1 space-y-0.5 bg-slate-50/90 rounded-xl border border-slate-200/80 max-h-64 overflow-y-auto scrollbar-thin">
+                          {REPORT_DEFINITIONS.map((r) => {
+                            const Icon = r.icon;
+                            const isSel = activeService === "accounts" && activeAccountReport === r.key;
+                            return (
+                              <button
+                                key={r.key}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveAccountReport(r.key);
+                                  setActiveService("accounts");
+                                  setAccountMenuOpen(false);
+                                }}
+                                className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition text-left cursor-pointer ${
+                                  isSel
+                                    ? "bg-[#0b1329] text-amber-400 font-extrabold shadow-2xs border border-amber-400/30"
+                                    : "text-slate-600 hover:text-slate-900 hover:bg-white"
+                                }`}
+                              >
+                                <Icon className={`w-3.5 h-3.5 shrink-0 ${isSel ? "text-amber-400" : r.color}`} />
+                                <span className="truncate">{r.shortTitle}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
 
                     <div className="my-1 border-t border-slate-100" />
 
