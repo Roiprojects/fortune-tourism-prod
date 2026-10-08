@@ -588,6 +588,13 @@ function PackageDetail() {
               </div>
 
               <div className="mt-5 flex flex-col gap-2">
+                <Link
+                  to="/booking"
+                  search={{ service: "TOUR", package: pkg.slug }}
+                  className="w-full rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2.5 text-center text-sm font-bold text-white shadow-md hover:brightness-110 flex items-center justify-center gap-2"
+                >
+                  Book Tour Online <ArrowRight className="h-4 w-4" />
+                </Link>
                 <a
                   href={whatsapp}
                   target="_blank"

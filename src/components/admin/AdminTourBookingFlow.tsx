@@ -232,26 +232,10 @@ export function AdminTourBookingFlow({ onBack, onBookingCompleted }: AdminTourBo
               onChange={onTourChange}
               onFareCalculated={() => {}}
               errors={{}}
+              onCompleteBooking={handleCompleteTourBooking}
+              isSubmitting={isSubmitting}
+              onBackToServices={onBack}
             />
-
-            {/* Bottom Continue to Booking Button */}
-            <div className="flex justify-end pt-4 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={handleCompleteTourBooking}
-                disabled={isSubmitting}
-                className="relative overflow-hidden text-white font-black px-10 py-3.5 rounded-xl uppercase text-sm shadow-md transition-all hover:scale-105 disabled:opacity-60 group flex items-center justify-center min-w-[260px] cursor-pointer"
-              >
-                <div
-                  className="absolute inset-0 bg-cover bg-center z-0 transition-transform duration-500 group-hover:scale-110"
-                  style={{ backgroundImage: "url('/images/booking-btn-bg.jpg')" }}
-                />
-                <div className="absolute inset-0 bg-black/50 group-hover:bg-black/40 transition-colors z-0" />
-                <span className="relative z-10 drop-shadow-md tracking-wider">
-                  {isSubmitting ? "Generating Ticket..." : "CONTINUE TO BOOKING →"}
-                </span>
-              </button>
-            </div>
           </div>
         ) : (
           /* ================= STEP 2: TICKET CONFIRMATION & OFFICIAL VOUCHER (Image 2) ================= */

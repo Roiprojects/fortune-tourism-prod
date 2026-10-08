@@ -699,6 +699,13 @@ function PackageCard({
             </p>
           </div>
           <div className="flex gap-2">
+            <Link
+              to="/booking"
+              search={{ service: "TOUR", package: pkg.slug }}
+              className="inline-flex items-center gap-1 rounded-full bg-purple-600 hover:bg-purple-700 px-3 py-2 text-xs font-semibold text-white transition shadow-2xs"
+            >
+              Book
+            </Link>
             <button
               type="button"
               onClick={onOpenDetails}
@@ -778,6 +785,14 @@ function PackageDetailsModal({ pkg, onClose }: { pkg: TourPackage; onClose: () =
         </div>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row border-t border-border pt-6">
+          <Link
+            to="/booking"
+            search={{ service: "TOUR", package: pkg.slug }}
+            onClick={onClose}
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-3 text-sm font-bold text-white shadow hover:brightness-110"
+          >
+            Book Tour Online <ArrowRight className="h-4 w-4" />
+          </Link>
           <a
             href={waUrl}
             target="_blank"

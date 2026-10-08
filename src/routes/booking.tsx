@@ -1,6 +1,7 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { packages } from "@/data/packages";
 import {
   ArrowLeft,
   ArrowRight,
@@ -38,6 +39,12 @@ import { FlightBookingForm } from "@/components/booking/FlightBookingForm";
 import { TourBookingForm } from "@/components/booking/TourBookingForm";
 
 export const Route = createFileRoute("/booking")({
+  validateSearch: (search: Record<string, unknown>) => {
+    return {
+      service: typeof search.service === "string" ? search.service : undefined,
+      package: typeof search.package === "string" ? search.package : undefined,
+    };
+  },
   head: () => ({
     meta: [
       { title: "Book Cabs & Tour Packages — Fortune Tourism" },
@@ -202,6 +209,7 @@ const FLEET_OPTIONS: FleetOption[] = [
 ];
 
 function BookingPage() {
+  const search = Route.useSearch();
   // Step 0: Choose Service (5 cards)
   // Step 1: Cab Journey Route & Dropdown (One Way / Round Trip / Local / Airport)
   // Step 2: Fleet Selection Page (Hatchback, Sedan, SUV, Innova, Tempo)
@@ -210,6 +218,25 @@ function BookingPage() {
   // Step 5: Official Ticket Confirmation PDF Voucher
   const [step, setStep] = useState(0);
   const [serviceType, setServiceType] = useState<ServiceType | null>(null);
+
+  useEffect(() => {
+    if (search.service?.toUpperCase() === "TOUR" || search.package) {
+      setServiceType("TOUR");
+      setStep(1);
+      if (search.package) {
+        const found = packages.find((p) => p.slug === search.package);
+        if (found) {
+          setOtherFormData((prev: any) => ({
+            ...prev,
+            package_slug: found.slug,
+            package_title: found.title,
+            number_of_days: found.duration.split(" ")[0] || "3",
+            destination: found.destinations.join(" → "),
+          }));
+        }
+      }
+    }
+  }, [search.service, search.package]);
 
   // Cab Journey Inputs
   const [cabTripType, setCabTripType] = useState<CabTripType>("ONE WAY");
@@ -1137,29 +1164,17 @@ function BookingPage() {
                   />
                 )}
                 {serviceType === "TOUR" && (
-                  <TourBookingForm formData={otherFormData} onChange={onOtherChange} errors={errors} onFareCalculated={() => {}} />
+                  <TourBookingForm
+                    formData={otherFormData}
+                    onChange={onOtherChange}
+                    errors={errors}
+                    onFareCalculated={() => {}}
+                    onCompleteBooking={handleCompleteTicketBooking}
+                    isSubmitting={isSubmitting}
+                    onBackToServices={() => setStep(0)}
+                  />
                 )}
               </div>
-
-              {serviceType === "TOUR" && (
-                <div className="flex justify-end pt-4 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={handleCompleteTicketBooking}
-                    disabled={isSubmitting}
-                    className="relative overflow-hidden text-white font-black px-8 py-3.5 rounded-xl uppercase text-sm shadow-md transition-all hover:scale-105 disabled:opacity-60 group flex items-center justify-center min-w-[280px]"
-                  >
-                    <div 
-                      className="absolute inset-0 bg-cover bg-center z-0 transition-transform duration-500 group-hover:scale-110" 
-                      style={{ backgroundImage: "url('/images/booking-btn-bg.jpg')" }} 
-                    />
-                    <div className="absolute inset-0 bg-black/50 group-hover:bg-black/40 transition-colors z-0" />
-                    <span className="relative z-10 drop-shadow-md tracking-wider">
-                      {isSubmitting ? "Generating Ticket..." : "CONTINUE TO BOOKING →"}
-                    </span>
-                  </button>
-                </div>
-              )}
             </div>
           )}
 
