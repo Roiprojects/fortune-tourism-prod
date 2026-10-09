@@ -21,6 +21,7 @@ import { AdminTourBookingFlow } from "@/components/admin/AdminTourBookingFlow";
 import { FareAmountEditorModal } from "@/components/admin/FareAmountEditorModal";
 import { CarFareEditorModal } from "@/components/admin/CarFareEditorModal";
 import { TourFareEditorModal } from "@/components/admin/TourFareEditorModal";
+import { ExpenseReportModal } from "@/components/admin/ExpenseReportModal";
 import logoAsset from "@/assets/fortune-tourism-logo.png";
 import fullLogoAsset from "@/assets/fortune-tourism-full-logo.png";
 import keralaHeroImg from "@/assets/kerala-hero.jpg";
@@ -343,6 +344,7 @@ function AdminPage() {
   const [fareEditorModalOpen, setFareEditorModalOpen] = useState(false);
   const [carFareEditorOpen, setCarFareEditorOpen] = useState(false);
   const [tourFareEditorOpen, setTourFareEditorOpen] = useState(false);
+  const [expenseReportModalOpen, setExpenseReportModalOpen] = useState(false);
   const [offlineBookingSource, setOfflineBookingSource] = useState<any>({});
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
 
@@ -366,6 +368,7 @@ function AdminPage() {
         setAccountMenuOpen(false);
         setProfileModalOpen(false);
         setSettingsModalOpen(false);
+        setExpenseReportModalOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -1494,6 +1497,24 @@ function AdminPage() {
                       </span>
                     </button>
 
+                    {/* Expense Report */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        setExpenseReportModalOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50 transition text-left cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Receipt className="w-4 h-4 text-rose-600 shrink-0 group-hover:scale-110 transition-transform" />
+                        <span>Expense Report</span>
+                      </div>
+                      <span className="text-[10px] bg-rose-100 text-rose-800 font-extrabold px-1.5 py-0.5 rounded-md">
+                        Payouts &amp; Log
+                      </span>
+                    </button>
+
                     {/* Financial Ledgers with Dropdown */}
                     <div className="mt-0.5 space-y-1">
                       <button
@@ -2576,6 +2597,14 @@ function AdminPage() {
         <TourFareEditorModal
           isOpen={tourFareEditorOpen}
           onClose={() => setTourFareEditorOpen(false)}
+        />
+      )}
+
+      {/* Expense Report Modal */}
+      {expenseReportModalOpen && (
+        <ExpenseReportModal
+          isOpen={expenseReportModalOpen}
+          onClose={() => setExpenseReportModalOpen(false)}
         />
       )}
     </SiteLayout>
