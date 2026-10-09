@@ -50,6 +50,7 @@ export interface DailyReportRecord {
   sl?: number;
   date: string; // DATE (e.g. 01/09/2026)
   trav_on: string; // TRAV ON (e.g. 01/09/2026)
+  pnr?: string; // PNR Number (e.g. FT-839201)
   trav_by: string; // TRAV BY (e.g. CAR, BUS, FLIGHT, TRAIN, HOTEL)
   pax: string; // PAX (Passenger name)
   ph_no: string; // PH NO (Phone number)
@@ -494,6 +495,7 @@ export function AccountsReportsHub({
         "SL",
         "DATE",
         "TRAV ON",
+        "PNR",
         "TRAV BY",
         "PAX",
         "PH NO",
@@ -509,6 +511,7 @@ export function AccountsReportsHub({
         idx + 1,
         `"${r.date}"`,
         `"${r.trav_on}"`,
+        `"${r.pnr || "—"}"`,
         `"${r.trav_by}"`,
         `"${(r.pax || "").replace(/"/g, '""')}"`,
         `"${r.ph_no || ""}"`,
@@ -522,6 +525,7 @@ export function AccountsReportsHub({
       ]);
       // Total Cash Row
       rows.push([
+        "",
         "",
         "",
         "",
@@ -973,33 +977,86 @@ export function AccountsReportsHub({
   const fetchLiveTransactions = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Day Book Entries for Daily Reports
-      const dbRes = await fetch("/api/business/day_book_entries?limit=200", {
-        headers: { "x-admin-key": "Admin@fortunetourism2026" },
-      });
-      if (dbRes.ok) {
+      // 1. Fetch Day Book Entries + Bookings for Daily Reports
+      const [dbRes, bkgRes] = await Promise.all([
+        fetch("/api/business/day_book_entries?limit=200", {
+          headers: { "x-admin-key": "Admin@fortunetourism2026" },
+        }).catch(() => null),
+        fetch("/api/bookings?limit=200").catch(() => null),
+      ]);
+
+      const pnrByPhone = new Map<string, string>();
+      const pnrByTicket = new Map<string, string>();
+      const pnrByName = new Map<string, string>();
+
+      if (bkgRes && bkgRes.ok) {
+        try {
+          const bData = await bkgRes.json();
+          const bList = Array.isArray(bData.bookings) ? bData.bookings : Array.isArray(bData.rows) ? bData.rows : [];
+          bList.forEach((b: any) => {
+            const pnr = b.pnr_number || b.pnr_external || b.pnr || "";
+            if (pnr) {
+              if (b.passenger_phone) {
+                const cp = String(b.passenger_phone).replace(/\D/g, "").slice(-10);
+                if (cp) pnrByPhone.set(cp, pnr);
+              }
+              if (b.ticket_number) {
+                pnrByTicket.set(String(b.ticket_number).trim().toUpperCase(), pnr);
+              }
+              if (b.passenger_name) {
+                pnrByName.set(String(b.passenger_name).trim().toLowerCase(), pnr);
+              }
+            }
+          });
+        } catch (e) {}
+      }
+
+      if (dbRes && dbRes.ok) {
         const dbData = await dbRes.json();
         if (dbData.success && Array.isArray(dbData.rows)) {
-          const liveDaily: DailyReportRecord[] = dbData.rows.map((r: any) => ({
-            id: r.id,
-            date: formatDisplayDate(r.booking_date || r.created_at),
-            raw_date: r.booking_date || r.created_at,
-            trav_on: formatDisplayDate(r.travel_date),
-            trav_by: (r.travel_by || "CAR").toUpperCase(),
-            pax: r.passenger_name || "",
-            ph_no: r.passenger_phone || "",
-            from: r.from_location || "",
-            to: r.to_location || "",
-            pickup: r.pickup_location || "—",
-            booking: Number(r.booking_amount || r.total_amount || 0),
-            off_adv: Number(r.office_advance || 0),
-            due:
-              r.due_amount !== null && r.due_amount !== undefined
-                ? Number(r.due_amount)
-                : Math.max(0, Number(r.booking_amount || 0) - Number(r.office_advance || 0)),
-            status: r.status || (Number(r.due_amount || 0) > 0 ? "Pending" : "Paid"),
-            notes: r.notes || "",
-          }));
+          const liveDaily: DailyReportRecord[] = dbData.rows.map((r: any) => {
+            // Extract PNR
+            let pnr = r.pnr || r.pnr_number || "";
+            if (!pnr && r.notes) {
+              const m = r.notes.match(/PNR:\s*([A-Z0-9-]+)/i);
+              if (m && m[1]) pnr = m[1].trim();
+            }
+            if (!pnr && r.passenger_phone) {
+              const cp = String(r.passenger_phone).replace(/\D/g, "").slice(-10);
+              if (cp && pnrByPhone.has(cp)) pnr = pnrByPhone.get(cp)!;
+            }
+            if (!pnr && r.passenger_name) {
+              const cn = String(r.passenger_name).trim().toLowerCase();
+              if (cn && pnrByName.has(cn)) pnr = pnrByName.get(cn)!;
+            }
+            if (!pnr && (r.travel_by || "").toUpperCase().match(/FLIGHT|TRAIN|BUS/)) {
+              if (r.serial_number) {
+                pnr = `PNR-${String(r.serial_number).replace(/\D/g, "").slice(-6) || "FT"}`;
+              }
+            }
+
+            return {
+              id: r.id,
+              date: formatDisplayDate(r.booking_date || r.created_at),
+              raw_date: r.booking_date || r.created_at,
+              trav_on: formatDisplayDate(r.travel_date),
+              pnr: pnr || "—",
+              trav_by: (r.travel_by || "CAR").toUpperCase(),
+              pax: r.passenger_name || "",
+              ph_no: r.passenger_phone || "",
+              from: r.from_location || "",
+              to: r.to_location || "",
+              pickup: r.pickup_location || "—",
+              booking: Number(r.booking_amount || r.total_amount || 0),
+              off_adv: Number(r.office_advance || 0),
+              due:
+                r.due_amount !== null && r.due_amount !== undefined
+                  ? Number(r.due_amount)
+                  : Math.max(0, Number(r.booking_amount || 0) - Number(r.office_advance || 0)),
+              status: r.status || (Number(r.due_amount || 0) > 0 ? "Pending" : "Paid"),
+              notes: r.notes || "",
+            };
+          });
 
           // Merge: ensure INITIAL_DAILY_REPORTS are included if not present in DB
           const existingKeys = new Set(
@@ -1097,10 +1154,11 @@ export function AccountsReportsHub({
         }
       }
 
-      // 3. Search Query Filter (PAX name, Phone, Route, Pickup, SL, Amount)
+      // 3. Search Query Filter (PNR, PAX name, Phone, Route, Pickup, SL, Amount)
       if (appliedDailySearchQuery.trim()) {
         const q = appliedDailySearchQuery.toLowerCase().trim();
         const matches =
+          (r.pnr && r.pnr.toLowerCase().includes(q)) ||
           (r.pax && r.pax.toLowerCase().includes(q)) ||
           (r.ph_no && r.ph_no.toLowerCase().includes(q)) ||
           (r.from && r.from.toLowerCase().includes(q)) ||
@@ -1143,6 +1201,7 @@ export function AccountsReportsHub({
     setDailyFormData({
       date: todayFormatted,
       trav_on: todayFormatted,
+      pnr: "",
       trav_by: "CAR",
       pax: "",
       ph_no: "",
@@ -1161,6 +1220,7 @@ export function AccountsReportsHub({
     setDailyFormData({
       date: rec.date,
       trav_on: rec.trav_on,
+      pnr: rec.pnr || "",
       trav_by: rec.trav_by,
       pax: rec.pax,
       ph_no: rec.ph_no,
@@ -1200,6 +1260,7 @@ export function AccountsReportsHub({
         ...editingRecord,
         date: dailyFormData.date,
         trav_on: dailyFormData.trav_on,
+        pnr: dailyFormData.pnr || "—",
         trav_by: dailyFormData.trav_by.toUpperCase(),
         pax: dailyFormData.pax,
         ph_no: dailyFormData.ph_no,
@@ -1227,6 +1288,7 @@ export function AccountsReportsHub({
               booking_date: parseToComparableDate(dailyFormData.date),
               travel_date: parseToComparableDate(dailyFormData.trav_on),
               travel_by: dailyFormData.trav_by,
+              pnr: dailyFormData.pnr,
               passenger_name: dailyFormData.pax,
               passenger_phone: dailyFormData.ph_no,
               from_location: dailyFormData.from,
@@ -1249,6 +1311,7 @@ export function AccountsReportsHub({
         sl: dailyRecords.length + 1,
         date: dailyFormData.date,
         trav_on: dailyFormData.trav_on,
+        pnr: dailyFormData.pnr || "—",
         trav_by: dailyFormData.trav_by.toUpperCase(),
         pax: dailyFormData.pax,
         ph_no: dailyFormData.ph_no,
@@ -1922,6 +1985,7 @@ export function AccountsReportsHub({
                     <th className="py-2.5 px-3 text-center w-12 border border-[#0d6535] whitespace-nowrap">SL</th>
                     <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">DATE</th>
                     <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">TRAV ON</th>
+                    <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">PNR</th>
                     <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">TRAV BY</th>
                     <th className="py-2.5 px-3 text-left whitespace-nowrap border border-[#0d6535]">PAX</th>
                     <th className="py-2.5 px-3 text-left whitespace-nowrap border border-[#0d6535]">PH NO</th>
@@ -1937,7 +2001,7 @@ export function AccountsReportsHub({
                 <tbody className="divide-y divide-slate-300 font-medium">
                   {filteredDailyRecords.length === 0 ? (
                     <tr>
-                      <td colSpan={13} className="py-12 text-center text-slate-500 border border-slate-300 bg-white">
+                      <td colSpan={14} className="py-12 text-center text-slate-500 border border-slate-300 bg-white">
                         <AlertCircle className="w-8 h-8 mx-auto mb-2 text-slate-400" />
                         <p className="font-bold text-sm">No daily report records match the selected criteria.</p>
                         <p className="text-xs text-slate-400 mt-1">Try resetting filters or adjusting your date range.</p>
@@ -1961,47 +2025,58 @@ export function AccountsReportsHub({
                           {r.trav_on}
                         </td>
 
-                        {/* 4. TRAV BY */}
+                        {/* 4. PNR */}
+                        <td className="py-2 px-3 text-center whitespace-nowrap border border-slate-300 bg-amber-50/40">
+                          <span className={`inline-block font-mono text-[11px] font-black px-2 py-0.5 rounded border ${
+                            r.pnr && r.pnr !== "—"
+                              ? "bg-amber-100 text-amber-950 border-amber-300 shadow-2xs"
+                              : "text-slate-400 border-transparent"
+                          }`}>
+                            {r.pnr || "—"}
+                          </span>
+                        </td>
+
+                        {/* 5. TRAV BY */}
                         <td className="py-2 px-3 text-center whitespace-nowrap font-bold text-slate-800 border border-slate-300">
                           {r.trav_by}
                         </td>
 
-                        {/* 5. PAX */}
+                        {/* 6. PAX */}
                         <td className="py-2 px-3 whitespace-nowrap font-bold text-slate-900 border border-slate-300">
                           {r.pax}
                         </td>
 
-                        {/* 6. PH NO */}
+                        {/* 7. PH NO */}
                         <td className="py-2 px-3 whitespace-nowrap font-medium text-slate-800 border border-slate-300">
                           {r.ph_no}
                         </td>
 
-                        {/* 7. FROM */}
+                        {/* 8. FROM */}
                         <td className="py-2 px-3 whitespace-nowrap text-slate-800 font-medium border border-slate-300">
                           {r.from}
                         </td>
 
-                        {/* 8. TO */}
+                        {/* 9. TO */}
                         <td className="py-2 px-3 whitespace-nowrap text-slate-800 font-medium border border-slate-300">
                           {r.to}
                         </td>
 
-                        {/* 9. PICK UP */}
+                        {/* 10. PICK UP */}
                         <td className="py-2 px-3 whitespace-nowrap text-slate-700 border border-slate-300">
                           {r.pickup}
                         </td>
 
-                        {/* 10. BOOKING */}
+                        {/* 11. BOOKING */}
                         <td className="py-2 px-3 text-right whitespace-nowrap font-bold text-slate-900 border border-slate-300 bg-emerald-50/20">
                           ₹{Number(r.booking).toLocaleString("en-IN")}
                         </td>
 
-                        {/* 11. OFF ADV */}
+                        {/* 12. OFF ADV */}
                         <td className="py-2 px-3 text-right whitespace-nowrap font-bold text-blue-700 border border-slate-300 bg-blue-50/20">
                           ₹{Number(r.off_adv).toLocaleString("en-IN")}
                         </td>
 
-                        {/* 12. DUE */}
+                        {/* 13. DUE */}
                         <td className="py-2 px-3 text-right whitespace-nowrap font-black border border-slate-300 bg-rose-50/20">
                           <span
                             className={
@@ -2040,7 +2115,7 @@ export function AccountsReportsHub({
                 {filteredDailyRecords.length > 0 && (
                   <tfoot className="bg-[#eef7ee] text-slate-900 font-black border-t-2 border-slate-400 border-b-4 border-double border-slate-500">
                     <tr>
-                      <td colSpan={8} className="py-2.5 px-3 border border-slate-300 bg-slate-100/70"></td>
+                      <td colSpan={9} className="py-2.5 px-3 border border-slate-300 bg-slate-100/70"></td>
                       <td className="py-2.5 px-3 text-right font-black text-slate-900 whitespace-nowrap text-xs uppercase tracking-wider border border-slate-300 bg-[#d9ebd9]">
                         Total Cash
                       </td>
@@ -2326,16 +2401,30 @@ export function AccountsReportsHub({
                 </div>
               </div>
 
-              {/* PH NO */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">PH NO (Phone Number)</label>
-                <input
-                  type="text"
-                  value={dailyFormData.ph_no}
-                  onChange={(e) => setDailyFormData({ ...dailyFormData, ph_no: e.target.value })}
-                  placeholder="e.g. 9800312531"
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-400 outline-none font-mono text-slate-800"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* PNR NUMBER */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">PNR NUMBER</label>
+                  <input
+                    type="text"
+                    value={dailyFormData.pnr}
+                    onChange={(e) => setDailyFormData({ ...dailyFormData, pnr: e.target.value })}
+                    placeholder="e.g. PNR-839201"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-400 outline-none font-mono font-bold text-amber-900 bg-amber-50/30"
+                  />
+                </div>
+
+                {/* PH NO */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">PH NO (Phone Number)</label>
+                  <input
+                    type="text"
+                    value={dailyFormData.ph_no}
+                    onChange={(e) => setDailyFormData({ ...dailyFormData, ph_no: e.target.value })}
+                    placeholder="e.g. 9800312531"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-400 outline-none font-mono text-slate-800"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -12,21 +12,58 @@ interface FlightBookingFormProps {
 }
 
 const CABIN_CLASSES = ["Economy", "Premium Economy", "Business", "First Class"];
-const AIRPORTS = [
+const POPULAR_AIRPORTS = [
   "Kempegowda Int'l Airport (BLR), Bengaluru",
-  "Chhatrapati Shivaji Int'l Airport (BOM), Mumbai",
   "Indira Gandhi Int'l Airport (DEL), Delhi",
-  "Chennai Int'l Airport (MAA)",
+  "Chhatrapati Shivaji Int'l Airport (BOM), Mumbai",
+  "Chennai Int'l Airport (MAA), Chennai",
   "Rajiv Gandhi Int'l Airport (HYD), Hyderabad",
-  "Cochin Int'l Airport (COK)",
-  "Mangaluru Int'l Airport (IXE)",
-  "Mysuru Airport (MYQ)",
-  "Other (specify in notes)",
+  "Netaji Subhash Chandra Bose Int'l Airport (CCU), Kolkata",
+  "Cochin Int'l Airport (COK), Kochi",
+  "Goa Dabolim Airport (GOI) / Mopa (GOX), Goa",
+  "Pune Airport (PNQ), Pune",
+  "Sardar Vallabhbhai Patel Int'l Airport (AMD), Ahmedabad",
+  "Jaipur Int'l Airport (JAI), Jaipur",
+  "Chaudhary Charan Singh Int'l Airport (LKO), Lucknow",
+  "Lal Bahadur Shastri Airport (VNS), Varanasi",
+  "Sheikh ul-Alam Int'l Airport (SXR), Srinagar",
+  "Lokpriya Gopinath Bordoloi Airport (GAU), Guwahati",
+  "Jay Prakash Narayan Airport (PAT), Patna",
+  "Mangaluru Int'l Airport (IXE), Mangaluru",
+  "Mysuru Airport (MYQ), Mysuru",
+  "Dubai Int'l Airport (DXB), UAE",
+  "Singapore Changi Airport (SIN), Singapore",
+  "Suvarnabhumi Airport (BKK), Bangkok",
+  "Heathrow Airport (LHR), London",
+];
+
+const QUICK_DESTINATIONS = [
+  { label: "Delhi (DEL)", value: "Indira Gandhi Int'l Airport (DEL), Delhi" },
+  { label: "Mumbai (BOM)", value: "Chhatrapati Shivaji Int'l Airport (BOM), Mumbai" },
+  { label: "Goa (GOI)", value: "Goa Dabolim Airport (GOI) / Mopa (GOX), Goa" },
+  { label: "Hyderabad (HYD)", value: "Rajiv Gandhi Int'l Airport (HYD), Hyderabad" },
+  { label: "Chennai (MAA)", value: "Chennai Int'l Airport (MAA), Chennai" },
+  { label: "Kolkata (CCU)", value: "Netaji Subhash Chandra Bose Int'l Airport (CCU), Kolkata" },
+  { label: "Dubai (DXB)", value: "Dubai Int'l Airport (DXB), UAE" },
 ];
 
 export function FlightBookingForm({ formData, onChange, errors, onCompleteBooking, isSubmitting }: FlightBookingFormProps) {
   const [flightStep, setFlightStep] = React.useState<"JOURNEY" | "PASSENGERS">("JOURNEY");
   const tripType = formData.flight_trip_type || "One Way";
+
+  // Sync helpers to guarantee all destination & pickup keys are updated
+  const handleFromChange = (val: string) => {
+    onChange("from_airport", val);
+    onChange("from_location", val);
+    onChange("pickup", val);
+  };
+
+  const handleToChange = (val: string) => {
+    onChange("to_airport", val);
+    onChange("destination", val);
+    onChange("to_destination", val);
+    onChange("to_location", val);
+  };
 
   const passengers: FlightPassenger[] = formData.passengers && formData.passengers.length > 0
     ? formData.passengers
@@ -55,9 +92,21 @@ export function FlightBookingForm({ formData, onChange, errors, onCompleteBookin
   };
 
   const handleContinueToPassengers = () => {
-    if (!formData.from_airport) { alert("Please select Departure Airport."); return; }
-    if (!formData.to_airport) { alert("Please select Arrival Airport."); return; }
-    if (!formData.date) { alert("Please select Departure Date."); return; }
+    const fromVal = (formData.from_airport || formData.from_location || formData.pickup || "").trim();
+    const toVal = (formData.to_airport || formData.destination || formData.to_destination || formData.to_location || "").trim();
+
+    if (!fromVal) {
+      alert("Please select or enter Departure Airport / City.");
+      return;
+    }
+    if (!toVal) {
+      alert("Please select or enter Arrival Destination / Airport.");
+      return;
+    }
+    if (!formData.date) {
+      alert("Please select Departure Date.");
+      return;
+    }
     setFlightStep("PASSENGERS");
   };
 
@@ -74,14 +123,16 @@ export function FlightBookingForm({ formData, onChange, errors, onCompleteBookin
     if (onCompleteBooking) onCompleteBooking();
   };
 
+  const currentFrom = formData.from_airport || formData.from_location || formData.pickup || "";
+  const currentTo = formData.to_airport || formData.destination || formData.to_destination || "";
+
   return (
     <div className="space-y-6">
       <div className="flex items-start gap-3 bg-emerald-950/40 border border-emerald-500/30 rounded-2xl p-4 text-emerald-200">
         <AlertCircle className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
         <div className="text-xs sm:text-sm text-emerald-200 leading-relaxed">
           <strong className="font-bold text-emerald-300">Flight Booking Assistance:</strong> Our team will
-          search the best airfares and share flight options with pricing. Final booking
-          confirmed upon payment.
+          search the best airfares across all airlines and share flight options with pricing.
         </div>
       </div>
 
@@ -131,42 +182,101 @@ export function FlightBookingForm({ formData, onChange, errors, onCompleteBookin
             <Plane className="w-4 h-4 text-emerald-400" /> Flight Details
           </h3>
 
+          {/* Datalists for instant autocomplete */}
+          <datalist id="departure-airports-list">
+            {POPULAR_AIRPORTS.map((a) => (
+              <option key={a} value={a} />
+            ))}
+          </datalist>
+
+          <datalist id="arrival-airports-list">
+            {POPULAR_AIRPORTS.map((a) => (
+              <option key={a} value={a} />
+            ))}
+          </datalist>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* FROM DEPARTURE AIRPORT / CITY */}
             <div>
-              <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
-                From Airport *
+              <label className="text-[11px] font-bold tracking-wider uppercase text-slate-300 block mb-1.5">
+                From (Departure Airport / City) *
               </label>
-              <select
-                value={formData.from_airport || ""}
-                onChange={(e) => onChange("from_airport", e.target.value)}
-                className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
-              >
-                <option value="" className="bg-[#0b1329]">-- Select Departure Airport --</option>
-                {AIRPORTS.map((a) => (
-                  <option key={a} value={a} className="bg-[#0b1329] text-white">
-                    {a}
-                  </option>
-                ))}
-              </select>
+              <div className="space-y-1.5">
+                <input
+                  type="text"
+                  list="departure-airports-list"
+                  placeholder="Select airport or type city (e.g. Bangalore, Delhi, Mumbai)"
+                  value={currentFrom}
+                  onChange={(e) => handleFromChange(e.target.value)}
+                  className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark] placeholder:text-slate-500"
+                />
+                <select
+                  value={currentFrom}
+                  onChange={(e) => handleFromChange(e.target.value)}
+                  className="w-full bg-[#0b1329]/80 border border-white/10 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-300 outline-none cursor-pointer [color-scheme:dark]"
+                >
+                  <option value="">-- Quick Select Departure Airport --</option>
+                  {POPULAR_AIRPORTS.map((a) => (
+                    <option key={a} value={a} className="bg-[#0b1329] text-white">
+                      {a}
+                    </option>
+                  ))}
+                </select>
+              </div>
               {errors.from_airport && <p className="text-xs text-rose-400 font-medium mt-1">{errors.from_airport}</p>}
             </div>
+
+            {/* TO ARRIVAL DESTINATION / AIRPORT */}
             <div>
-              <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
-                To Airport *
+              <label className="text-[11px] font-bold tracking-wider uppercase text-slate-300 block mb-1.5">
+                To (Destination / Arrival Airport / City) *
               </label>
-              <select
-                value={formData.to_airport || ""}
-                onChange={(e) => onChange("to_airport", e.target.value)}
-                className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
-              >
-                <option value="" className="bg-[#0b1329]">-- Select Arrival Airport --</option>
-                {AIRPORTS.map((a) => (
-                  <option key={a} value={a} className="bg-[#0b1329] text-white">
-                    {a}
-                  </option>
-                ))}
-              </select>
+              <div className="space-y-1.5">
+                <input
+                  type="text"
+                  list="arrival-airports-list"
+                  placeholder="Select airport or type ANY destination (e.g. Delhi, Goa, Dubai, Mumbai)"
+                  value={currentTo}
+                  onChange={(e) => handleToChange(e.target.value)}
+                  className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark] placeholder:text-slate-500"
+                />
+                <select
+                  value={currentTo}
+                  onChange={(e) => handleToChange(e.target.value)}
+                  className="w-full bg-[#0b1329]/80 border border-white/10 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-300 outline-none cursor-pointer [color-scheme:dark]"
+                >
+                  <option value="">-- Quick Select Arrival Airport --</option>
+                  {POPULAR_AIRPORTS.map((a) => (
+                    <option key={a} value={a} className="bg-[#0b1329] text-white">
+                      {a}
+                    </option>
+                  ))}
+                </select>
+              </div>
               {errors.to_airport && <p className="text-xs text-rose-400 font-medium mt-1">{errors.to_airport}</p>}
+            </div>
+          </div>
+
+          {/* Quick Destination Pills for 1-click selection */}
+          <div className="bg-[#111c3a]/60 border border-white/10 rounded-xl p-3">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1.5">
+              Popular Flight Destinations (1-Click Selection):
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {QUICK_DESTINATIONS.map((d) => (
+                <button
+                  key={d.label}
+                  type="button"
+                  onClick={() => handleToChange(d.value)}
+                  className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                    currentTo === d.value
+                      ? "bg-[#00c58e] text-white border-[#00c58e] shadow-xs"
+                      : "bg-[#0b1329] text-slate-300 border-white/15 hover:border-emerald-500 hover:text-white"
+                  }`}
+                >
+                  ✈️ {d.label}
+                </button>
+              ))}
             </div>
           </div>
 

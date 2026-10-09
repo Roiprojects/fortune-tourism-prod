@@ -200,12 +200,14 @@ export const BUSINESS_RESOURCES: Record<string, ResourceConfig> = {
       { name: "total_amount", label: "Total Amount", type: "money" },
       { name: "booking_reference", label: "Booking Reference", type: "text" },
       { name: "payment_method", label: "Payment Method", type: "select", options: PAYMENT_METHOD },
+      { name: "pnr", label: "PNR Number", type: "text" },
       { name: "status", label: "Status", type: "select", options: STATUS },
       { name: "notes", label: "Notes", type: "textarea" },
     ],
     tableColumns: [
       "booking_date",
       "serial_number",
+      "pnr",
       "passenger_name",
       "from_location",
       "to_location",
@@ -216,6 +218,7 @@ export const BUSINESS_RESOURCES: Record<string, ResourceConfig> = {
     searchCols: [
       "passenger_name",
       "serial_number",
+      "pnr",
       "booking_reference",
       "from_location",
       "to_location",

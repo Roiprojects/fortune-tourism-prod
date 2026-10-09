@@ -248,8 +248,8 @@ export const Route = createFileRoute("/api/enquiries")({
           const bCategory = booking_type ? categoryFromBookingType(booking_type) : category;
           const bookingRef = await generateBookingReference();
           const bookingNum = await generateBookingNumber();
-          const ticketNum = generateTicketNumber();
-          const pnrNum = generatePNR();
+          const ticketNum = body.ticket_number || generateTicketNumber();
+          const pnrNum = body.pnr_number || (combinedNotes.match(/PNR:\s*([A-Z0-9-]+)/i)?.[1]) || generatePNR();
           const bId = generateBookingId();
           const bookingStatus = bType === 'TAXI' ? 'PENDING CONFIRMATION' : 'BOOKING REQUESTED';
 
@@ -514,9 +514,10 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
   // 2. Always create a Day Book Entry
   try {
     const serialNo = `DB-${Date.now().toString().slice(-6)}`;
+    const pnrVal = body.pnr_number || (combinedNotes.match(/PNR:\s*([A-Z0-9-]+)/i)?.[1]) || null;
     await query(
-      `INSERT INTO day_book_entries (serial_number, booking_date, travel_date, travel_by, passenger_name, passenger_phone, from_location, to_location, status, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Pending', $9)`,
+      `INSERT INTO day_book_entries (serial_number, booking_date, travel_date, travel_by, passenger_name, passenger_phone, from_location, to_location, status, notes, pnr)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Pending', $9, $10)`,
       [
         serialNo,
         todayStr,
@@ -527,8 +528,25 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
         pickup || "Bengaluru",
         destination || "Outstation",
         combinedNotes,
+        pnrVal,
       ],
-    ).catch(() => {});
+    ).catch(async () => {
+      await query(
+        `INSERT INTO day_book_entries (serial_number, booking_date, travel_date, travel_by, passenger_name, passenger_phone, from_location, to_location, status, notes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Pending', $9)`,
+        [
+          serialNo,
+          todayStr,
+          travelDate,
+          car_type || service || "Cab",
+          name,
+          phone,
+          pickup || "Bengaluru",
+          destination || "Outstation",
+          combinedNotes,
+        ],
+      ).catch(() => {});
+    });
   } catch (e) {}
 
   // 3. Create record in specific service section table
@@ -604,9 +622,10 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
     } else if (sUpper.includes("FLIGHT")) {
       const bkNo = `FLT-${Date.now().toString().slice(-6)}`;
       const paxCount = passengers ? parseInt(String(passengers)) || 1 : 1;
+      const pnrVal = body.pnr_number || (combinedNotes.match(/PNR:\s*([A-Z0-9-]+)/i)?.[1]) || null;
       await query(
-        `INSERT INTO flight_bookings (booking_number, booking_date, travel_date, from_location, to_location, phone, pax, notes)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        `INSERT INTO flight_bookings (booking_number, booking_date, travel_date, from_location, to_location, phone, pax, notes, pnr)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
           bkNo,
           todayStr,
@@ -616,8 +635,24 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
           phone,
           paxCount,
           `Passenger: ${name} | ${combinedNotes}`,
+          pnrVal,
         ],
-      ).catch(() => {});
+      ).catch(async () => {
+        await query(
+          `INSERT INTO flight_bookings (booking_number, booking_date, travel_date, from_location, to_location, phone, pax, notes)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            bkNo,
+            todayStr,
+            travelDate,
+            pickup || "Bengaluru",
+            destination || "Destination City",
+            phone,
+            paxCount,
+            `Passenger: ${name} | ${combinedNotes}`,
+          ],
+        ).catch(() => {});
+      });
     } else {
       // Default: Outstation / Cab / Corporate / Airport -> Insert into cab_bookings
       const bkNo = `CAB-${Date.now().toString().slice(-6)}`;

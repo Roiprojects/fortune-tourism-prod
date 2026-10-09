@@ -208,6 +208,10 @@ export async function ensureBusinessColumns() {
       ALTER TABLE bookings ADD COLUMN IF NOT EXISTS departure_airport TEXT;
       ALTER TABLE bookings ADD COLUMN IF NOT EXISTS arrival_airport TEXT;
       ALTER TABLE bookings ADD COLUMN IF NOT EXISTS pnr_external TEXT;
+      ALTER TABLE day_book_entries ADD COLUMN IF NOT EXISTS pnr TEXT;
+      ALTER TABLE flight_bookings ADD COLUMN IF NOT EXISTS pnr TEXT;
+      ALTER TABLE train_bookings ADD COLUMN IF NOT EXISTS pnr TEXT;
+      ALTER TABLE bus_bookings ADD COLUMN IF NOT EXISTS pnr TEXT;
       ALTER TABLE bookings ADD COLUMN IF NOT EXISTS ticket_confirmation TEXT;
       ALTER TABLE bookings ADD COLUMN IF NOT EXISTS ticket_cost NUMERIC(12,2) DEFAULT 0;
       ALTER TABLE bookings ADD COLUMN IF NOT EXISTS service_charge_booking NUMERIC(12,2) DEFAULT 0;

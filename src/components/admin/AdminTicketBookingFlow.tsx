@@ -152,14 +152,14 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
   const fromLocationDisplay = useMemo(() => {
     if (serviceType === "TRAIN") return trainData.from_station || "BANGALORE";
     if (serviceType === "BUS") return otherFormData.from_location || "BANGALORE";
-    return otherFormData.from_airport || "BANGALORE";
-  }, [serviceType, trainData.from_station, otherFormData.from_location, otherFormData.from_airport]);
+    return otherFormData.from_airport || otherFormData.from_location || otherFormData.pickup || "BANGALORE";
+  }, [serviceType, trainData.from_station, otherFormData.from_location, otherFormData.from_airport, otherFormData.pickup]);
 
   const toLocationDisplay = useMemo(() => {
     if (serviceType === "TRAIN") return trainData.to_station || "CHENNAI";
     if (serviceType === "BUS") return otherFormData.destination || "CHENNAI";
-    return otherFormData.to_airport || "CHENNAI";
-  }, [serviceType, trainData.to_station, otherFormData.destination, otherFormData.to_airport]);
+    return otherFormData.destination || otherFormData.to_airport || otherFormData.to_destination || otherFormData.to_location || "DELHI";
+  }, [serviceType, trainData.to_station, otherFormData.destination, otherFormData.to_airport, otherFormData.to_destination, otherFormData.to_location]);
 
   const vehicleDisplay = useMemo(() => {
     if (serviceType === "TRAIN") {
@@ -355,6 +355,9 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
       const pCount = otherFormData.passengers?.length || 1;
       const firstP = otherFormData.passengers?.[0]?.name || "GUEST";
 
+      const flightFrom = otherFormData.from_airport || otherFormData.from_location || otherFormData.pickup || "BANGALORE";
+      const flightTo = otherFormData.destination || otherFormData.to_airport || otherFormData.to_destination || otherFormData.to_location || "DELHI";
+
       const payload = {
         name: firstP,
         phone: otherFormData.phone?.trim() || "",
@@ -362,8 +365,8 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
         service: isBus ? "Bus Booking" : "Flight Booking",
         category: isBus ? "BUS" : "FLIGHT",
         booking_type: serviceType,
-        pickup: isBus ? otherFormData.from_location : otherFormData.from_airport || "BANGALORE",
-        destination: isBus ? otherFormData.destination : otherFormData.to_airport || "CHENNAI",
+        pickup: isBus ? otherFormData.from_location : flightFrom,
+        destination: isBus ? otherFormData.destination : flightTo,
         date: otherFormData.date || today,
         time: otherFormData.time || "07:00",
         passengers: String(pCount),
@@ -374,11 +377,13 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
           `Ticket No: ${ticketNumber}`,
           `PNR: ${pnrNumber}`,
           isBus && `Bus Type: ${otherFormData.bus_type}`,
-          !isBus && `Flight: ${otherFormData.cabin_class} | Trip: ${otherFormData.flight_trip_type}`,
+          !isBus && `Flight: ${otherFormData.cabin_class} | Trip: ${otherFormData.flight_trip_type} | Route: ${flightFrom} → ${flightTo}`,
           `Total Fare: ₹${ticketFareAmount}`,
         ]
           .filter(Boolean)
           .join(" | "),
+        ticket_number: ticketNumber,
+        pnr_number: pnrNumber,
         client_token: `FT-ADMIN-TKT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       };
 
