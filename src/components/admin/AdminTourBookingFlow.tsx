@@ -15,7 +15,8 @@ import { generateTicketNumber, generatePNR } from "@/lib/booking-utils";
 import { buildWhatsAppUrl } from "@/lib/contact";
 import { downloadTicketCopyPDF } from "@/lib/ticket-copy-pdf";
 import { TourBookingForm } from "@/components/booking/TourBookingForm";
-import { packages } from "@/data/packages";
+import { packages as defaultPackages } from "@/data/packages";
+import { useTourTariffs } from "@/lib/tour-tariffs";
 
 interface AdminTourBookingFlowProps {
   onBack: () => void;
@@ -37,6 +38,8 @@ export function AdminTourBookingFlow({
   // Step: "FORM" (Package & Journey) | "PASSENGERS" (Passenger Details) | "CONFIRMED" (Official Voucher)
   const [step, setStep] = useState<"FORM" | "PASSENGERS" | "CONFIRMED">("FORM");
   const [formInitialStep, setFormInitialStep] = useState<"PACKAGE" | "JOURNEY">("PACKAGE");
+
+  const { packagesList: packages } = useTourTariffs();
 
   // Tour Form State matching booking.tsx and TourBookingForm
   const [tourFormData, setTourFormData] = useState<any>({
@@ -105,7 +108,7 @@ export function AdminTourBookingFlow({
   const tourTitleDisplay = useMemo(() => {
     const pkg = packages.find((p) => p.slug === tourFormData.package_slug);
     return (pkg?.title || tourFormData.package_title || "South India Tour Package").toUpperCase();
-  }, [tourFormData.package_slug, tourFormData.package_title]);
+  }, [tourFormData.package_slug, tourFormData.package_title, packages]);
 
   // Base calculated fare
   const calculatedTourFare = useMemo(() => {
@@ -114,7 +117,7 @@ export function AdminTourBookingFlow({
     const paxCount = Math.max(1, passengers.length || Number(tourFormData.adults || 2));
     const days = Number(tourFormData.number_of_days || 2);
     return Math.round(base * Math.max(1, paxCount / 2) * Math.max(1, days / 2));
-  }, [tourFormData.package_slug, passengers.length, tourFormData.adults, tourFormData.number_of_days]);
+  }, [tourFormData.package_slug, passengers.length, tourFormData.adults, tourFormData.number_of_days, packages]);
 
   // Effective fare with admin override
   const effectiveFareAmount = useMemo(() => {

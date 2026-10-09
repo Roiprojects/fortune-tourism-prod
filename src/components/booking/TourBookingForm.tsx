@@ -14,7 +14,8 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { calculateTourFare, FareCalculationResult } from "@/lib/fare-engine";
-import { packages } from "@/data/packages";
+import { packages as defaultPackages } from "@/data/packages";
+import { useTourTariffs } from "@/lib/tour-tariffs";
 
 interface TourBookingFormProps {
   formData: any;
@@ -75,9 +76,10 @@ export function TourBookingForm({
   const children = Number(formData.children || 0);
   const infants = Number(formData.infants || 0);
 
+  const { packagesList: packages } = useTourTariffs();
   const selectedPkg = packages.find((p) => p.slug === formData.package_slug) || packages[0];
 
-  // Recalculate fare whenever tour params change
+  // Recalculate fare whenever tour params or package tariffs change
   useEffect(() => {
     if (selectedPkg && onFareCalculated) {
       const result = calculateTourFare({
@@ -96,6 +98,7 @@ export function TourBookingForm({
     }
   }, [
     formData.package_slug,
+    selectedPkg?.startingPrice,
     adults,
     children,
     infants,
@@ -162,7 +165,7 @@ export function TourBookingForm({
       });
     }
     return packages;
-  }, [durationFilter]);
+  }, [durationFilter, packages]);
 
   return (
     <div className="space-y-6 text-white">

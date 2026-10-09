@@ -20,6 +20,7 @@ import { AdminTicketBookingFlow } from "@/components/admin/AdminTicketBookingFlo
 import { AdminTourBookingFlow } from "@/components/admin/AdminTourBookingFlow";
 import { FareAmountEditorModal } from "@/components/admin/FareAmountEditorModal";
 import { CarFareEditorModal } from "@/components/admin/CarFareEditorModal";
+import { TourFareEditorModal } from "@/components/admin/TourFareEditorModal";
 import logoAsset from "@/assets/fortune-tourism-logo.png";
 import fullLogoAsset from "@/assets/fortune-tourism-full-logo.png";
 import keralaHeroImg from "@/assets/kerala-hero.jpg";
@@ -340,6 +341,7 @@ function AdminPage() {
   const [offlineBookingModalOpen, setOfflineBookingModalOpen] = useState(false);
   const [fareEditorModalOpen, setFareEditorModalOpen] = useState(false);
   const [carFareEditorOpen, setCarFareEditorOpen] = useState(false);
+  const [tourFareEditorOpen, setTourFareEditorOpen] = useState(false);
   const [offlineBookingSource, setOfflineBookingSource] = useState<any>({});
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
 
@@ -1473,6 +1475,24 @@ function AdminPage() {
                       </span>
                     </button>
 
+                    {/* Tour Fare Edit */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        setTourFareEditorOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50 transition text-left cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Palmtree className="w-4 h-4 text-purple-600 shrink-0 group-hover:scale-110 transition-transform" />
+                        <span>Tour Fare Edit</span>
+                      </div>
+                      <span className="text-[10px] bg-purple-100 text-purple-800 font-extrabold px-1.5 py-0.5 rounded-md">
+                        Tour Packages
+                      </span>
+                    </button>
+
                     {/* Financial Ledgers with Dropdown */}
                     <div className="mt-0.5 space-y-1">
                       <button
@@ -2547,6 +2567,14 @@ function AdminPage() {
         <CarFareEditorModal
           isOpen={carFareEditorOpen}
           onClose={() => setCarFareEditorOpen(false)}
+        />
+      )}
+
+      {/* Tour Fare Edit Modal */}
+      {tourFareEditorOpen && (
+        <TourFareEditorModal
+          isOpen={tourFareEditorOpen}
+          onClose={() => setTourFareEditorOpen(false)}
         />
       )}
     </SiteLayout>

@@ -38,6 +38,7 @@ import { BusBookingForm } from "@/components/booking/BusBookingForm";
 import { FlightBookingForm } from "@/components/booking/FlightBookingForm";
 import { TourBookingForm } from "@/components/booking/TourBookingForm";
 import { useFleetTariffs } from "@/lib/fleet-tariffs";
+import { useTourTariffs } from "@/lib/tour-tariffs";
 
 export const Route = createFileRoute("/booking")({
   validateSearch: (search: Record<string, unknown>) => {
@@ -213,6 +214,7 @@ function BookingPage() {
   const search = Route.useSearch();
   const { fleetList: liveFleetOptions, roofLuggageRate } = useFleetTariffs();
   const fleetOptions = liveFleetOptions.length > 0 ? liveFleetOptions : FLEET_OPTIONS;
+  const { packagesList: liveTourPackages } = useTourTariffs();
 
   // Step 0: Choose Service (5 cards)
   // Step 1: Cab Journey Route & Dropdown (One Way / Round Trip / Local / Airport)
@@ -228,7 +230,7 @@ function BookingPage() {
       setServiceType("TOUR");
       setStep(1);
       if (search.package) {
-        const found = packages.find((p) => p.slug === search.package);
+        const found = liveTourPackages.find((p) => p.slug === search.package);
         if (found) {
           setOtherFormData((prev: any) => ({
             ...prev,
@@ -240,7 +242,7 @@ function BookingPage() {
         }
       }
     }
-  }, [search.service, search.package]);
+  }, [search.service, search.package, liveTourPackages]);
 
   // Cab Journey Inputs
   const [cabTripType, setCabTripType] = useState<CabTripType>("ONE WAY");
@@ -348,7 +350,7 @@ function BookingPage() {
       if (otherFormData.fare_amount && Number(otherFormData.fare_amount) > 0) {
         return Number(otherFormData.fare_amount);
       }
-      const pkg = packages.find((p) => p.slug === otherFormData.package_slug) || packages[0];
+      const pkg = liveTourPackages.find((p) => p.slug === otherFormData.package_slug) || liveTourPackages[0];
       const base = pkg?.startingPrice || 4999;
       const adults = Number(otherFormData.adults || 2);
       const days = Number(otherFormData.number_of_days || 2);
@@ -393,7 +395,7 @@ function BookingPage() {
       return count * perFlight;
     }
     return calculatedFare;
-  }, [serviceType, calculatedFare, otherFormData]);
+  }, [serviceType, calculatedFare, otherFormData, liveTourPackages]);
 
   // From and To locations
   const fromLocationDisplay = useMemo(() => {
