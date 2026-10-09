@@ -175,6 +175,7 @@ import {
   Check,
   Phone,
   Sparkles,
+  Palmtree,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
