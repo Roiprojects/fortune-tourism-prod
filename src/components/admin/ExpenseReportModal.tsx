@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 import {
   X,
   Receipt,
@@ -21,11 +22,15 @@ import {
   TrendingDown,
   TrendingUp,
   ArrowDownLeft,
-  ArrowUpRight,
   Filter,
-  Car,
   ChevronDown,
-  Sparkles,
+  Upload,
+  Download,
+  FileSpreadsheet,
+  FileCheck,
+  AlertCircle,
+  Eye,
+  Check,
 } from "lucide-react";
 import {
   useExpenseReports,
@@ -40,10 +45,9 @@ interface ExpenseReportModalProps {
 }
 
 export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps) {
-  const { items, add, remove, reset } = useExpenseReports();
+  const { items, add, remove, reset, save } = useExpenseReports();
 
   // Selected Category Dropdown Option
-  // "repairs and nics and creadit and supplier and agency vannd drivers and in the inflows"
   const [selectedCategory, setSelectedCategory] = useState<ExpenseCategoryType>("all");
 
   // Filters
@@ -55,6 +59,13 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
   // Live booking inflows from database
   const [liveBookingInflows, setLiveBookingInflows] = useState<ExpenseReportItem[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(false);
+
+  // File Upload Ref for Excel Import
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importPreviewOpen, setImportPreviewOpen] = useState(false);
+  const [importedRows, setImportedRows] = useState<ExpenseReportItem[]>([]);
+  const [importFileName, setImportFileName] = useState("");
+  const [importMode, setImportMode] = useState<"append" | "replace">("append");
 
   // Form State for Adding New Expense (Outflow)
   const [formDateFrom, setFormDateFrom] = useState<string>(() =>
@@ -101,7 +112,6 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
         const data = await res.json();
         if (data.success && Array.isArray(data.enquiries)) {
           const mapped: ExpenseReportItem[] = data.enquiries.map((enq: any) => {
-            // Parse fare or advance from notes or default calculation
             let fare = 0;
             if (enq.notes) {
               const fareMatch = String(enq.notes).match(/Fare:\s*₹?\s*([\d,]+)/i);
@@ -166,7 +176,7 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
 
   if (!isOpen) return null;
 
-  // Combined records: saved custom expenses + live booking inflows (avoiding ID duplicates)
+  // Combined records: saved custom expenses + live booking inflows
   const allCombinedRecords = useMemo(() => {
     const existingIds = new Set(items.map((it) => it.id));
     const newBookings = liveBookingInflows.filter((b) => !existingIds.has(b.id));
@@ -256,6 +266,277 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
     return { totalInflow, repairs, miscellaneous, credit, supplier, agency, drivers, totalOutflow, netBalance };
   }, [allCombinedRecords]);
 
+  // =========================================================================
+  // EXCEL IMPORT ENGINE
+  // =========================================================================
+  const handleExcelFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportFileName(file.name);
+    const reader = new FileReader();
+
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: "binary", cellDates: true });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+        if (!data || data.length === 0) {
+          toast.error("The selected Excel file is empty or contains no rows.");
+          return;
+        }
+
+        // Parse and map rows flexibly
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const parsed: ExpenseReportItem[] = [];
+
+        data.forEach((row, index) => {
+          // Normalize column keys
+          const keys = Object.keys(row);
+          const findVal = (matchers: string[]): any => {
+            const foundKey = keys.find((k) => {
+              const cleaned = k.trim().toLowerCase();
+              return matchers.some((m) => cleaned === m || cleaned.includes(m));
+            });
+            return foundKey ? row[foundKey] : "";
+          };
+
+          // Extract values
+          const rawDateFrom = findVal(["date from", "date", "trav on", "travel date", "booking date", "from date"]);
+          const rawDateTo = findVal(["date to", "return date", "to date", "return"]);
+          const rawCategory = String(findVal(["category", "type", "trav by", "travel by", "service"]) || "").toLowerCase();
+          const rawPax = String(findVal(["pax", "passenger", "customer", "client", "name"]) || "");
+          const rawPh = String(findVal(["ph no", "phone", "mobile", "contact"]) || "");
+          const rawFrom = String(findVal(["from", "pickup", "pickup location"]) || "");
+          const rawTo = String(findVal(["to", "destination", "drop"]) || "");
+          const rawReason = String(findVal(["reason", "particulars", "description", "notes", "remarks", "note"]) || "");
+
+          // Amounts
+          const rawBooking = Number(findVal(["booking", "inflow", "booking cash", "income", "credit in", "advance", "off adv"])) || 0;
+          const rawRepairs = Number(findVal(["repairs", "repair", "maintenance", "garage", "vehicle repair"])) || 0;
+          const rawMisc = Number(findVal(["miscellaneous", "misc", "toll", "parking", "other"])) || 0;
+          const rawCredit = Number(findVal(["credit", "credit clearance", "advance payout"])) || 0;
+          const rawSupplierName = String(findVal(["supplier name", "supplier", "vendor", "fuel bunk"]) || "");
+          const rawSupplierAmt = Number(findVal(["supplier amount", "supplier amt", "fuel amount", "petrol"])) || 0;
+          const rawAgencyName = String(findVal(["agency name", "agency", "travels"]) || "");
+          const rawAgencyAmt = Number(findVal(["agency amount", "agency amt", "commission"])) || 0;
+          const rawDriverName = String(findVal(["driver name", "driver", "assigned driver"]) || "");
+          const rawDriverAmt = Number(findVal(["driver amount", "driver amt", "driver bata", "bata"])) || 0;
+
+          // Date formatting
+          const formatDateVal = (v: any) => {
+            if (!v) return todayStr;
+            if (v instanceof Date) return v.toISOString().slice(0, 10);
+            const str = String(v).trim();
+            // Match DD/MM/YYYY or DD-MM-YYYY
+            const m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+            if (m) {
+              const d = m[1].padStart(2, "0");
+              const mo = m[2].padStart(2, "0");
+              const y = m[3];
+              return `${y}-${mo}-${d}`;
+            }
+            if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.slice(0, 10);
+            return todayStr;
+          };
+
+          const dateFromVal = formatDateVal(rawDateFrom);
+          const dateToVal = rawDateTo ? formatDateVal(rawDateTo) : dateFromVal;
+
+          // Determine entryType
+          const hasInflow = rawBooking > 0 || rawCategory.includes("inflow") || rawCategory.includes("booking");
+          const hasOutflow = rawRepairs > 0 || rawMisc > 0 || rawCredit > 0 || rawSupplierAmt > 0 || rawAgencyAmt > 0 || rawDriverAmt > 0;
+
+          let entryType: "inflow" | "outflow" = "outflow";
+          if (hasInflow && !hasOutflow) {
+            entryType = "inflow";
+          } else if (hasInflow && hasOutflow) {
+            entryType = "inflow";
+          }
+
+          // Build descriptive reason
+          let finalReason = rawReason;
+          if (!finalReason) {
+            if (rawPax || rawFrom || rawTo) {
+              finalReason = [
+                rawPax && `Pax: ${rawPax}`,
+                rawPh && `Ph: ${rawPh}`,
+                rawFrom && rawTo ? `${rawFrom} → ${rawTo}` : rawFrom || rawTo,
+                rawCategory && `(${rawCategory.toUpperCase()})`,
+              ].filter(Boolean).join(" · ");
+            } else {
+              finalReason = `Excel Import #${index + 1} (${dateFromVal})`;
+            }
+          }
+
+          parsed.push({
+            id: `IMP-${Date.now().toString().slice(-4)}-${index + 1}`,
+            entryType,
+            dateFrom: dateFromVal,
+            dateTo: dateToVal,
+            repairs: rawRepairs,
+            miscellaneous: rawMisc,
+            credit: rawCredit,
+            supplierName: rawSupplierName,
+            supplierAmount: rawSupplierAmt,
+            agencyName: rawAgencyName,
+            agencyAmount: rawAgencyAmt,
+            driverName: rawDriverName,
+            driverAmount: rawDriverAmt,
+            inflowAmount: rawBooking,
+            reason: finalReason,
+            customerName: rawPax,
+            customerPhone: rawPh,
+            source: "Excel Import",
+            paymentMethod: "Imported",
+            createdAt: new Date().toISOString(),
+          });
+        });
+
+        if (parsed.length === 0) {
+          toast.error("Could not parse any valid records from Excel file.");
+          return;
+        }
+
+        setImportedRows(parsed);
+        setImportPreviewOpen(true);
+        toast.success(`Successfully parsed ${parsed.length} rows from ${file.name}`);
+      } catch (err: any) {
+        console.error("Excel parse error:", err);
+        toast.error(`Error reading Excel file: ${err.message || "Unknown error"}`);
+      } finally {
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }
+    };
+
+    reader.readAsBinaryString(file);
+  };
+
+  const handleConfirmImport = () => {
+    if (importedRows.length === 0) return;
+
+    if (importMode === "replace") {
+      save(importedRows);
+      toast.success(`Replaced current report with ${importedRows.length} imported Excel records!`);
+    } else {
+      // Append
+      const merged = [...importedRows, ...items];
+      save(merged);
+      toast.success(`Appended ${importedRows.length} Excel records to Expense Report!`);
+    }
+
+    setImportPreviewOpen(false);
+    setImportedRows([]);
+    setActiveTab("list");
+  };
+
+  // =========================================================================
+  // EXCEL EXPORT ENGINE
+  // =========================================================================
+  const handleExportToExcel = () => {
+    try {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const rowsForExcel = filteredRecords.map((item, idx) => {
+        const isInflow = item.entryType === "inflow";
+        const rowTotal = computeExpenseItemTotal(item);
+
+        return {
+          "SL": idx + 1,
+          "ID": item.id,
+          "TYPE": isInflow ? "INFLOW" : "EXPENSE OUTFLOW",
+          "DATE FROM": item.dateFrom,
+          "DATE TO": item.dateTo || item.dateFrom,
+          "REASON / PARTICULARS": item.reason,
+          "PASSENGER / CUSTOMER": item.customerName || "—",
+          "PHONE NUMBER": item.customerPhone || "—",
+          "BOOKING NO / REF": item.bookingNumber || "—",
+          "INFLOW COLLECTED (₹)": isInflow ? item.inflowAmount : 0,
+          "REPAIRS (₹)": item.repairs || 0,
+          "MISCELLANEOUS (₹)": item.miscellaneous || 0,
+          "CREDIT (₹)": item.credit || 0,
+          "SUPPLIER NAME": item.supplierName || "—",
+          "SUPPLIER AMOUNT (₹)": item.supplierAmount || 0,
+          "AGENCY NAME": item.agencyName || "—",
+          "AGENCY AMOUNT (₹)": item.agencyAmount || 0,
+          "DRIVER NAME": item.driverName || "—",
+          "DRIVER BATA (₹)": item.driverAmount || 0,
+          "TOTAL (₹)": rowTotal,
+          "PAYMENT METHOD": item.paymentMethod || "—",
+          "SOURCE": item.source || "—",
+        };
+      });
+
+      const ws = XLSX.utils.json_to_sheet(rowsForExcel);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Expense & Inflow Report");
+
+      XLSX.writeFile(wb, `fortune_tourism_expense_report_${todayStr}.xlsx`);
+      toast.success("Expense Report downloaded as Excel (.xlsx) successfully!");
+    } catch (err: any) {
+      console.error("Export error:", err);
+      toast.error(`Failed to export Excel: ${err.message}`);
+    }
+  };
+
+  // Download Sample Template
+  const handleDownloadSampleTemplate = () => {
+    try {
+      const sample = [
+        {
+          "DATE FROM": "2026-10-01",
+          "DATE TO": "2026-10-01",
+          "TYPE": "INFLOW",
+          "PAX": "Ramesh Kumar",
+          "PHONE": "9845012345",
+          "REASON / PARTICULARS": "Advance cash collected for Ooty Tour Package",
+          "BOOKING CASH (₹)": 14500,
+          "REPAIRS (₹)": 0,
+          "MISCELLANEOUS (₹)": 0,
+          "CREDIT (₹)": 0,
+          "SUPPLIER NAME": "",
+          "SUPPLIER AMOUNT (₹)": 0,
+          "AGENCY NAME": "",
+          "AGENCY AMOUNT (₹)": 0,
+          "DRIVER NAME": "",
+          "DRIVER BATA (₹)": 0,
+          "PAYMENT METHOD": "Cash",
+        },
+        {
+          "DATE FROM": "2026-10-02",
+          "DATE TO": "2026-10-02",
+          "TYPE": "EXPENSE",
+          "PAX": "",
+          "PHONE": "",
+          "REASON / PARTICULARS": "Innova Crysta KA-05 Brake replacement & Highway Fuel",
+          "BOOKING CASH (₹)": 0,
+          "REPAIRS (₹)": 4500,
+          "MISCELLANEOUS (₹)": 450,
+          "CREDIT (₹)": 1500,
+          "SUPPLIER NAME": "Indian Oil Bunk",
+          "SUPPLIER AMOUNT (₹)": 3500,
+          "AGENCY NAME": "Southern Holidays",
+          "AGENCY AMOUNT (₹)": 1200,
+          "DRIVER NAME": "Manjunath K",
+          "DRIVER BATA (₹)": 1800,
+          "PAYMENT METHOD": "UPI",
+        },
+      ];
+
+      const ws = XLSX.utils.json_to_sheet(sample);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Sample Template");
+      XLSX.writeFile(wb, "fortune_expense_sample_template.xlsx");
+      toast.success("Sample Excel template downloaded!");
+    } catch (err: any) {
+      toast.error(`Error: ${err.message}`);
+    }
+  };
+
   // Handle Form Submission for Outflow Expense
   const handleSaveExpense = (e: React.FormEvent) => {
     e.preventDefault();
@@ -302,7 +583,6 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
 
     toast.success("Expense outflow recorded successfully!");
 
-    // Reset Form
     setFormRepairs("");
     setFormMiscellaneous("");
     setFormCredit("");
@@ -386,8 +666,17 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
-      <div className="relative w-full max-w-6xl max-h-[94vh] flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-6xl max-h-[95vh] flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
+        {/* Hidden File Input for Excel Import */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleExcelFileUpload}
+          accept=".xlsx, .xls, .csv"
+          className="hidden"
+        />
+
         {/* ================= HEADER BAR ================= */}
         <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-[#063f2d] via-[#07533b] to-[#0a684a] text-white border-b border-emerald-800">
           <div className="flex items-center gap-3">
@@ -408,15 +697,38 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Import Excel Button */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs transition shadow-xs cursor-pointer"
+              title="Import Excel or CSV file"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>Import Excel</span>
+            </button>
+
+            {/* Export Excel Button */}
+            <button
+              type="button"
+              onClick={handleExportToExcel}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#107c41] hover:bg-[#0d6535] text-white border border-emerald-400/40 text-xs font-bold transition shadow-xs cursor-pointer"
+              title="Download Excel Sheet (.xlsx)"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Export Excel</span>
+            </button>
+
             <button
               type="button"
               onClick={handlePrint}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition border border-white/15 cursor-pointer"
+              className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition border border-white/15 cursor-pointer"
               title="Print Expense Report"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Print Report</span>
+              <span>Print</span>
             </button>
+
             <button
               type="button"
               onClick={onClose}
@@ -474,8 +786,18 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={handleDownloadSampleTemplate}
+              className="flex items-center gap-1 text-[11px] font-bold text-emerald-800 hover:text-emerald-950 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition cursor-pointer"
+              title="Download clean Excel template to fill and re-import"
+            >
+              <Download className="w-3 h-3" />
+              <span>Sample Template</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => {
-                if (confirm("Reset custom records back to sample defaults?")) {
+                if (confirm("Reset records back to sample defaults?")) {
                   reset();
                   toast.success("Reset to default records.");
                 }
@@ -1115,7 +1437,7 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                 </div>
               </div>
 
-              {/* Main Table View displaying columns requested by user */}
+              {/* Main Table View */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
@@ -1136,7 +1458,6 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                         const isInflow = item.entryType === "inflow";
                         const rowTotal = computeExpenseItemTotal(item);
 
-                        // Category tag text & color
                         let catLabel = "General Expense";
                         let catBadge = "bg-slate-100 text-slate-700";
 
@@ -1195,10 +1516,10 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                               <div className="flex flex-wrap items-center gap-2 mt-1 text-[10px] text-slate-500">
                                 <span className="font-mono bg-slate-100 px-1.5 py-0.2 rounded font-bold text-slate-600">{item.id}</span>
                                 {item.customerName && (
-                                  <span className="text-emerald-700 font-bold">Passenger: {item.customerName}</span>
+                                  <span className="text-emerald-700 font-bold">Pax: {item.customerName}</span>
                                 )}
                                 {item.bookingNumber && (
-                                  <span className="text-blue-700 font-bold">Tkt: {item.bookingNumber}</span>
+                                  <span className="text-blue-700 font-bold">Ref: {item.bookingNumber}</span>
                                 )}
                                 {item.supplierName && (
                                   <span className="text-teal-700 font-bold">Supplier: {item.supplierName}</span>
@@ -1209,8 +1530,8 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                                 {item.driverName && (
                                   <span className="text-purple-700 font-bold">Driver: {item.driverName}</span>
                                 )}
-                                {item.paymentMethod && (
-                                  <span className="text-slate-400">({item.paymentMethod})</span>
+                                {item.source && (
+                                  <span className="text-slate-400">({item.source})</span>
                                 )}
                               </div>
                             </td>
@@ -1269,7 +1590,7 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                           <td colSpan={8} className="py-12 text-center text-slate-400">
                             <Receipt className="w-9 h-9 mx-auto mb-2 opacity-40 text-emerald-800" />
                             <p className="font-bold text-xs text-slate-700">No records found for this category or date filter.</p>
-                            <p className="text-[11px] text-slate-400 mt-0.5">Try selecting "All Records" or reset your date filters.</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">Try selecting "All Records", import an Excel file, or reset your filters.</p>
                             <div className="flex items-center justify-center gap-3 mt-3">
                               <button
                                 type="button"
@@ -1281,10 +1602,11 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                               <span>&bull;</span>
                               <button
                                 type="button"
-                                onClick={() => setActiveTab("add_expense")}
-                                className="text-xs font-black text-rose-700 hover:underline cursor-pointer"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="text-xs font-black text-amber-700 hover:underline cursor-pointer flex items-center gap-1"
                               >
-                                + Add Expense Outflow
+                                <Upload className="w-3 h-3" />
+                                <span>Import from Excel</span>
                               </button>
                             </div>
                           </td>
@@ -1294,7 +1616,7 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                   </table>
                 </div>
 
-                {/* Table Footer with Summary Breakdown */}
+                {/* Table Footer */}
                 <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs font-bold text-slate-700">
                   <div className="flex items-center gap-3">
                     <span>Showing {filteredRecords.length} entries</span>
@@ -1320,11 +1642,146 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
 
         </div>
 
+        {/* ================= EXCEL IMPORT PREVIEW MODAL ================= */}
+        {importPreviewOpen && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md">
+            <div className="relative w-full max-w-4xl max-h-[88vh] flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-emerald-800 to-teal-900 text-white">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-amber-300">
+                    <FileSpreadsheet className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-base font-black">Excel Import Preview</h4>
+                    <p className="text-xs text-emerald-200 font-medium">
+                      File: {importFileName} &bull; {importedRows.length} rows parsed
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setImportPreviewOpen(false)}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Preview Content */}
+              <div className="p-6 space-y-4 flex-1 overflow-y-auto">
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div>
+                    <span className="font-extrabold text-emerald-950 block">Ready to import into Expense Report</span>
+                    <span className="text-emerald-700">
+                      Detected {importedRows.filter((r) => r.entryType === "inflow").length} Inflow rows &bull;{" "}
+                      {importedRows.filter((r) => r.entryType === "outflow").length} Outflow rows
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-slate-800 font-bold">
+                      <input
+                        type="radio"
+                        name="importMode"
+                        checked={importMode === "append"}
+                        onChange={() => setImportMode("append")}
+                        className="text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span>Append to existing</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer text-slate-800 font-bold ml-2">
+                      <input
+                        type="radio"
+                        name="importMode"
+                        checked={importMode === "replace"}
+                        onChange={() => setImportMode("replace")}
+                        className="text-rose-600 focus:ring-rose-500"
+                      />
+                      <span>Replace all</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Preview Table of first 6 rows */}
+                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+                  <div className="overflow-x-auto max-h-72">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-slate-100 text-slate-700 font-black text-[10px] uppercase">
+                        <tr>
+                          <th className="py-2.5 px-3">Date</th>
+                          <th className="py-2.5 px-3">Type</th>
+                          <th className="py-2.5 px-3">Reason / Details</th>
+                          <th className="py-2.5 px-3 text-right">Inflow (₹)</th>
+                          <th className="py-2.5 px-3 text-right">Outflow (₹)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {importedRows.slice(0, 10).map((r, i) => {
+                          const isIn = r.entryType === "inflow";
+                          const total = computeExpenseItemTotal(r);
+                          return (
+                            <tr key={i} className="hover:bg-slate-50">
+                              <td className="py-2 px-3 whitespace-nowrap font-bold text-slate-800">{r.dateFrom}</td>
+                              <td className="py-2 px-3 whitespace-nowrap">
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                  isIn ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"
+                                }`}>
+                                  {isIn ? "INFLOW" : "OUTFLOW"}
+                                </span>
+                              </td>
+                              <td className="py-2 px-3 max-w-[280px] truncate text-slate-700">{r.reason}</td>
+                              <td className="py-2 px-3 text-right font-black text-emerald-700">
+                                {isIn ? `₹${r.inflowAmount.toLocaleString("en-IN")}` : "—"}
+                              </td>
+                              <td className="py-2 px-3 text-right font-black text-rose-700">
+                                {!isIn ? `₹${total.toLocaleString("en-IN")}` : "—"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {importedRows.length > 10 && (
+                    <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 text-center font-bold">
+                      + {importedRows.length - 10} more rows will be imported
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 bg-slate-100 border-t border-slate-200 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setImportPreviewOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmImport}
+                  className="px-6 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs shadow-md flex items-center gap-2 cursor-pointer"
+                >
+                  <Check className="w-4 h-4 text-emerald-200" />
+                  <span>Confirm &amp; Import ({importedRows.length} Records)</span>
+                </button>
+              </div>
+
+            </div>
+          </div>
+        )}
+
         {/* ================= MODAL FOOTER ================= */}
-        <div className="px-6 py-3.5 bg-slate-100 border-t border-slate-200 flex items-center justify-between text-xs">
-          <span className="text-slate-500 font-medium">
-            Fortune Tourism &bull; Operating Ledger &amp; Cash Inflow Analysis
-          </span>
+        <div className="px-6 py-3.5 bg-slate-100 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-slate-500 font-medium">
+            <span>Fortune Tourism &bull; Operating Ledger &amp; Cash Inflow Analysis</span>
+            <span className="hidden sm:inline">&bull;</span>
+            <span className="hidden sm:inline text-emerald-700 font-bold">Supports .XLSX, .XLS, .CSV Import</span>
+          </div>
           <button
             type="button"
             onClick={onClose}
