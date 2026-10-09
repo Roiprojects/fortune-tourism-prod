@@ -372,6 +372,7 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
           bus_type: form.bus_type || null,
           bus_number: form.bus_number || null,
           seating_capacity: form.seating_capacity ? Number(form.seating_capacity) : null,
+          ticket_amount: form.ticket_amount || null,
         });
       } else if (cat === "TRAIN") {
         Object.assign(payload, {
@@ -389,6 +390,7 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
           cabin_class: form.cabin_class || null,
           baggage: form.baggage || null,
           pickup_time: form.pickup_time || null,
+          ticket_amount: form.ticket_amount || null,
         });
       }
 
@@ -718,6 +720,15 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
                   onChange={(e) => set("seating_capacity", e.target.value)}
                 />
               </Field>
+              <Field label="Ticket Fare Amount">
+                <input
+                  type="number"
+                  className={inputCls}
+                  value={form.ticket_amount}
+                  onChange={(e) => set("ticket_amount", e.target.value)}
+                  placeholder="e.g. 850"
+                />
+              </Field>
             </div>
           )}
 
@@ -800,6 +811,15 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
                   value={form.baggage}
                   onChange={(e) => set("baggage", e.target.value)}
                   placeholder="15 kg check-in"
+                />
+              </Field>
+              <Field label="Ticket Fare Amount">
+                <input
+                  type="number"
+                  className={inputCls}
+                  value={form.ticket_amount}
+                  onChange={(e) => set("ticket_amount", e.target.value)}
+                  placeholder="e.g. 4850"
                 />
               </Field>
             </div>

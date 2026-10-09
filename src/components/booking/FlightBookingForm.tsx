@@ -1,5 +1,5 @@
 import React from "react";
-import { Plane, Calendar, AlertCircle, Trash2, Users } from "lucide-react";
+import { Plane, Calendar, AlertCircle, Trash2, Users, Phone } from "lucide-react";
 
 interface FlightPassenger { name: string; age: string; gender: string; }
 
@@ -64,6 +64,7 @@ export function FlightBookingForm({ formData, onChange, errors, onCompleteBookin
   const handleFinalSubmit = () => {
     const firstP = passengers[0];
     if (!firstP || !firstP.name.trim()) { alert("Please enter Passenger 1 Full Name."); return; }
+    if (!formData.phone || !formData.phone.trim()) { alert("Please enter Passenger Phone Number."); return; }
     if (!formData.boarding_point || !formData.boarding_point.trim()) {
       alert("Please enter the Boarding Point."); return;
     }
@@ -231,17 +232,32 @@ export function FlightBookingForm({ formData, onChange, errors, onCompleteBookin
             </div>
           </div>
 
-          <div>
-            <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
-              Preferred Airline (Optional)
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. IndiGo / Air India / Akasa / Any"
-              value={formData.preferred_airline || ""}
-              onChange={(e) => onChange("preferred_airline", e.target.value)}
-              className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark] placeholder:text-slate-500"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
+                Preferred Airline (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. IndiGo / Air India / Akasa / Any"
+                value={formData.preferred_airline || ""}
+                onChange={(e) => onChange("preferred_airline", e.target.value)}
+                className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark] placeholder:text-slate-500"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
+                Fare Amount (₹) (Optional)
+              </label>
+              <input
+                type="number"
+                min="0"
+                placeholder="e.g. 4850"
+                value={formData.fare_amount || ""}
+                onChange={(e) => onChange("fare_amount", e.target.value)}
+                className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark] placeholder:text-slate-500"
+              />
+            </div>
           </div>
 
           <div className="flex justify-end pt-4 border-t border-white/10">
@@ -276,6 +292,25 @@ export function FlightBookingForm({ formData, onChange, errors, onCompleteBookin
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* Passenger Phone Number Input */}
+          <div className="bg-[#111c3a]/90 border border-emerald-500/30 rounded-2xl p-4 sm:p-5 shadow-inner">
+            <label className="text-[11px] font-bold tracking-wider uppercase text-slate-300 block mb-1.5 flex items-center gap-1.5">
+              <Phone className="w-3.5 h-3.5 text-emerald-400" />
+              Passenger Phone Number (Mobile / WhatsApp No.) *
+            </label>
+            <input
+              type="tel"
+              maxLength={15}
+              placeholder="Enter passenger mobile number (e.g. 9845003000 / 9876543210)"
+              value={formData.phone || ""}
+              onChange={(e) => onChange("phone", e.target.value)}
+              className="w-full bg-[#0b1329]/90 border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-bold text-white outline-none placeholder:text-slate-500 [color-scheme:dark]"
+            />
+            <p className="text-[10px] text-slate-400 mt-1">
+              This phone number will be recorded on the official ticket voucher and used for flight status SMS / WhatsApp dispatch.
+            </p>
           </div>
 
           <div className="space-y-2.5">
@@ -366,6 +401,31 @@ export function FlightBookingForm({ formData, onChange, errors, onCompleteBookin
                   className="w-full bg-[#0b1329]/90 border border-white/15 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-bold text-white outline-none focus:border-[#00c58e] [color-scheme:dark] placeholder:text-slate-500"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Ticket Fare Amount Card */}
+          <div className="bg-[#111c3a]/90 border border-emerald-500/30 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
+            <div>
+              <span className="text-[11px] font-black uppercase tracking-wider text-emerald-300 block">
+                Ticket Fare Amount
+              </span>
+              <p className="text-xs text-slate-400">
+                Fare amount to be printed on the official flight ticket copy.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-bold text-slate-300 whitespace-nowrap">
+                Fare Amount (₹):
+              </label>
+              <input
+                type="number"
+                min="0"
+                placeholder="e.g. 4850"
+                value={formData.fare_amount || ""}
+                onChange={(e) => onChange("fare_amount", e.target.value)}
+                className="w-36 bg-[#0b1329] border border-emerald-500/50 rounded-xl px-3 py-2 text-sm font-black text-emerald-300 focus:ring-2 focus:ring-[#00c58e]/30 outline-none shadow-inner [color-scheme:dark]"
+              />
             </div>
           </div>
 

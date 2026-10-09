@@ -18,6 +18,8 @@ import { AccountsReportsHub, type AccountReportKey, REPORT_DEFINITIONS } from "@
 import { AdminCabBookingFlow } from "@/components/admin/AdminCabBookingFlow";
 import { AdminTicketBookingFlow } from "@/components/admin/AdminTicketBookingFlow";
 import { AdminTourBookingFlow } from "@/components/admin/AdminTourBookingFlow";
+import { FareAmountEditorModal } from "@/components/admin/FareAmountEditorModal";
+import { CarFareEditorModal } from "@/components/admin/CarFareEditorModal";
 import logoAsset from "@/assets/fortune-tourism-logo.png";
 import fullLogoAsset from "@/assets/fortune-tourism-full-logo.png";
 import keralaHeroImg from "@/assets/kerala-hero.jpg";
@@ -336,6 +338,8 @@ function AdminPage() {
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [offlineBookingModalOpen, setOfflineBookingModalOpen] = useState(false);
+  const [fareEditorModalOpen, setFareEditorModalOpen] = useState(false);
+  const [carFareEditorOpen, setCarFareEditorOpen] = useState(false);
   const [offlineBookingSource, setOfflineBookingSource] = useState<any>({});
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
 
@@ -1451,6 +1455,24 @@ function AdminPage() {
                       <span>Settings</span>
                     </button>
 
+                    {/* Car Fare Edit */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        setCarFareEditorOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50 transition text-left cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Car className="w-4 h-4 text-emerald-600 shrink-0 group-hover:scale-110 transition-transform" />
+                        <span>Car Fare Edit</span>
+                      </div>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded-md">
+                        Cab Rates
+                      </span>
+                    </button>
+
                     {/* Financial Ledgers with Dropdown */}
                     <div className="mt-0.5 space-y-1">
                       <button
@@ -1662,7 +1684,8 @@ function AdminPage() {
                       icon: Ticket,
                       badge: "Ticketing Hub",
                       iconBg: "bg-blue-50 text-blue-700",
-                      onClick: () => setActiveService("ticket_booking_flow"),
+                      onClick: () => setActiveService("train"),
+                      allowFareEdit: true,
                     },
                     {
                       title: "Tour Packages",
@@ -1699,10 +1722,17 @@ function AdminPage() {
                   ].map((service) => {
                     const Icon = service.icon;
                     return (
-                      <button
+                      <div
                         key={service.title}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
                         onClick={service.onClick}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            service.onClick();
+                          }
+                        }}
                         className="bg-white/95 backdrop-blur-md rounded-2xl border border-white/80 p-5 shadow-lg hover:shadow-2xl hover:border-amber-400 hover:bg-white hover:-translate-y-1 transition-all duration-300 text-left flex flex-col justify-between group cursor-pointer"
                       >
                         <div>
@@ -1710,9 +1740,25 @@ function AdminPage() {
                             <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 shadow-2xs ${service.iconBg}`}>
                               <Icon className="w-5 h-5" />
                             </div>
-                            <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 group-hover:bg-amber-100 group-hover:text-amber-900 transition shadow-2xs">
-                              {service.badge}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              {service.allowFareEdit && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setFareEditorModalOpen(true);
+                                  }}
+                                  className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200 transition shadow-2xs flex items-center gap-1 cursor-pointer"
+                                  title="Quick edit ticket fare amounts & tariffs"
+                                >
+                                  <Pencil className="w-2.5 h-2.5 text-amber-700" />
+                                  <span>Edit Fare</span>
+                                </button>
+                              )}
+                              <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 group-hover:bg-amber-100 group-hover:text-amber-900 transition shadow-2xs">
+                                {service.badge}
+                              </span>
+                            </div>
                           </div>
                           <h3 className="text-base font-extrabold text-slate-900 group-hover:text-[#063f2d] transition">
                             {service.title}
@@ -1722,10 +1768,32 @@ function AdminPage() {
                           </p>
                         </div>
                         <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#063f2d] group-hover:text-[#d79a17] transition">
-                          <span>Open Service Panel</span>
-                          <span className="text-sm leading-none transition-transform group-hover:translate-x-1">→</span>
+                          {service.allowFareEdit ? (
+                            <div className="flex items-center justify-between w-full gap-2">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setFareEditorModalOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black text-xs shadow-md hover:shadow-lg transition-all hover:scale-[1.03] cursor-pointer"
+                              >
+                                <IndianRupee className="w-3.5 h-3.5 text-white" />
+                                <span>Edit Fare Amount</span>
+                              </button>
+                              <div className="flex items-center gap-1 text-slate-700 group-hover:text-[#063f2d] font-bold text-xs shrink-0">
+                                <span>Service Panel</span>
+                                <span className="text-sm leading-none transition-transform group-hover:translate-x-1">→</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <span>Open Service Panel</span>
+                              <span className="text-sm leading-none transition-transform group-hover:translate-x-1">→</span>
+                            </>
+                          )}
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -2464,6 +2532,23 @@ function AdminPage() {
         mode="create"
         source={offlineBookingSource}
       />
+
+      {/* Ticket Fare Amount Editor Modal */}
+      {fareEditorModalOpen && (
+        <FareAmountEditorModal
+          isOpen={fareEditorModalOpen}
+          onClose={() => setFareEditorModalOpen(false)}
+          onBookingUpdated={fetchData}
+        />
+      )}
+
+      {/* Car Fare Edit Modal */}
+      {carFareEditorOpen && (
+        <CarFareEditorModal
+          isOpen={carFareEditorOpen}
+          onClose={() => setCarFareEditorOpen(false)}
+        />
+      )}
     </SiteLayout>
   );
 }

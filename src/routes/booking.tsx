@@ -37,6 +37,7 @@ import { TrainBookingForm } from "@/components/booking/TrainBookingForm";
 import { BusBookingForm } from "@/components/booking/BusBookingForm";
 import { FlightBookingForm } from "@/components/booking/FlightBookingForm";
 import { TourBookingForm } from "@/components/booking/TourBookingForm";
+import { useFleetTariffs } from "@/lib/fleet-tariffs";
 
 export const Route = createFileRoute("/booking")({
   validateSearch: (search: Record<string, unknown>) => {
@@ -210,6 +211,9 @@ const FLEET_OPTIONS: FleetOption[] = [
 
 function BookingPage() {
   const search = Route.useSearch();
+  const { fleetList: liveFleetOptions, roofLuggageRate } = useFleetTariffs();
+  const fleetOptions = liveFleetOptions.length > 0 ? liveFleetOptions : FLEET_OPTIONS;
+
   // Step 0: Choose Service (5 cards)
   // Step 1: Cab Journey Route & Dropdown (One Way / Round Trip / Local / Airport)
   // Step 2: Fleet Selection Page (Hatchback, Sedan, SUV, Innova, Tempo)
@@ -319,8 +323,8 @@ function BookingPage() {
 
   // Selected Fleet details
   const selectedFleet = useMemo(() => {
-    return FLEET_OPTIONS.find((f) => f.id === selectedFleetId) || FLEET_OPTIONS[1];
-  }, [selectedFleetId]);
+    return fleetOptions.find((f) => f.id === selectedFleetId) || fleetOptions[1] || fleetOptions[0];
+  }, [fleetOptions, selectedFleetId]);
 
   // Dynamic Price calculation based on Trip Type & Package
   const calculatedFare = useMemo(() => {
@@ -332,8 +336,8 @@ function BookingPage() {
       else if (localPackage === "8hr_80km") base = selectedFleet.basePriceLocal8hr;
       else base = selectedFleet.basePriceLocal12hr;
     }
-    return base + (withLuggageCarrier ? 149 : 0);
-  }, [selectedFleet, cabTripType, localPackage, withLuggageCarrier]);
+    return base + (withLuggageCarrier ? roofLuggageRate : 0);
+  }, [selectedFleet, cabTripType, localPackage, withLuggageCarrier, roofLuggageRate]);
 
   // Dynamic Total Fare calculation for confirmation ticket copy
   const displayTotalFare = useMemo(() => {
@@ -341,6 +345,9 @@ function BookingPage() {
       return calculatedFare;
     }
     if (serviceType === "TOUR") {
+      if (otherFormData.fare_amount && Number(otherFormData.fare_amount) > 0) {
+        return Number(otherFormData.fare_amount);
+      }
       const pkg = packages.find((p) => p.slug === otherFormData.package_slug) || packages[0];
       const base = pkg?.startingPrice || 4999;
       const adults = Number(otherFormData.adults || 2);
@@ -348,6 +355,9 @@ function BookingPage() {
       return Math.round(base * Math.max(1, adults / 2) * Math.max(1, days / 2));
     }
     if (serviceType === "TRAIN") {
+      if (otherFormData.fare_amount && Number(otherFormData.fare_amount) > 0) {
+        return Number(otherFormData.fare_amount);
+      }
       const count = Math.max(1, otherFormData.passengers?.length || 1);
       const cls = String(otherFormData.travel_class || "3A").toUpperCase();
       let perTicket = 850;
@@ -360,6 +370,9 @@ function BookingPage() {
       return count * perTicket;
     }
     if (serviceType === "BUS") {
+      if (otherFormData.fare_amount && Number(otherFormData.fare_amount) > 0) {
+        return Number(otherFormData.fare_amount);
+      }
       const count = Math.max(1, Number(otherFormData.seats_count || otherFormData.passengers?.length || 1));
       const busType = String(otherFormData.bus_type || "").toUpperCase();
       let perSeat = 850;
@@ -369,6 +382,9 @@ function BookingPage() {
       return count * perSeat;
     }
     if (serviceType === "FLIGHT") {
+      if (otherFormData.fare_amount && Number(otherFormData.fare_amount) > 0) {
+        return Number(otherFormData.fare_amount);
+      }
       const count = Math.max(1, Number(otherFormData.passengers?.length || 1));
       const trip = String(otherFormData.flight_trip_type || "").toUpperCase();
       const cabin = String(otherFormData.cabin_class || "ECONOMY").toUpperCase();
@@ -483,6 +499,7 @@ function BookingPage() {
           isTrain && `Train: ${otherFormData.preferred_train || "Any"} | No: ${otherFormData.train_number || "N/A"} | Class: ${otherFormData.travel_class} | Quota: ${otherFormData.quota}`,
           isBus && `Bus Type: ${otherFormData.bus_type}`,
           isFlight && `Flight: ${otherFormData.cabin_class} | Trip: ${otherFormData.flight_trip_type}`,
+          `Fare: ₹${displayTotalFare}`,
           otherFormData.passengers && `Passengers: ${otherFormData.passengers.map((p: any, i: number) => `P${i + 1}: ${p.name} (${p.age}y/${p.gender}/${p.berth_preference || "None"})`).join(", ")}`,
         ].filter(Boolean).join(" | "),
         client_token: `FT-TKT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -1247,7 +1264,7 @@ function BookingPage() {
 
               {/* Fleet Selection List */}
               <div className="space-y-4">
-                {FLEET_OPTIONS.map((fleet) => {
+                {fleetOptions.map((fleet) => {
                   const isSelected = selectedFleetId === fleet.id;
                   let price = fleet.basePriceOneWay;
                   if (cabTripType === "ROUND TRIP") price = fleet.basePriceRoundTrip;
@@ -1340,9 +1357,9 @@ function BookingPage() {
                     onChange={(e) => setWithLuggageCarrier(e.target.checked)}
                     className="rounded accent-[#00c58e] text-[#00c58e] focus:ring-[#00c58e]"
                   />
-                  <span>🚙 Add Roof Luggage Carrier @ ₹149</span>
+                  <span>🚙 Add Roof Luggage Carrier @ ₹{roofLuggageRate}</span>
                 </label>
-                <span className="text-[#00c58e] font-extrabold">+₹149 Extra</span>
+                <span className="text-[#00c58e] font-extrabold">+₹{roofLuggageRate} Extra</span>
               </div>
 
               {/* Bottom Continue to Passenger Details Button */}
@@ -1904,10 +1921,10 @@ function BookingPage() {
                           {vehicleDisplay}
                         </td>
                         <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
-                          Boarding point:
+                          Fare Amount:
                         </td>
-                        <td className="p-2.5 font-bold text-slate-900 uppercase">
-                          {fromLocationDisplay}
+                        <td className="p-2.5 font-black text-emerald-700 uppercase">
+                          ₹{Number(displayTotalFare || 0).toLocaleString("en-IN")}
                         </td>
                       </tr>
 

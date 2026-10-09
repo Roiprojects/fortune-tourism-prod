@@ -373,13 +373,14 @@ export function TourPackageTicketCopySection() {
                         className="w-full font-bold text-slate-900 focus:outline-none bg-transparent"
                       />
                     </td>
-                    <td className="p-2 bg-slate-100 font-bold">Boarding point:</td>
-                    <td className="p-2">
+                    <td className="p-2 bg-slate-100 font-bold">Fare Amount:</td>
+                    <td className="p-2 flex items-center gap-0.5">
+                      <span className="text-emerald-700 font-bold">Rs.</span>
                       <input
-                        type="text"
-                        value={boardingPoint}
-                        onChange={(e) => setBoardingPoint(e.target.value)}
-                        className="w-full font-bold text-slate-900 focus:outline-none bg-transparent"
+                        type="number"
+                        value={totalAmount}
+                        onChange={(e) => setTotalAmount(Number(e.target.value))}
+                        className="w-full font-bold text-emerald-700 focus:outline-none bg-transparent"
                       />
                     </td>
                   </tr>

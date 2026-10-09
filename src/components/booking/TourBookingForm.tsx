@@ -25,6 +25,9 @@ interface TourBookingFormProps {
   isSubmitting?: boolean;
   onBackToServices?: () => void;
   initialStep?: "PACKAGE" | "JOURNEY";
+  submitButtonText?: string;
+  showPassengersStep?: boolean;
+  onProceedToPassengers?: () => void;
 }
 
 const HOTEL_TIERS = [
@@ -50,11 +53,20 @@ export function TourBookingForm({
   isSubmitting = false,
   onBackToServices,
   initialStep,
+  submitButtonText,
+  showPassengersStep = false,
+  onProceedToPassengers,
 }: TourBookingFormProps) {
   // Step 1: "PACKAGE" (Select curated package) | Step 2: "JOURNEY" (Journey Type, route, vehicle & hotel preferences)
   const [tourStep, setTourStep] = useState<"PACKAGE" | "JOURNEY">(
     initialStep || "PACKAGE"
   );
+
+  useEffect(() => {
+    if (initialStep) {
+      setTourStep(initialStep);
+    }
+  }, [initialStep]);
 
   const tripType = formData.tour_trip_type || "Round Trip";
   const destinations: string[] =
@@ -194,6 +206,19 @@ export function TourBookingForm({
             </span>
             <span>2. Journey Type &amp; Route</span>
           </button>
+
+          {showPassengersStep && (
+            <button
+              type="button"
+              onClick={onProceedToPassengers || onCompleteBooking}
+              className="flex items-center gap-2 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-extrabold transition-all cursor-pointer text-slate-300 hover:text-white hover:bg-white/5"
+            >
+              <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black bg-white/10 text-slate-300">
+                3
+              </span>
+              <span>3. Passenger Details</span>
+            </button>
+          )}
         </div>
 
         {tourStep === "JOURNEY" && (
@@ -914,7 +939,9 @@ export function TourBookingForm({
                 disabled={isSubmitting}
                 className="w-full sm:w-auto bg-[#00c58e] hover:bg-[#00a87a] text-white font-black px-10 sm:px-12 py-3.5 rounded-2xl uppercase tracking-wider text-sm shadow-xl shadow-[#00c58e]/30 transition-all hover:scale-102 active:scale-98 disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2"
               >
-                {isSubmitting ? "Generating Ticket..." : "CONTINUE TO BOOKING →"}
+                {isSubmitting
+                  ? "Generating Ticket..."
+                  : submitButtonText || "CONTINUE TO BOOKING →"}
               </button>
             )}
           </div>

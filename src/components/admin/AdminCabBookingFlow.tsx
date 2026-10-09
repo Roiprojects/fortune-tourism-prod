@@ -20,6 +20,7 @@ import { LocationSearchInput } from "@/components/booking/LocationSearchInput";
 import { generateTicketNumber, generatePNR } from "@/lib/booking-utils";
 import { buildWhatsAppUrl } from "@/lib/contact";
 import { downloadTicketCopyPDF } from "@/lib/ticket-copy-pdf";
+import { useFleetTariffs } from "@/lib/fleet-tariffs";
 
 type CabTripType = "ONE WAY" | "ROUND TRIP" | "LOCAL" | "AIRPORT" | "HOURLY PACKAGE";
 
@@ -177,6 +178,9 @@ interface AdminCabBookingFlowProps {
 }
 
 export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBookingFlowProps) {
+  const { fleetList: liveFleetOptions, roofLuggageRate } = useFleetTariffs();
+  const fleetOptions = liveFleetOptions.length > 0 ? liveFleetOptions : FLEET_OPTIONS;
+
   // Steps: 1 = Journey & Schedule, 2 = Fleet Selection, 3 = Passenger Details, 4 = Payment Choice, 5 = Confirmation
   const [step, setStep] = useState<number>(1);
 
@@ -234,8 +238,8 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
 
   // Selected Fleet details
   const selectedFleet = useMemo(() => {
-    return FLEET_OPTIONS.find((f) => f.id === selectedFleetId) || FLEET_OPTIONS[1];
-  }, [selectedFleetId]);
+    return fleetOptions.find((f) => f.id === selectedFleetId) || fleetOptions[1] || fleetOptions[0];
+  }, [fleetOptions, selectedFleetId]);
 
   // Dynamic Fare calculation
   const calculatedFare = useMemo(() => {
@@ -249,8 +253,8 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
       else if (localPackage === "8hr_80km") base = selectedFleet.basePriceLocal8hr;
       else base = selectedFleet.basePriceLocal12hr;
     }
-    return withLuggageCarrier ? base + 149 : base;
-  }, [cabTripType, selectedFleet, localPackage, withLuggageCarrier]);
+    return withLuggageCarrier ? base + roofLuggageRate : base;
+  }, [cabTripType, selectedFleet, localPackage, withLuggageCarrier, roofLuggageRate]);
 
   const fromLocationDisplay = useMemo(() => {
     if (cabTripType === "AIRPORT") {
@@ -869,7 +873,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
 
             {/* Fleet Selection List */}
             <div className="space-y-4">
-              {FLEET_OPTIONS.map((fleet) => {
+              {fleetOptions.map((fleet) => {
                 const isSelected = selectedFleetId === fleet.id;
                 let price = fleet.basePriceOneWay;
                 if (cabTripType === "ROUND TRIP") price = fleet.basePriceRoundTrip;
@@ -962,9 +966,9 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                   onChange={(e) => setWithLuggageCarrier(e.target.checked)}
                   className="rounded accent-[#00c58e] text-[#00c58e] focus:ring-[#00c58e]"
                 />
-                <span>🚙 Add Roof Luggage Carrier @ ₹149</span>
+                <span>🚙 Add Roof Luggage Carrier @ ₹{roofLuggageRate}</span>
               </label>
-              <span className="text-[#00c58e] font-extrabold">+₹149 Extra</span>
+              <span className="text-[#00c58e] font-extrabold">+₹{roofLuggageRate} Extra</span>
             </div>
 
             {/* Bottom Actions */}
@@ -1519,10 +1523,10 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                         {vehicleDisplay}
                       </td>
                       <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
-                        Boarding point:
+                        Fare Amount:
                       </td>
-                      <td className="p-2.5 font-bold text-slate-900 uppercase">
-                        {fromLocationDisplay}
+                      <td className="p-2.5 font-black text-emerald-700 uppercase">
+                        ₹{Number(calculatedFare || 0).toLocaleString("en-IN")}
                       </td>
                     </tr>
 

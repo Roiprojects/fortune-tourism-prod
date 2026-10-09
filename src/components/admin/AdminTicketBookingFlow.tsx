@@ -13,12 +13,14 @@ import {
   MessageCircle,
   CheckCircle2,
   Clock,
+  Phone,
 } from "lucide-react";
 import { generateTicketNumber, generatePNR } from "@/lib/booking-utils";
 import { buildWhatsAppUrl } from "@/lib/contact";
 import { downloadTicketCopyPDF } from "@/lib/ticket-copy-pdf";
 import { BusBookingForm } from "@/components/booking/BusBookingForm";
 import { FlightBookingForm } from "@/components/booking/FlightBookingForm";
+import { getSavedTicketTariffs } from "./FareAmountEditorModal";
 
 interface Passenger {
   name: string;
@@ -70,7 +72,8 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
     train_number: "",
     boarding_point: "",
     boarding_address: "",
-    phone: "9845003000",
+    phone: "",
+    fare_amount: "",
   });
 
   // Passengers list (1 to 6)
@@ -91,7 +94,8 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
     to_airport: "",
     boarding_point: "",
     boarding_address: "",
-    phone: "9845003000",
+    phone: "",
+    fare_amount: "",
     passengers: [{ name: "", age: "", gender: "Male", seat_preference: "" }],
   });
 
@@ -134,9 +138,9 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
 
   const primaryPhone = useMemo(() => {
     if (serviceType === "TRAIN") {
-      return trainData.phone || "9845003000";
+      return trainData.phone || "";
     }
-    return otherFormData.phone || "9845003000";
+    return otherFormData.phone || "";
   }, [serviceType, trainData.phone, otherFormData.phone]);
 
   const tourTypeDisplay = useMemo(() => {
@@ -180,33 +184,48 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
 
   // Dynamic ticket fare calculation based on service type, class/category, and passenger count
   const ticketFareAmount = useMemo(() => {
+    const tariffs = getSavedTicketTariffs();
     if (serviceType === "TRAIN") {
+      if (trainData.fare_amount && Number(trainData.fare_amount) > 0) {
+        return Number(trainData.fare_amount);
+      }
       const count = Math.max(1, passengers.length);
       const cls = String(trainData.travel_class || "3A").toUpperCase();
-      let per = 850;
-      if (cls === "1A") per = 2450;
-      else if (cls === "2A") per = 1650;
-      else if (cls === "3A" || cls === "3E") per = 1150;
-      else if (cls === "CC") per = 750;
-      else if (cls === "SL") per = 450;
+      let per = tariffs.train[cls as keyof typeof tariffs.train] ?? 850;
       return count * per;
     }
     if (serviceType === "BUS") {
+      if (otherFormData.fare_amount && Number(otherFormData.fare_amount) > 0) {
+        return Number(otherFormData.fare_amount);
+      }
       const count = Math.max(1, otherFormData.passengers?.length || 1);
       const bType = String(otherFormData.bus_type || "").toUpperCase();
-      let per = 850;
-      if (bType.includes("VOLVO") || bType.includes("MULTI")) per = 1450;
-      else if (bType.includes("SLEEPER")) per = 1100;
+      let per = tariffs.bus.seater ?? 850;
+      if (bType.includes("VOLVO") || bType.includes("MULTI")) per = tariffs.bus.volvo ?? 1450;
+      else if (bType.includes("SLEEPER")) per = tariffs.bus.sleeper ?? 1100;
       return count * per;
     }
     if (serviceType === "FLIGHT") {
+      if (otherFormData.fare_amount && Number(otherFormData.fare_amount) > 0) {
+        return Number(otherFormData.fare_amount);
+      }
       const count = Math.max(1, otherFormData.passengers?.length || 1);
-      let per = otherFormData.cabin_class === "Business" ? 14500 : 4850;
+      let per = otherFormData.cabin_class === "Business" ? tariffs.flight.business ?? 14500 : tariffs.flight.economy ?? 4850;
       if (otherFormData.flight_trip_type === "Round Trip") per *= 2;
       return count * per;
     }
     return 1200;
-  }, [serviceType, passengers, trainData.travel_class, otherFormData]);
+  }, [
+    serviceType,
+    passengers,
+    trainData.travel_class,
+    trainData.fare_amount,
+    otherFormData.fare_amount,
+    otherFormData.bus_type,
+    otherFormData.cabin_class,
+    otherFormData.flight_trip_type,
+    otherFormData.passengers,
+  ]);
 
   // Passenger count selector (1 to 6)
   const setPassengerCount = (count: number) => {
@@ -262,6 +281,10 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
       toast.error("Please enter Passenger 1 Age.");
       return;
     }
+    if (!trainData.phone || !trainData.phone.trim()) {
+      toast.error("Please enter Passenger Phone Number.");
+      return;
+    }
     if (!trainData.boarding_point || !trainData.boarding_point.trim()) {
       toast.error("Please enter the Boarding Point.");
       return;
@@ -275,7 +298,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
     try {
       const payload = {
         name: firstP.name.trim(),
-        phone: trainData.phone || "9845003000",
+        phone: trainData.phone.trim(),
         email: "booking@fortunetourism.in",
         service: "Train Booking",
         category: "TRAIN",
@@ -292,6 +315,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
           `Ticket No: ${ticketNumber}`,
           `PNR: ${pnrNumber}`,
           `Train: ${trainData.preferred_train || "Any"} | No: ${trainData.train_number || "N/A"} | Class: ${trainData.travel_class} | Quota: ${trainData.quota}`,
+          `Total Fare: ₹${ticketFareAmount}`,
           `Passengers: ${passengers.map((p, i) => `P${i + 1}: ${p.name} (${p.age}y/${p.gender})`).join(", ")}`,
         ]
           .filter(Boolean)
@@ -333,7 +357,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
 
       const payload = {
         name: firstP,
-        phone: otherFormData.phone || "9845003000",
+        phone: otherFormData.phone?.trim() || "",
         email: "booking@fortunetourism.in",
         service: isBus ? "Bus Booking" : "Flight Booking",
         category: isBus ? "BUS" : "FLIGHT",
@@ -351,6 +375,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
           `PNR: ${pnrNumber}`,
           isBus && `Bus Type: ${otherFormData.bus_type}`,
           !isBus && `Flight: ${otherFormData.cabin_class} | Trip: ${otherFormData.flight_trip_type}`,
+          `Total Fare: ₹${ticketFareAmount}`,
         ]
           .filter(Boolean)
           .join(" | "),
@@ -422,8 +447,13 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
       train_number: "",
       boarding_point: "",
       boarding_address: "",
-      phone: "9845003000",
+      phone: "",
+      fare_amount: "",
     });
+    setOtherFormData((prev: any) => ({
+      ...prev,
+      fare_amount: "",
+    }));
   };
 
   return (
@@ -641,8 +671,8 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                       </div>
                     </div>
 
-                    {/* Preferred Time & Train Number */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Preferred Time, Train Number & Fare Amount */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
                           Preferred Time
@@ -667,6 +697,22 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                           value={trainData.train_number}
                           onChange={(e) =>
                             setTrainData((prev) => ({ ...prev, train_number: e.target.value }))
+                          }
+                          className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark] placeholder:text-slate-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
+                          Fare Amount (₹) (Optional)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder={`Est: ₹${ticketFareAmount.toLocaleString("en-IN")}`}
+                          value={trainData.fare_amount}
+                          onChange={(e) =>
+                            setTrainData((prev) => ({ ...prev, fare_amount: e.target.value }))
                           }
                           className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark] placeholder:text-slate-500"
                         />
@@ -709,6 +755,27 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                           ))}
                         </select>
                       </div>
+                    </div>
+
+                    {/* Passenger Phone Number Input */}
+                    <div className="bg-[#111c3a]/90 border border-emerald-500/30 rounded-2xl p-4 sm:p-5 shadow-inner">
+                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-300 block mb-1.5 flex items-center gap-1.5">
+                        <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                        Passenger Phone Number (Mobile / WhatsApp No.) *
+                      </label>
+                      <input
+                        type="tel"
+                        maxLength={15}
+                        placeholder="Enter passenger mobile number (e.g. 9845003000 / 9876543210)"
+                        value={trainData.phone}
+                        onChange={(e) =>
+                          setTrainData((prev) => ({ ...prev, phone: e.target.value }))
+                        }
+                        className="w-full bg-[#0b1329]/90 border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-bold text-white outline-none placeholder:text-slate-500 [color-scheme:dark]"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        This phone number will be recorded on the official ticket voucher and used for SMS / WhatsApp dispatch.
+                      </p>
                     </div>
 
                     {/* Passenger Input Rows */}
@@ -808,6 +875,31 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                             className="w-full bg-[#0b1329]/90 border border-white/15 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-bold text-white outline-none focus:border-[#00c58e] [color-scheme:dark] placeholder:text-slate-500"
                           />
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Ticket Fare Summary & Custom Fare Adjustment */}
+                    <div className="bg-[#111c3a]/90 border border-emerald-500/30 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
+                      <div>
+                        <span className="text-[11px] font-black uppercase tracking-wider text-emerald-300 block">
+                          Ticket Fare Amount
+                        </span>
+                        <p className="text-xs text-slate-400">
+                          Total fare calculated for {passengers.length} passenger{passengers.length > 1 ? "s" : ""}. You can adjust the exact ticket fare amount if required.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-bold text-slate-300 whitespace-nowrap">
+                          Total Fare (₹):
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={trainData.fare_amount || ""}
+                          placeholder={`₹${ticketFareAmount.toLocaleString("en-IN")}`}
+                          onChange={(e) => setTrainData((prev) => ({ ...prev, fare_amount: e.target.value }))}
+                          className="w-36 bg-[#0b1329] border border-emerald-500/50 rounded-xl px-3 py-2 text-sm font-black text-emerald-300 focus:ring-2 focus:ring-[#00c58e]/30 outline-none shadow-inner [color-scheme:dark]"
+                        />
                       </div>
                     </div>
 
@@ -998,8 +1090,22 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                       <td className="p-2.5 font-bold text-slate-900 bg-slate-50 w-40 whitespace-nowrap">
                         Passenger Phone No.:
                       </td>
-                      <td className="p-2.5 font-bold text-slate-900">
-                        {primaryPhone}
+                      <td className="p-1.5 font-bold text-slate-900">
+                        <input
+                          type="tel"
+                          value={serviceType === "TRAIN" ? trainData.phone : otherFormData.phone}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (serviceType === "TRAIN") {
+                              setTrainData((prev) => ({ ...prev, phone: val }));
+                            } else {
+                              setOtherFormData((prev: any) => ({ ...prev, phone: val }));
+                            }
+                          }}
+                          placeholder="Enter phone no."
+                          className="w-full bg-transparent border-b border-dashed border-slate-400 hover:border-slate-800 focus:border-emerald-600 focus:bg-emerald-50/40 px-1 py-0.5 text-xs font-bold text-slate-900 outline-none transition"
+                          title="Click to edit passenger phone number on ticket copy"
+                        />
                       </td>
                       <td className="p-2.5 font-bold text-slate-900 bg-slate-50 w-28 whitespace-nowrap">
                         Tour Type
@@ -1082,10 +1188,10 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                         {vehicleDisplay}
                       </td>
                       <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
-                        Boarding point:
+                        Fare Amount:
                       </td>
-                      <td className="p-2.5 font-bold text-slate-900 uppercase">
-                        {fromLocationDisplay}
+                      <td className="p-2.5 font-black text-emerald-700 uppercase">
+                        ₹{ticketFareAmount.toLocaleString("en-IN")}
                       </td>
                     </tr>
 

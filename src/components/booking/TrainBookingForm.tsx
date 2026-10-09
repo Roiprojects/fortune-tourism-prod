@@ -214,7 +214,7 @@ export function TrainBookingForm({ formData, onChange, errors, onCompleteBooking
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
                 Preferred Time
@@ -236,6 +236,20 @@ export function TrainBookingForm({ formData, onChange, errors, onCompleteBooking
                 placeholder="e.g. 12608 / 12028 / Any"
                 value={formData.train_number || ""}
                 onChange={(e) => onChange("train_number", e.target.value)}
+                className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark] placeholder:text-slate-500"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 block mb-1.5">
+                Fare Amount (₹) (Optional)
+              </label>
+              <input
+                type="number"
+                min="0"
+                placeholder="e.g. 1150"
+                value={formData.fare_amount || ""}
+                onChange={(e) => onChange("fare_amount", e.target.value)}
                 className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark] placeholder:text-slate-500"
               />
             </div>
@@ -368,6 +382,31 @@ export function TrainBookingForm({ formData, onChange, errors, onCompleteBooking
                   className="w-full bg-[#0b1329]/90 border border-white/15 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-bold text-white outline-none focus:border-[#00c58e] [color-scheme:dark] placeholder:text-slate-500"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Ticket Fare Amount Card */}
+          <div className="bg-[#111c3a]/90 border border-emerald-500/30 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
+            <div>
+              <span className="text-[11px] font-black uppercase tracking-wider text-emerald-300 block">
+                Ticket Fare Amount
+              </span>
+              <p className="text-xs text-slate-400">
+                Fare amount to be printed on the confirmed ticket copy.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-bold text-slate-300 whitespace-nowrap">
+                Fare Amount (₹):
+              </label>
+              <input
+                type="number"
+                min="0"
+                placeholder="e.g. 1150"
+                value={formData.fare_amount || ""}
+                onChange={(e) => onChange("fare_amount", e.target.value)}
+                className="w-36 bg-[#0b1329] border border-emerald-500/50 rounded-xl px-3 py-2 text-sm font-black text-emerald-300 focus:ring-2 focus:ring-[#00c58e]/30 outline-none shadow-inner [color-scheme:dark]"
+              />
             </div>
           </div>
 
