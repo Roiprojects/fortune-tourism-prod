@@ -1,7 +1,18 @@
 import { useState, useEffect } from "react";
 
+export type ExpenseCategoryType =
+  | "all"
+  | "inflow"
+  | "repairs"
+  | "miscellaneous"
+  | "credit"
+  | "supplier"
+  | "agency"
+  | "drivers";
+
 export interface ExpenseReportItem {
   id: string;
+  entryType: "inflow" | "outflow";
   dateFrom: string; // YYYY-MM-DD
   dateTo: string;   // YYYY-MM-DD
   repairs: number;
@@ -13,17 +24,95 @@ export interface ExpenseReportItem {
   agencyAmount: number;
   driverName: string;
   driverAmount: number;
+  inflowAmount: number; // Collected cash from booking page or counter
   reason: string;
+  source?: string; // "Booking Page", "Counter Cash", "Bank Transfer", etc.
+  bookingNumber?: string;
+  customerName?: string;
+  customerPhone?: string;
   paymentMethod?: string;
   createdAt?: string;
 }
 
-export const STORAGE_KEY_EXPENSES = "FT_EXPENSE_REPORTS_V1";
+export const STORAGE_KEY_EXPENSES = "FT_EXPENSE_REPORTS_V2";
 export const EXPENSES_UPDATED_EVENT = "ft-expenses-updated";
 
 export const INITIAL_EXPENSE_ENTRIES: ExpenseReportItem[] = [
+  // Inflow records collected from booking page
+  {
+    id: "INF-2001",
+    entryType: "inflow",
+    dateFrom: new Date(Date.now() - 1 * 86400000).toISOString().slice(0, 10),
+    dateTo: new Date().toISOString().slice(0, 10),
+    repairs: 0,
+    miscellaneous: 0,
+    credit: 0,
+    supplierName: "",
+    supplierAmount: 0,
+    agencyName: "",
+    agencyAmount: 0,
+    driverName: "",
+    driverAmount: 0,
+    inflowAmount: 14500,
+    reason: "Collected Booking Cash — Bengaluru to Ooty 3D/2N Tour Package (Online Booking #FT-TKT-8902)",
+    source: "Booking Page",
+    bookingNumber: "FT-TKT-8902",
+    customerName: "Kavitha Sharma",
+    customerPhone: "9845012345",
+    paymentMethod: "Cash / Advance",
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "INF-2002",
+    entryType: "inflow",
+    dateFrom: new Date().toISOString().slice(0, 10),
+    dateTo: new Date().toISOString().slice(0, 10),
+    repairs: 0,
+    miscellaneous: 0,
+    credit: 0,
+    supplierName: "",
+    supplierAmount: 0,
+    agencyName: "",
+    agencyAmount: 0,
+    driverName: "",
+    driverAmount: 0,
+    inflowAmount: 3400,
+    reason: "Collected Booking Cash — Airport Outstation Cab Drop Innova Crysta (#FT-CAB-4412)",
+    source: "Booking Page",
+    bookingNumber: "FT-CAB-4412",
+    customerName: "Rajesh Varma",
+    customerPhone: "9880099881",
+    paymentMethod: "UPI / Counter Cash",
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "INF-2003",
+    entryType: "inflow",
+    dateFrom: new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10),
+    dateTo: new Date(Date.now() - 1 * 86400000).toISOString().slice(0, 10),
+    repairs: 0,
+    miscellaneous: 0,
+    credit: 0,
+    supplierName: "",
+    supplierAmount: 0,
+    agencyName: "",
+    agencyAmount: 0,
+    driverName: "",
+    driverAmount: 0,
+    inflowAmount: 8500,
+    reason: "Collected Booking Cash — Bengaluru to Chikmagalur 2D/1N Tour Booking (#FT-TKT-7763)",
+    source: "Booking Page",
+    bookingNumber: "FT-TKT-7763",
+    customerName: "Anand Murthy",
+    customerPhone: "9900112233",
+    paymentMethod: "Cash",
+    createdAt: new Date().toISOString(),
+  },
+
+  // Outflow / Expense records
   {
     id: "EXP-1001",
+    entryType: "outflow",
     dateFrom: new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10),
     dateTo: new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10),
     repairs: 4500,
@@ -35,12 +124,14 @@ export const INITIAL_EXPENSE_ENTRIES: ExpenseReportItem[] = [
     agencyAmount: 1800,
     driverName: "Manjunath K",
     driverAmount: 2400,
+    inflowAmount: 0,
     reason: "Innova Crysta KA-05-MN-1234 Brake pad replacement & Outstation Mysuru trip bata",
     paymentMethod: "UPI",
     createdAt: new Date().toISOString(),
   },
   {
     id: "EXP-1002",
+    entryType: "outflow",
     dateFrom: new Date(Date.now() - 1 * 86400000).toISOString().slice(0, 10),
     dateTo: new Date().toISOString().slice(0, 10),
     repairs: 1200,
@@ -52,12 +143,14 @@ export const INITIAL_EXPENSE_ENTRIES: ExpenseReportItem[] = [
     agencyAmount: 950,
     driverName: "Ramesh Babu",
     driverAmount: 1500,
+    inflowAmount: 0,
     reason: "Airport transfers fuel top-up, toll fees, airport parking, driver daily allowance",
     paymentMethod: "Cash",
     createdAt: new Date().toISOString(),
   },
   {
     id: "EXP-1003",
+    entryType: "outflow",
     dateFrom: new Date().toISOString().slice(0, 10),
     dateTo: new Date().toISOString().slice(0, 10),
     repairs: 0,
@@ -69,6 +162,7 @@ export const INITIAL_EXPENSE_ENTRIES: ExpenseReportItem[] = [
     agencyAmount: 2200,
     driverName: "Suresh Kumar",
     driverAmount: 1800,
+    inflowAmount: 0,
     reason: "Client advance credit clearance, office broadband recharge, driver Coorg tour advance",
     paymentMethod: "Bank Transfer",
     createdAt: new Date().toISOString(),
@@ -104,9 +198,10 @@ export function saveExpenseReports(items: ExpenseReportItem[]): void {
 
 export function addExpenseReportItem(item: Omit<ExpenseReportItem, "id">): ExpenseReportItem {
   const current = getSavedExpenseReports();
+  const prefix = item.entryType === "inflow" ? "INF" : "EXP";
   const newItem: ExpenseReportItem = {
     ...item,
-    id: `EXP-${Date.now().toString().slice(-6)}`,
+    id: `${prefix}-${Date.now().toString().slice(-6)}`,
     createdAt: new Date().toISOString(),
   };
   const updated = [newItem, ...current];
@@ -134,6 +229,9 @@ export function resetExpenseReportsToDefaults(): void {
 }
 
 export function computeExpenseItemTotal(item: ExpenseReportItem): number {
+  if (item.entryType === "inflow") {
+    return Number(item.inflowAmount || 0);
+  }
   return (
     Number(item.repairs || 0) +
     Number(item.miscellaneous || 0) +

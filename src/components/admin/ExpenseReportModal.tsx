@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import {
   X,
@@ -19,12 +19,18 @@ import {
   Search,
   CheckCircle,
   TrendingDown,
-  ArrowRight,
+  TrendingUp,
+  ArrowDownLeft,
+  ArrowUpRight,
   Filter,
+  Car,
+  ChevronDown,
+  Sparkles,
 } from "lucide-react";
 import {
   useExpenseReports,
   ExpenseReportItem,
+  ExpenseCategoryType,
   computeExpenseItemTotal,
 } from "@/lib/expense-reports";
 
@@ -36,13 +42,21 @@ interface ExpenseReportModalProps {
 export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps) {
   const { items, add, remove, reset } = useExpenseReports();
 
+  // Selected Category Dropdown Option
+  // "repairs and nics and creadit and supplier and agency vannd drivers and in the inflows"
+  const [selectedCategory, setSelectedCategory] = useState<ExpenseCategoryType>("all");
+
   // Filters
   const [filterDateFrom, setFilterDateFrom] = useState<string>("");
   const [filterDateTo, setFilterDateTo] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<"list" | "add">("list");
+  const [activeTab, setActiveTab] = useState<"list" | "add_expense" | "add_inflow">("list");
 
-  // Form State for Adding New Expense
+  // Live booking inflows from database
+  const [liveBookingInflows, setLiveBookingInflows] = useState<ExpenseReportItem[]>([]);
+  const [loadingBookings, setLoadingBookings] = useState(false);
+
+  // Form State for Adding New Expense (Outflow)
   const [formDateFrom, setFormDateFrom] = useState<string>(() =>
     new Date().toISOString().slice(0, 10)
   );
@@ -61,59 +75,188 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
   const [formReason, setFormReason] = useState<string>("");
   const [formPaymentMethod, setFormPaymentMethod] = useState<string>("Cash");
 
+  // Form State for Adding Cash Inflow (Collected Cash)
+  const [inflowDateFrom, setInflowDateFrom] = useState<string>(() =>
+    new Date().toISOString().slice(0, 10)
+  );
+  const [inflowDateTo, setInflowDateTo] = useState<string>(() =>
+    new Date().toISOString().slice(0, 10)
+  );
+  const [inflowAmount, setInflowAmount] = useState<string>("");
+  const [inflowCustomerName, setInflowCustomerName] = useState<string>("");
+  const [inflowBookingNumber, setInflowBookingNumber] = useState<string>("");
+  const [inflowReason, setInflowReason] = useState<string>("");
+  const [inflowPaymentMethod, setInflowPaymentMethod] = useState<string>("Cash / Advance");
+
+  // Fetch live bookings from Booking Page (/api/enquiries) on modal open
+  useEffect(() => {
+    if (!isOpen) return;
+    let isCancelled = false;
+
+    async function fetchBookingInflows() {
+      setLoadingBookings(true);
+      try {
+        const res = await fetch("/api/enquiries?limit=100");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.success && Array.isArray(data.enquiries)) {
+          const mapped: ExpenseReportItem[] = data.enquiries.map((enq: any) => {
+            // Parse fare or advance from notes or default calculation
+            let fare = 0;
+            if (enq.notes) {
+              const fareMatch = String(enq.notes).match(/Fare:\s*₹?\s*([\d,]+)/i);
+              if (fareMatch && fareMatch[1]) {
+                fare = Number(fareMatch[1].replace(/,/g, "")) || 0;
+              }
+            }
+            if (fare <= 0) {
+              fare = enq.service === "Taxi" || enq.service === "Cab" ? 3100 : enq.service === "Tour" ? 12500 : 850;
+            }
+
+            const travelDate = enq.travel_date
+              ? String(enq.travel_date).slice(0, 10)
+              : enq.created_at
+              ? String(enq.created_at).slice(0, 10)
+              : new Date().toISOString().slice(0, 10);
+
+            const tktMatch = String(enq.notes || "").match(/Ticket No:\s*([^\s|]+)/i);
+            const ticketNo = tktMatch ? tktMatch[1] : enq.enquiry_number || `FT-${enq.id}`;
+
+            return {
+              id: `BOOK-${enq.id}`,
+              entryType: "inflow" as const,
+              dateFrom: travelDate,
+              dateTo: travelDate,
+              repairs: 0,
+              miscellaneous: 0,
+              credit: 0,
+              supplierName: "",
+              supplierAmount: 0,
+              agencyName: "",
+              agencyAmount: 0,
+              driverName: "",
+              driverAmount: 0,
+              inflowAmount: fare,
+              reason: `Collected Booking Cash — ${enq.name || "Guest"} (${enq.service || "Booking"}) ${enq.pickup || "BLR"} → ${enq.destination || "Drop"}`,
+              source: "Booking Page",
+              bookingNumber: ticketNo,
+              customerName: enq.name || "Customer",
+              customerPhone: enq.phone || "",
+              paymentMethod: "Online / Counter Cash",
+              createdAt: enq.created_at,
+            };
+          });
+
+          if (!isCancelled) {
+            setLiveBookingInflows(mapped);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load booking inflows:", err);
+      } finally {
+        if (!isCancelled) setLoadingBookings(false);
+      }
+    }
+
+    fetchBookingInflows();
+    return () => {
+      isCancelled = true;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
-  // Filtered expense entries
-  const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      // Date from filter
+  // Combined records: saved custom expenses + live booking inflows (avoiding ID duplicates)
+  const allCombinedRecords = useMemo(() => {
+    const existingIds = new Set(items.map((it) => it.id));
+    const newBookings = liveBookingInflows.filter((b) => !existingIds.has(b.id));
+    return [...items, ...newBookings];
+  }, [items, liveBookingInflows]);
+
+  // Filter records by selected category dropdown, dates, and search query
+  const filteredRecords = useMemo(() => {
+    return allCombinedRecords.filter((item) => {
+      // 1. Dropdown Category Filter
+      if (selectedCategory === "inflow" && item.entryType !== "inflow") {
+        return false;
+      }
+      if (selectedCategory === "repairs" && (!item.repairs || item.repairs <= 0)) {
+        return false;
+      }
+      if (selectedCategory === "miscellaneous" && (!item.miscellaneous || item.miscellaneous <= 0)) {
+        return false;
+      }
+      if (selectedCategory === "credit" && (!item.credit || item.credit <= 0)) {
+        return false;
+      }
+      if (selectedCategory === "supplier" && !item.supplierName && (!item.supplierAmount || item.supplierAmount <= 0)) {
+        return false;
+      }
+      if (selectedCategory === "agency" && !item.agencyName && (!item.agencyAmount || item.agencyAmount <= 0)) {
+        return false;
+      }
+      if (selectedCategory === "drivers" && !item.driverName && (!item.driverAmount || item.driverAmount <= 0)) {
+        return false;
+      }
+
+      // 2. Date From filter
       if (filterDateFrom && item.dateFrom < filterDateFrom && item.dateTo < filterDateFrom) {
         return false;
       }
-      // Date to filter
+      // 3. Date To filter
       if (filterDateTo && item.dateFrom > filterDateTo) {
         return false;
       }
-      // Search query
+
+      // 4. Search query filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchReason = (item.reason || "").toLowerCase().includes(q);
         const matchSupplier = (item.supplierName || "").toLowerCase().includes(q);
         const matchAgency = (item.agencyName || "").toLowerCase().includes(q);
         const matchDriver = (item.driverName || "").toLowerCase().includes(q);
+        const matchCustomer = (item.customerName || "").toLowerCase().includes(q);
+        const matchBooking = (item.bookingNumber || "").toLowerCase().includes(q);
         const matchMethod = (item.paymentMethod || "").toLowerCase().includes(q);
-        if (!matchReason && !matchSupplier && !matchAgency && !matchDriver && !matchMethod) {
+        if (!matchReason && !matchSupplier && !matchAgency && !matchDriver && !matchCustomer && !matchBooking && !matchMethod) {
           return false;
         }
       }
       return true;
     });
-  }, [items, filterDateFrom, filterDateTo, searchQuery]);
+  }, [allCombinedRecords, selectedCategory, filterDateFrom, filterDateTo, searchQuery]);
 
-  // Aggregate totals
-  const totals = useMemo(() => {
+  // Aggregate financial metrics
+  const financialTotals = useMemo(() => {
+    let totalInflow = 0;
     let repairs = 0;
     let miscellaneous = 0;
     let credit = 0;
     let supplier = 0;
     let agency = 0;
     let drivers = 0;
-    let grandTotal = 0;
+    let totalOutflow = 0;
 
-    filteredItems.forEach((it) => {
-      repairs += Number(it.repairs || 0);
-      miscellaneous += Number(it.miscellaneous || 0);
-      credit += Number(it.credit || 0);
-      supplier += Number(it.supplierAmount || 0);
-      agency += Number(it.agencyAmount || 0);
-      drivers += Number(it.driverAmount || 0);
-      grandTotal += computeExpenseItemTotal(it);
+    allCombinedRecords.forEach((it) => {
+      if (it.entryType === "inflow") {
+        totalInflow += Number(it.inflowAmount || 0);
+      } else {
+        repairs += Number(it.repairs || 0);
+        miscellaneous += Number(it.miscellaneous || 0);
+        credit += Number(it.credit || 0);
+        supplier += Number(it.supplierAmount || 0);
+        agency += Number(it.agencyAmount || 0);
+        drivers += Number(it.driverAmount || 0);
+        totalOutflow += computeExpenseItemTotal(it);
+      }
     });
 
-    return { repairs, miscellaneous, credit, supplier, agency, drivers, grandTotal };
-  }, [filteredItems]);
+    const netBalance = totalInflow - totalOutflow;
 
-  // Handle Form Submission
+    return { totalInflow, repairs, miscellaneous, credit, supplier, agency, drivers, totalOutflow, netBalance };
+  }, [allCombinedRecords]);
+
+  // Handle Form Submission for Outflow Expense
   const handleSaveExpense = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -135,11 +278,12 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
 
     const totalEntry = repairsNum + miscNum + creditNum + supplierNum + agencyNum + driverNum;
     if (totalEntry <= 0) {
-      toast.error("Please enter at least one expense amount (Repairs, Misc, Credit, Supplier, Agency, or Drivers).");
+      toast.error("Please enter at least one amount (Repairs, Misc, Credit, Supplier, Agency, or Drivers).");
       return;
     }
 
     add({
+      entryType: "outflow",
       dateFrom: formDateFrom,
       dateTo: formDateTo || formDateFrom,
       repairs: repairsNum,
@@ -151,11 +295,12 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
       agencyAmount: agencyNum,
       driverName: formDriverName.trim(),
       driverAmount: driverNum,
+      inflowAmount: 0,
       reason: formReason.trim(),
       paymentMethod: formPaymentMethod,
     });
 
-    toast.success("Expense report entry recorded successfully!");
+    toast.success("Expense outflow recorded successfully!");
 
     // Reset Form
     setFormRepairs("");
@@ -168,6 +313,49 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
     setFormDriverName("");
     setFormDriverAmount("");
     setFormReason("");
+    setActiveTab("list");
+  };
+
+  // Handle Form Submission for Cash Inflow
+  const handleSaveInflow = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const amt = Math.max(0, Number(inflowAmount) || 0);
+    if (amt <= 0) {
+      toast.error("Please enter a valid Cash Inflow amount.");
+      return;
+    }
+    if (!inflowReason.trim()) {
+      toast.error("Please enter a Reason / Description for this cash collection.");
+      return;
+    }
+
+    add({
+      entryType: "inflow",
+      dateFrom: inflowDateFrom,
+      dateTo: inflowDateTo || inflowDateFrom,
+      repairs: 0,
+      miscellaneous: 0,
+      credit: 0,
+      supplierName: "",
+      supplierAmount: 0,
+      agencyName: "",
+      agencyAmount: 0,
+      driverName: "",
+      driverAmount: 0,
+      inflowAmount: amt,
+      reason: inflowReason.trim(),
+      customerName: inflowCustomerName.trim() || "Passenger",
+      bookingNumber: inflowBookingNumber.trim() || `CASH-${Date.now().toString().slice(-4)}`,
+      source: "Cash Inflow",
+      paymentMethod: inflowPaymentMethod,
+    });
+
+    toast.success("Cash inflow record added successfully!");
+    setInflowAmount("");
+    setInflowCustomerName("");
+    setInflowBookingNumber("");
+    setInflowReason("");
     setActiveTab("list");
   };
 
@@ -197,24 +385,24 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/70 backdrop-blur-md overflow-y-auto">
-      <div className="relative w-full max-w-6xl max-h-[92vh] flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
+      <div className="relative w-full max-w-6xl max-h-[94vh] flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* ================= HEADER BAR ================= */}
-        <div className="flex items-center justify-between px-6 py-4.5 bg-gradient-to-r from-[#063f2d] to-[#0a583e] text-white border-b border-emerald-800">
+        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-[#063f2d] via-[#07533b] to-[#0a684a] text-white border-b border-emerald-800">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-amber-300 shadow-inner">
               <Receipt className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base sm:text-lg font-black tracking-tight">Expense Report &amp; Ledger</h3>
-                <span className="text-[10px] font-extrabold uppercase bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full shadow-xs">
-                  Accounts &amp; Payouts
+                <h3 className="text-base sm:text-lg font-black tracking-tight">Expense &amp; Cash Inflow Report</h3>
+                <span className="text-[10px] font-extrabold uppercase bg-emerald-400 text-slate-950 px-2 py-0.5 rounded-full shadow-xs">
+                  Super Admin
                 </span>
               </div>
               <p className="text-xs text-emerald-100/90 font-medium">
-                Track Date From, Date To, Repairs, Miscellaneous, Credit, Supplier, Agency, Drivers &amp; Reason
+                Inflows (Booking Page Cash) &bull; Repairs &bull; Misc &bull; Credit &bull; Supplier &bull; Agency &bull; Drivers &bull; Reasons
               </p>
             </div>
           </div>
@@ -240,9 +428,9 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
           </div>
         </div>
 
-        {/* ================= TABS & QUICK CONTROLS ================= */}
+        {/* ================= TOP CONTROLS & TABS ================= */}
         <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setActiveTab("list")}
@@ -253,20 +441,33 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
               }`}
             >
               <FileText className="w-3.5 h-3.5" />
-              <span>Expense Ledger ({filteredItems.length})</span>
+              <span>Report Ledger ({filteredRecords.length})</span>
             </button>
 
             <button
               type="button"
-              onClick={() => setActiveTab("add")}
+              onClick={() => setActiveTab("add_expense")}
               className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-black transition cursor-pointer ${
-                activeTab === "add"
+                activeTab === "add_expense"
+                  ? "bg-[#063f2d] text-white shadow-xs"
+                  : "bg-white text-rose-800 border border-rose-300 hover:bg-rose-50"
+              }`}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Add Expense Outflow</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("add_inflow")}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-black transition cursor-pointer ${
+                activeTab === "add_inflow"
                   ? "bg-[#063f2d] text-white shadow-xs"
                   : "bg-white text-emerald-800 border border-emerald-300 hover:bg-emerald-50"
               }`}
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>+ Add Expense Entry</span>
+              <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-600" />
+              <span>+ Add Cash Inflow</span>
             </button>
           </div>
 
@@ -274,9 +475,9 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
             <button
               type="button"
               onClick={() => {
-                if (confirm("Reset expense entries back to sample records?")) {
+                if (confirm("Reset custom records back to sample defaults?")) {
                   reset();
-                  toast.success("Reset to default expense entries.");
+                  toast.success("Reset to default records.");
                 }
               }}
               className="flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-slate-800 px-2 py-1 rounded-lg hover:bg-slate-200/60 transition cursor-pointer"
@@ -291,20 +492,20 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
         {/* ================= MODAL BODY CONTENT ================= */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
 
-          {/* ================= TAB 1: ADD NEW EXPENSE ENTRY ================= */}
-          {activeTab === "add" && (
-            <form onSubmit={handleSaveExpense} className="space-y-6 max-w-4xl mx-auto">
-              <div className="bg-gradient-to-br from-emerald-50/70 to-teal-50/30 p-5 rounded-2xl border border-emerald-200/70 shadow-xs">
-                <h4 className="text-sm font-black text-[#063f2d] flex items-center gap-2">
-                  <Receipt className="w-4 h-4 text-emerald-700" />
-                  <span>Record New Operating Expense</span>
+          {/* ================= TAB 1: ADD NEW EXPENSE (OUTFLOW) ================= */}
+          {activeTab === "add_expense" && (
+            <form onSubmit={handleSaveExpense} className="space-y-6 max-w-4xl mx-auto animate-in fade-in duration-200">
+              <div className="bg-gradient-to-br from-rose-50/70 to-orange-50/30 p-5 rounded-2xl border border-rose-200/70 shadow-xs">
+                <h4 className="text-sm font-black text-rose-950 flex items-center gap-2">
+                  <TrendingDown className="w-4 h-4 text-rose-600" />
+                  <span>Record Expense Outflow (Repairs, Misc, Credit, Supplier, Agency, Drivers)</span>
                 </h4>
                 <p className="text-xs text-slate-600 mt-0.5">
-                  Enter Date From, Date To, and fill amounts across Repairs, Miscellaneous, Credit, Supplier, Agency, and Drivers.
+                  Enter Date From, Date To, Reason, and amounts for the corresponding categories.
                 </p>
               </div>
 
-              {/* 1. Date Range: Date From & Date To */}
+              {/* Date From & Date To */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white p-4.5 rounded-2xl border border-slate-200 shadow-2xs">
                 <div>
                   <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
@@ -318,7 +519,6 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                     onChange={(e) => setFormDateFrom(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">Starting date of expense / period</p>
                 </div>
 
                 <div>
@@ -333,19 +533,18 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                     onChange={(e) => setFormDateTo(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">Ending date of expense / period</p>
                 </div>
               </div>
 
-              {/* 2. Direct Expense Amounts: Repairs, Miscellaneous, Credit */}
+              {/* Direct Expense Amounts: Repairs, Miscellaneous, Credit */}
               <div className="bg-white p-4.5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
                 <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider">
-                  Direct Operating Overheads
+                  Direct Overheads: Repairs, Miscellaneous &amp; Credit
                 </h5>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {/* Repairs */}
-                  <div className="bg-amber-50/50 p-3.5 rounded-xl border border-amber-200/80">
+                  <div className="bg-amber-50/60 p-3.5 rounded-xl border border-amber-200">
                     <label className="block text-xs font-black text-amber-900 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                       <Wrench className="w-3.5 h-3.5 text-amber-600" />
                       <span>Repairs (₹)</span>
@@ -361,11 +560,10 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                         className="w-full pl-7 pr-3 py-2 rounded-lg border border-amber-300 text-xs sm:text-sm font-extrabold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
                       />
                     </div>
-                    <p className="text-[10px] text-amber-700/80 mt-1">Vehicle service, garage, parts</p>
                   </div>
 
                   {/* Miscellaneous */}
-                  <div className="bg-indigo-50/50 p-3.5 rounded-xl border border-indigo-200/80">
+                  <div className="bg-indigo-50/60 p-3.5 rounded-xl border border-indigo-200">
                     <label className="block text-xs font-black text-indigo-900 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                       <Package className="w-3.5 h-3.5 text-indigo-600" />
                       <span>Miscellaneous (₹)</span>
@@ -381,11 +579,10 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                         className="w-full pl-7 pr-3 py-2 rounded-lg border border-indigo-300 text-xs sm:text-sm font-extrabold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                       />
                     </div>
-                    <p className="text-[10px] text-indigo-700/80 mt-1">Tolls, parking, office snacks, recharges</p>
                   </div>
 
                   {/* Credit */}
-                  <div className="bg-rose-50/50 p-3.5 rounded-xl border border-rose-200/80">
+                  <div className="bg-rose-50/60 p-3.5 rounded-xl border border-rose-200">
                     <label className="block text-xs font-black text-rose-900 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                       <CreditCard className="w-3.5 h-3.5 text-rose-600" />
                       <span>Credit (₹)</span>
@@ -401,20 +598,19 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                         className="w-full pl-7 pr-3 py-2 rounded-lg border border-rose-300 text-xs sm:text-sm font-extrabold text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500 bg-white"
                       />
                     </div>
-                    <p className="text-[10px] text-rose-700/80 mt-1">Credit clearance, advance payout</p>
                   </div>
                 </div>
               </div>
 
-              {/* 3. Entity Payouts: Supplier, Agency, Drivers */}
+              {/* Entity Amounts: Supplier, Agency, Drivers */}
               <div className="bg-white p-4.5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
                 <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider">
-                  Supplier, Agency &amp; Driver Details
+                  Partner &amp; Staff Payouts: Supplier, Agency &amp; Drivers
                 </h5>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Supplier */}
-                  <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-2">
+                  <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2">
                     <label className="block text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                       <Building className="w-3.5 h-3.5 text-emerald-600" />
                       <span>Supplier</span>
@@ -424,7 +620,7 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                       placeholder="Supplier Name (e.g. Fuel Bunk / Parts)"
                       value={formSupplierName}
                       onChange={(e) => setFormSupplierName(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-bold text-slate-900 bg-white"
                     />
                     <div className="relative">
                       <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">₹</span>
@@ -434,13 +630,13 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                         placeholder="Supplier Amount (₹)"
                         value={formSupplierAmount}
                         onChange={(e) => setFormSupplierAmount(e.target.value)}
-                        className="w-full pl-7 pr-3 py-2 rounded-lg border border-slate-300 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                        className="w-full pl-7 pr-3 py-2 rounded-lg border border-slate-300 text-xs font-black text-slate-900 bg-white"
                       />
                     </div>
                   </div>
 
                   {/* Agency */}
-                  <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-2">
+                  <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2">
                     <label className="block text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                       <Handshake className="w-3.5 h-3.5 text-blue-600" />
                       <span>Agency</span>
@@ -450,7 +646,7 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                       placeholder="Agency Name (e.g. B2B Partner Desk)"
                       value={formAgencyName}
                       onChange={(e) => setFormAgencyName(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-bold text-slate-900 bg-white"
                     />
                     <div className="relative">
                       <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">₹</span>
@@ -460,13 +656,13 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                         placeholder="Agency Amount (₹)"
                         value={formAgencyAmount}
                         onChange={(e) => setFormAgencyAmount(e.target.value)}
-                        className="w-full pl-7 pr-3 py-2 rounded-lg border border-slate-300 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        className="w-full pl-7 pr-3 py-2 rounded-lg border border-slate-300 text-xs font-black text-slate-900 bg-white"
                       />
                     </div>
                   </div>
 
                   {/* Drivers */}
-                  <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-2">
+                  <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2">
                     <label className="block text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                       <Users className="w-3.5 h-3.5 text-purple-600" />
                       <span>Drivers</span>
@@ -476,24 +672,24 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                       placeholder="Driver Name (e.g. Manjunath K)"
                       value={formDriverName}
                       onChange={(e) => setFormDriverName(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-bold text-slate-900 bg-white"
                     />
                     <div className="relative">
                       <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">₹</span>
                       <input
                         type="number"
                         min="0"
-                        placeholder="Driver Bata / Amount (₹)"
+                        placeholder="Driver Bata / Salary (₹)"
                         value={formDriverAmount}
                         onChange={(e) => setFormDriverAmount(e.target.value)}
-                        className="w-full pl-7 pr-3 py-2 rounded-lg border border-slate-300 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+                        className="w-full pl-7 pr-3 py-2 rounded-lg border border-slate-300 text-xs font-black text-slate-900 bg-white"
                       />
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* 4. Reason & Payment Method */}
+              {/* Reason & Payment Mode */}
               <div className="bg-white p-4.5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <label className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
@@ -518,14 +714,14 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                 <textarea
                   required
                   rows={2}
-                  placeholder="Specify clear purpose (e.g. Innova KA-05 clutch overhaul, driver outstation night bata, supplier fuel bill ref #8921)"
+                  placeholder="Specify reason (e.g. Innova KA-05 clutch replacement, driver outstation night bata, fuel supplier bill #8921)"
                   value={formReason}
                   onChange={(e) => setFormReason(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
                 />
               </div>
 
-              {/* Action Buttons */}
+              {/* Actions */}
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
@@ -539,23 +735,191 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                   className="px-8 py-2.5 rounded-xl bg-gradient-to-r from-[#063f2d] to-[#086a46] hover:from-[#053224] hover:to-[#065337] text-white text-xs sm:text-sm font-black shadow-lg shadow-emerald-900/20 transition cursor-pointer flex items-center gap-2"
                 >
                   <CheckCircle className="w-4 h-4 text-emerald-300" />
-                  <span>Save Expense Record</span>
+                  <span>Save Expense Outflow</span>
                 </button>
               </div>
             </form>
           )}
 
-          {/* ================= TAB 2: EXPENSE LEDGER & REPORT ================= */}
+          {/* ================= TAB 2: ADD CASH INFLOW ================= */}
+          {activeTab === "add_inflow" && (
+            <form onSubmit={handleSaveInflow} className="space-y-6 max-w-3xl mx-auto animate-in fade-in duration-200">
+              <div className="bg-gradient-to-br from-emerald-50/80 to-teal-50/30 p-5 rounded-2xl border border-emerald-200/80 shadow-xs">
+                <h4 className="text-sm font-black text-[#063f2d] flex items-center gap-2">
+                  <ArrowDownLeft className="w-4 h-4 text-emerald-700" />
+                  <span>Record Cash Inflow (Booking Cash / Counter Receipts)</span>
+                </h4>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Record advance or full cash collected from passengers, counter bookings, or client tour advances.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white p-4.5 rounded-2xl border border-slate-200 shadow-2xs">
+                <div>
+                  <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                    Date From *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={inflowDateFrom}
+                    onChange={(e) => setInflowDateFrom(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold text-slate-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                    Date To *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={inflowDateTo}
+                    onChange={(e) => setInflowDateTo(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold text-slate-900 bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-white p-4.5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Collected Inflow Amount */}
+                  <div className="bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-300">
+                    <label className="block text-xs font-black text-emerald-950 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                      <IndianRupee className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Collected Cash Amount (₹) *</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">₹</span>
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        placeholder="e.g. 12500"
+                        value={inflowAmount}
+                        onChange={(e) => setInflowAmount(e.target.value)}
+                        className="w-full pl-7 pr-3 py-2 rounded-lg border border-emerald-400 text-xs sm:text-sm font-black text-emerald-950 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Customer / Passenger */}
+                  <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70">
+                    <label className="block text-xs font-black text-slate-800 uppercase tracking-wider mb-1.5">
+                      Customer / Passenger Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Ramesh Kumar"
+                      value={inflowCustomerName}
+                      onChange={(e) => setInflowCustomerName(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-bold text-slate-900 bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                      Booking / Ticket Reference
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. FT-TKT-8901 / FT-CAB-12"
+                      value={inflowBookingNumber}
+                      onChange={(e) => setInflowBookingNumber(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-bold text-slate-900 bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                      Payment Mode
+                    </label>
+                    <select
+                      value={inflowPaymentMethod}
+                      onChange={(e) => setInflowPaymentMethod(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-bold text-slate-900 bg-white"
+                    >
+                      <option value="Cash">Cash at Counter</option>
+                      <option value="UPI / PhonePe / GPay">UPI / PhonePe / GPay</option>
+                      <option value="Bank Transfer">Bank Transfer / IMPS</option>
+                      <option value="Card">Credit / Debit Card</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                    Reason / Booking Description *
+                  </label>
+                  <textarea
+                    required
+                    rows={2}
+                    placeholder="e.g. Advance cash received for Mysuru 3-day tour package, seat reservation counter booking"
+                    value={inflowReason}
+                    onChange={(e) => setInflowReason(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("list")}
+                  className="px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-8 py-2.5 rounded-xl bg-gradient-to-r from-emerald-700 to-teal-800 hover:from-emerald-800 hover:to-teal-900 text-white text-xs sm:text-sm font-black shadow-lg shadow-emerald-900/20 transition cursor-pointer flex items-center gap-2"
+                >
+                  <CheckCircle className="w-4 h-4 text-emerald-200" />
+                  <span>Save Cash Inflow</span>
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* ================= TAB 3: REPORT LEDGER WITH DROPDOWN OPTIONS ================= */}
           {activeTab === "list" && (
             <div className="space-y-6">
 
-              {/* Filter Bar: Date From, Date To, Search & Quick Presets */}
+              {/* Top Filter Bar: CATEGORY DROPDOWN + DATE FROM + DATE TO + SEARCH */}
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
+                  
+                  {/* Category Dropdown Option requested by user */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                      <Filter className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Select Category:</span>
+                    </span>
+                    <div className="relative">
+                      <select
+                        value={selectedCategory}
+                        onChange={(e) => setSelectedCategory(e.target.value as ExpenseCategoryType)}
+                        className="appearance-none pl-3 pr-8 py-2 rounded-xl border border-slate-300 bg-white text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs cursor-pointer"
+                      >
+                        <option value="all">🌐 All Records &amp; Cashflows</option>
+                        <option value="inflow">💰 Inflows (Collected Cash from Booking Page)</option>
+                        <option value="repairs">🔧 Repairs (Vehicle &amp; Garage)</option>
+                        <option value="miscellaneous">📦 Miscellaneous (Tolls, Parking &amp; Misc)</option>
+                        <option value="credit">💳 Credit (Advance Clearance)</option>
+                        <option value="supplier">🏢 Supplier (Fuel &amp; Spare Parts)</option>
+                        <option value="agency">🤝 Agency (B2B Travel Desks)</option>
+                        <option value="drivers">🚗 Drivers (Bata &amp; Allowances)</option>
+                      </select>
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-3 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Date From & Date To */}
                   <div className="flex flex-wrap items-center gap-3">
-                    {/* Date From */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-black text-slate-700 whitespace-nowrap">From:</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-slate-600">From:</span>
                       <input
                         type="date"
                         value={filterDateFrom}
@@ -564,9 +928,8 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                       />
                     </div>
 
-                    {/* Date To */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-black text-slate-700 whitespace-nowrap">To:</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-slate-600">To:</span>
                       <input
                         type="date"
                         value={filterDateTo}
@@ -575,8 +938,8 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                       />
                     </div>
 
-                    {/* Quick Range Presets */}
-                    <div className="hidden md:flex items-center gap-1 pl-2 border-l border-slate-300">
+                    {/* Quick Presets */}
+                    <div className="hidden lg:flex items-center gap-1 pl-1 border-l border-slate-300">
                       <button
                         type="button"
                         onClick={() => quickFilter("today")}
@@ -608,208 +971,277 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                     </div>
                   </div>
 
-                  {/* Search Input */}
-                  <div className="relative min-w-[220px]">
+                  {/* Search Box */}
+                  <div className="relative min-w-[200px]">
                     <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                     <input
                       type="text"
-                      placeholder="Search reason, supplier, driver..."
+                      placeholder="Search reason, customer, driver..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-300 text-xs font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
+
                 </div>
               </div>
 
-              {/* Financial Metric Summary Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
-                {/* 1. Repairs */}
-                <div className="bg-amber-50 p-3 rounded-2xl border border-amber-200/80 shadow-2xs">
-                  <div className="flex items-center gap-1.5 text-amber-800 text-[11px] font-black uppercase tracking-wider">
+              {/* Metric Summary Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+                {/* 1. Inflows */}
+                <div className={`p-3 rounded-2xl border shadow-2xs transition-all ${
+                  selectedCategory === "inflow" || selectedCategory === "all"
+                    ? "bg-emerald-50/90 border-emerald-300 ring-2 ring-emerald-500/20"
+                    : "bg-white border-slate-200 opacity-60"
+                }`}>
+                  <div className="flex items-center gap-1 text-emerald-800 text-[10px] font-black uppercase tracking-wider">
+                    <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Inflows</span>
+                  </div>
+                  <div className="text-xs sm:text-sm font-black text-emerald-950 mt-1">
+                    ₹{financialTotals.totalInflow.toLocaleString("en-IN")}
+                  </div>
+                  <p className="text-[9px] text-emerald-700/80 font-bold">Booking Cash</p>
+                </div>
+
+                {/* 2. Repairs */}
+                <div className={`p-3 rounded-2xl border shadow-2xs transition-all ${
+                  selectedCategory === "repairs" || selectedCategory === "all"
+                    ? "bg-amber-50/90 border-amber-300 ring-2 ring-amber-500/20"
+                    : "bg-white border-slate-200 opacity-60"
+                }`}>
+                  <div className="flex items-center gap-1 text-amber-800 text-[10px] font-black uppercase tracking-wider">
                     <Wrench className="w-3.5 h-3.5 text-amber-600" />
                     <span>Repairs</span>
                   </div>
-                  <div className="text-sm sm:text-base font-black text-amber-950 mt-1">
-                    ₹{totals.repairs.toLocaleString("en-IN")}
+                  <div className="text-xs sm:text-sm font-black text-amber-950 mt-1">
+                    ₹{financialTotals.repairs.toLocaleString("en-IN")}
                   </div>
+                  <p className="text-[9px] text-amber-700/80 font-bold">Garage &amp; Parts</p>
                 </div>
 
-                {/* 2. Miscellaneous */}
-                <div className="bg-indigo-50 p-3 rounded-2xl border border-indigo-200/80 shadow-2xs">
-                  <div className="flex items-center gap-1.5 text-indigo-800 text-[11px] font-black uppercase tracking-wider">
+                {/* 3. Misc */}
+                <div className={`p-3 rounded-2xl border shadow-2xs transition-all ${
+                  selectedCategory === "miscellaneous" || selectedCategory === "all"
+                    ? "bg-indigo-50/90 border-indigo-300 ring-2 ring-indigo-500/20"
+                    : "bg-white border-slate-200 opacity-60"
+                }`}>
+                  <div className="flex items-center gap-1 text-indigo-800 text-[10px] font-black uppercase tracking-wider">
                     <Package className="w-3.5 h-3.5 text-indigo-600" />
                     <span>Misc</span>
                   </div>
-                  <div className="text-sm sm:text-base font-black text-indigo-950 mt-1">
-                    ₹{totals.miscellaneous.toLocaleString("en-IN")}
+                  <div className="text-xs sm:text-sm font-black text-indigo-950 mt-1">
+                    ₹{financialTotals.miscellaneous.toLocaleString("en-IN")}
                   </div>
+                  <p className="text-[9px] text-indigo-700/80 font-bold">Tolls, Parking</p>
                 </div>
 
-                {/* 3. Credit */}
-                <div className="bg-rose-50 p-3 rounded-2xl border border-rose-200/80 shadow-2xs">
-                  <div className="flex items-center gap-1.5 text-rose-800 text-[11px] font-black uppercase tracking-wider">
+                {/* 4. Credit */}
+                <div className={`p-3 rounded-2xl border shadow-2xs transition-all ${
+                  selectedCategory === "credit" || selectedCategory === "all"
+                    ? "bg-rose-50/90 border-rose-300 ring-2 ring-rose-500/20"
+                    : "bg-white border-slate-200 opacity-60"
+                }`}>
+                  <div className="flex items-center gap-1 text-rose-800 text-[10px] font-black uppercase tracking-wider">
                     <CreditCard className="w-3.5 h-3.5 text-rose-600" />
                     <span>Credit</span>
                   </div>
-                  <div className="text-sm sm:text-base font-black text-rose-950 mt-1">
-                    ₹{totals.credit.toLocaleString("en-IN")}
+                  <div className="text-xs sm:text-sm font-black text-rose-950 mt-1">
+                    ₹{financialTotals.credit.toLocaleString("en-IN")}
                   </div>
+                  <p className="text-[9px] text-rose-700/80 font-bold">Clearance</p>
                 </div>
 
-                {/* 4. Supplier */}
-                <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-200/80 shadow-2xs">
-                  <div className="flex items-center gap-1.5 text-emerald-800 text-[11px] font-black uppercase tracking-wider">
-                    <Building className="w-3.5 h-3.5 text-emerald-600" />
+                {/* 5. Supplier */}
+                <div className={`p-3 rounded-2xl border shadow-2xs transition-all ${
+                  selectedCategory === "supplier" || selectedCategory === "all"
+                    ? "bg-teal-50/90 border-teal-300 ring-2 ring-teal-500/20"
+                    : "bg-white border-slate-200 opacity-60"
+                }`}>
+                  <div className="flex items-center gap-1 text-teal-800 text-[10px] font-black uppercase tracking-wider">
+                    <Building className="w-3.5 h-3.5 text-teal-600" />
                     <span>Supplier</span>
                   </div>
-                  <div className="text-sm sm:text-base font-black text-emerald-950 mt-1">
-                    ₹{totals.supplier.toLocaleString("en-IN")}
+                  <div className="text-xs sm:text-sm font-black text-teal-950 mt-1">
+                    ₹{financialTotals.supplier.toLocaleString("en-IN")}
                   </div>
+                  <p className="text-[9px] text-teal-700/80 font-bold">Fuel &amp; Vendors</p>
                 </div>
 
-                {/* 5. Agency */}
-                <div className="bg-blue-50 p-3 rounded-2xl border border-blue-200/80 shadow-2xs">
-                  <div className="flex items-center gap-1.5 text-blue-800 text-[11px] font-black uppercase tracking-wider">
+                {/* 6. Agency */}
+                <div className={`p-3 rounded-2xl border shadow-2xs transition-all ${
+                  selectedCategory === "agency" || selectedCategory === "all"
+                    ? "bg-blue-50/90 border-blue-300 ring-2 ring-blue-500/20"
+                    : "bg-white border-slate-200 opacity-60"
+                }`}>
+                  <div className="flex items-center gap-1 text-blue-800 text-[10px] font-black uppercase tracking-wider">
                     <Handshake className="w-3.5 h-3.5 text-blue-600" />
                     <span>Agency</span>
                   </div>
-                  <div className="text-sm sm:text-base font-black text-blue-950 mt-1">
-                    ₹{totals.agency.toLocaleString("en-IN")}
+                  <div className="text-xs sm:text-sm font-black text-blue-950 mt-1">
+                    ₹{financialTotals.agency.toLocaleString("en-IN")}
                   </div>
+                  <p className="text-[9px] text-blue-700/80 font-bold">B2B Partners</p>
                 </div>
 
-                {/* 6. Drivers */}
-                <div className="bg-purple-50 p-3 rounded-2xl border border-purple-200/80 shadow-2xs">
-                  <div className="flex items-center gap-1.5 text-purple-800 text-[11px] font-black uppercase tracking-wider">
+                {/* 7. Drivers */}
+                <div className={`p-3 rounded-2xl border shadow-2xs transition-all ${
+                  selectedCategory === "drivers" || selectedCategory === "all"
+                    ? "bg-purple-50/90 border-purple-300 ring-2 ring-purple-500/20"
+                    : "bg-white border-slate-200 opacity-60"
+                }`}>
+                  <div className="flex items-center gap-1 text-purple-800 text-[10px] font-black uppercase tracking-wider">
                     <Users className="w-3.5 h-3.5 text-purple-600" />
                     <span>Drivers</span>
                   </div>
-                  <div className="text-sm sm:text-base font-black text-purple-950 mt-1">
-                    ₹{totals.drivers.toLocaleString("en-IN")}
+                  <div className="text-xs sm:text-sm font-black text-purple-950 mt-1">
+                    ₹{financialTotals.drivers.toLocaleString("en-IN")}
                   </div>
+                  <p className="text-[9px] text-purple-700/80 font-bold">Bata &amp; Payouts</p>
                 </div>
 
-                {/* 7. Grand Total */}
-                <div className="col-span-2 sm:col-span-1 bg-gradient-to-br from-[#063f2d] to-[#086a46] p-3 rounded-2xl text-white shadow-md">
-                  <div className="flex items-center gap-1.5 text-emerald-200 text-[11px] font-black uppercase tracking-wider">
-                    <TrendingDown className="w-3.5 h-3.5 text-amber-300" />
-                    <span>Total Expense</span>
+                {/* 8. Net Balance */}
+                <div className="p-3 rounded-2xl bg-gradient-to-br from-[#063f2d] to-[#086a46] text-white shadow-md">
+                  <div className="flex items-center gap-1 text-emerald-200 text-[10px] font-black uppercase tracking-wider">
+                    <TrendingUp className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Net Balance</span>
                   </div>
-                  <div className="text-sm sm:text-base font-black text-amber-300 mt-1">
-                    ₹{totals.grandTotal.toLocaleString("en-IN")}
+                  <div className={`text-xs sm:text-sm font-black mt-1 ${
+                    financialTotals.netBalance >= 0 ? "text-amber-300" : "text-rose-300"
+                  }`}>
+                    ₹{financialTotals.netBalance.toLocaleString("en-IN")}
                   </div>
+                  <p className="text-[9px] text-emerald-200 font-bold">Inflow - Outflow</p>
                 </div>
               </div>
 
-              {/* Main Expense Table */}
+              {/* Main Table View displaying columns requested by user */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
-                      <tr className="bg-slate-100/90 text-slate-700 font-black uppercase tracking-wider border-b border-slate-200 text-[10px]">
-                        <th className="py-3 px-3">Date (From - To)</th>
-                        <th className="py-3 px-3 min-w-[200px]">Reason / Particulars</th>
-                        <th className="py-3 px-3 text-right">Repairs</th>
-                        <th className="py-3 px-3 text-right">Misc</th>
-                        <th className="py-3 px-3 text-right">Credit</th>
-                        <th className="py-3 px-3">Supplier</th>
-                        <th className="py-3 px-3">Agency</th>
-                        <th className="py-3 px-3">Drivers</th>
-                        <th className="py-3 px-3 text-right font-black">Total</th>
+                      <tr className="bg-slate-100 text-slate-800 font-black uppercase tracking-wider border-b border-slate-200 text-[10px]">
+                        <th className="py-3 px-3 whitespace-nowrap">Date From</th>
+                        <th className="py-3 px-3 whitespace-nowrap">Date To</th>
+                        <th className="py-3 px-3">Category</th>
+                        <th className="py-3 px-3 min-w-[240px]">Reasons / Particulars</th>
+                        <th className="py-3 px-3 text-right">Inflows (₹)</th>
+                        <th className="py-3 px-3 text-right">Outflows (₹)</th>
+                        <th className="py-3 px-3 text-right font-black">Total (₹)</th>
                         <th className="py-3 px-3 text-center">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {filteredItems.map((item) => {
+                      {filteredRecords.map((item) => {
+                        const isInflow = item.entryType === "inflow";
                         const rowTotal = computeExpenseItemTotal(item);
+
+                        // Category tag text & color
+                        let catLabel = "General Expense";
+                        let catBadge = "bg-slate-100 text-slate-700";
+
+                        if (isInflow) {
+                          catLabel = "Booking Cash Inflow";
+                          catBadge = "bg-emerald-100 text-emerald-800 border border-emerald-300";
+                        } else if (item.repairs > 0) {
+                          catLabel = "Repairs";
+                          catBadge = "bg-amber-100 text-amber-800 border border-amber-300";
+                        } else if (item.miscellaneous > 0) {
+                          catLabel = "Miscellaneous";
+                          catBadge = "bg-indigo-100 text-indigo-800 border border-indigo-300";
+                        } else if (item.credit > 0) {
+                          catLabel = "Credit";
+                          catBadge = "bg-rose-100 text-rose-800 border border-rose-300";
+                        } else if (item.supplierAmount > 0 || item.supplierName) {
+                          catLabel = "Supplier";
+                          catBadge = "bg-teal-100 text-teal-800 border border-teal-300";
+                        } else if (item.agencyAmount > 0 || item.agencyName) {
+                          catLabel = "Agency";
+                          catBadge = "bg-blue-100 text-blue-800 border border-blue-300";
+                        } else if (item.driverAmount > 0 || item.driverName) {
+                          catLabel = "Drivers";
+                          catBadge = "bg-purple-100 text-purple-800 border border-purple-300";
+                        }
+
                         return (
-                          <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                            {/* Date From - To */}
+                          <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                            {/* Date From */}
+                            <td className="py-3 px-3 whitespace-nowrap font-bold text-slate-900">
+                              {item.dateFrom}
+                            </td>
+
+                            {/* Date To */}
+                            <td className="py-3 px-3 whitespace-nowrap font-bold text-slate-700">
+                              {item.dateTo || item.dateFrom}
+                            </td>
+
+                            {/* Category */}
                             <td className="py-3 px-3 whitespace-nowrap">
-                              <div className="font-bold text-slate-900">{item.dateFrom}</div>
-                              {item.dateTo && item.dateTo !== item.dateFrom && (
-                                <div className="text-[10px] text-slate-500">to {item.dateTo}</div>
-                              )}
-                              {item.paymentMethod && (
-                                <span className="inline-block text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-semibold mt-0.5">
-                                  {item.paymentMethod}
+                              <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full ${catBadge}`}>
+                                {isInflow && <ArrowDownLeft className="w-3 h-3 text-emerald-600" />}
+                                {item.repairs > 0 && <Wrench className="w-3 h-3 text-amber-600" />}
+                                {item.miscellaneous > 0 && <Package className="w-3 h-3 text-indigo-600" />}
+                                {item.credit > 0 && <CreditCard className="w-3 h-3 text-rose-600" />}
+                                {item.supplierAmount > 0 && <Building className="w-3 h-3 text-teal-600" />}
+                                {item.agencyAmount > 0 && <Handshake className="w-3 h-3 text-blue-600" />}
+                                {item.driverAmount > 0 && <Users className="w-3 h-3 text-purple-600" />}
+                                <span>{catLabel}</span>
+                              </span>
+                            </td>
+
+                            {/* Reasons / Particulars */}
+                            <td className="py-3 px-3">
+                              <p className="font-semibold text-slate-900 leading-snug">{item.reason}</p>
+                              <div className="flex flex-wrap items-center gap-2 mt-1 text-[10px] text-slate-500">
+                                <span className="font-mono bg-slate-100 px-1.5 py-0.2 rounded font-bold text-slate-600">{item.id}</span>
+                                {item.customerName && (
+                                  <span className="text-emerald-700 font-bold">Passenger: {item.customerName}</span>
+                                )}
+                                {item.bookingNumber && (
+                                  <span className="text-blue-700 font-bold">Tkt: {item.bookingNumber}</span>
+                                )}
+                                {item.supplierName && (
+                                  <span className="text-teal-700 font-bold">Supplier: {item.supplierName}</span>
+                                )}
+                                {item.agencyName && (
+                                  <span className="text-blue-700 font-bold">Agency: {item.agencyName}</span>
+                                )}
+                                {item.driverName && (
+                                  <span className="text-purple-700 font-bold">Driver: {item.driverName}</span>
+                                )}
+                                {item.paymentMethod && (
+                                  <span className="text-slate-400">({item.paymentMethod})</span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Inflows (Collected cash from booking page) */}
+                            <td className="py-3 px-3 text-right whitespace-nowrap">
+                              {isInflow ? (
+                                <span className="font-black text-emerald-700 text-xs sm:text-sm bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+                                  + ₹{item.inflowAmount.toLocaleString("en-IN")}
                                 </span>
+                              ) : (
+                                <span className="text-slate-300 font-bold">—</span>
                               )}
                             </td>
 
-                            {/* Reason */}
-                            <td className="py-3 px-3">
-                              <p className="font-semibold text-slate-800 leading-snug">{item.reason}</p>
-                              <span className="text-[10px] text-slate-400 font-mono">{item.id}</span>
-                            </td>
-
-                            {/* Repairs */}
-                            <td className="py-3 px-3 text-right font-bold text-amber-800">
-                              {item.repairs > 0 ? `₹${item.repairs.toLocaleString("en-IN")}` : "—"}
-                            </td>
-
-                            {/* Misc */}
-                            <td className="py-3 px-3 text-right font-bold text-indigo-800">
-                              {item.miscellaneous > 0 ? `₹${item.miscellaneous.toLocaleString("en-IN")}` : "—"}
-                            </td>
-
-                            {/* Credit */}
-                            <td className="py-3 px-3 text-right font-bold text-rose-800">
-                              {item.credit > 0 ? `₹${item.credit.toLocaleString("en-IN")}` : "—"}
-                            </td>
-
-                            {/* Supplier */}
-                            <td className="py-3 px-3">
-                              {item.supplierName || item.supplierAmount > 0 ? (
-                                <div>
-                                  <div className="font-bold text-slate-900 text-[11px] truncate max-w-[130px]">
-                                    {item.supplierName || "Supplier"}
-                                  </div>
-                                  <div className="font-black text-emerald-700 text-[11px]">
-                                    ₹{(item.supplierAmount || 0).toLocaleString("en-IN")}
-                                  </div>
-                                </div>
+                            {/* Outflows (Expenses) */}
+                            <td className="py-3 px-3 text-right whitespace-nowrap">
+                              {!isInflow ? (
+                                <span className="font-bold text-rose-700 text-xs sm:text-sm bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-200">
+                                  - ₹{rowTotal.toLocaleString("en-IN")}
+                                </span>
                               ) : (
-                                <span className="text-slate-400">—</span>
-                              )}
-                            </td>
-
-                            {/* Agency */}
-                            <td className="py-3 px-3">
-                              {item.agencyName || item.agencyAmount > 0 ? (
-                                <div>
-                                  <div className="font-bold text-slate-900 text-[11px] truncate max-w-[130px]">
-                                    {item.agencyName || "Agency"}
-                                  </div>
-                                  <div className="font-black text-blue-700 text-[11px]">
-                                    ₹{(item.agencyAmount || 0).toLocaleString("en-IN")}
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="text-slate-400">—</span>
-                              )}
-                            </td>
-
-                            {/* Drivers */}
-                            <td className="py-3 px-3">
-                              {item.driverName || item.driverAmount > 0 ? (
-                                <div>
-                                  <div className="font-bold text-slate-900 text-[11px] truncate max-w-[130px]">
-                                    {item.driverName || "Driver"}
-                                  </div>
-                                  <div className="font-black text-purple-700 text-[11px]">
-                                    ₹{(item.driverAmount || 0).toLocaleString("en-IN")}
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="text-slate-400">—</span>
+                                <span className="text-slate-300 font-bold">—</span>
                               )}
                             </td>
 
                             {/* Total */}
-                            <td className="py-3 px-3 text-right font-black text-slate-900 whitespace-nowrap">
-                              ₹{rowTotal.toLocaleString("en-IN")}
+                            <td className="py-3 px-3 text-right font-black text-xs sm:text-sm whitespace-nowrap">
+                              <span className={isInflow ? "text-emerald-800" : "text-rose-950"}>
+                                {isInflow ? "+" : "-"}₹{rowTotal.toLocaleString("en-IN")}
+                              </span>
                             </td>
 
                             {/* Action */}
@@ -817,12 +1249,12 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                               <button
                                 type="button"
                                 onClick={() => {
-                                  if (confirm(`Delete expense record ${item.id}?`)) {
+                                  if (confirm(`Remove record ${item.id}?`)) {
                                     remove(item.id);
-                                    toast.success("Expense record removed.");
+                                    toast.success("Record deleted.");
                                   }
                                 }}
-                                className="p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+                                className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
                                 title="Delete Record"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -832,18 +1264,29 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                         );
                       })}
 
-                      {filteredItems.length === 0 && (
+                      {filteredRecords.length === 0 && (
                         <tr>
-                          <td colSpan={10} className="py-10 text-center text-slate-400">
-                            <Receipt className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                            <p className="font-bold text-xs text-slate-600">No expense records found for this period.</p>
-                            <button
-                              type="button"
-                              onClick={() => setActiveTab("add")}
-                              className="mt-2 text-xs font-black text-emerald-700 hover:underline cursor-pointer"
-                            >
-                              + Click here to add an expense entry
-                            </button>
+                          <td colSpan={8} className="py-12 text-center text-slate-400">
+                            <Receipt className="w-9 h-9 mx-auto mb-2 opacity-40 text-emerald-800" />
+                            <p className="font-bold text-xs text-slate-700">No records found for this category or date filter.</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">Try selecting "All Records" or reset your date filters.</p>
+                            <div className="flex items-center justify-center gap-3 mt-3">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedCategory("all")}
+                                className="text-xs font-black text-emerald-700 hover:underline cursor-pointer"
+                              >
+                                View All Categories
+                              </button>
+                              <span>&bull;</span>
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab("add_expense")}
+                                className="text-xs font-black text-rose-700 hover:underline cursor-pointer"
+                              >
+                                + Add Expense Outflow
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       )}
@@ -851,13 +1294,22 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                   </table>
                 </div>
 
-                {/* Footer Bar with Overall Count and Sum */}
-                <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs font-bold text-slate-600">
-                  <span>Showing {filteredItems.length} records</span>
-                  <div className="flex items-center gap-2">
-                    <span>Total Outflow:</span>
-                    <span className="text-sm font-black text-[#063f2d]">
-                      ₹{totals.grandTotal.toLocaleString("en-IN")}
+                {/* Table Footer with Summary Breakdown */}
+                <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs font-bold text-slate-700">
+                  <div className="flex items-center gap-3">
+                    <span>Showing {filteredRecords.length} entries</span>
+                    <span className="text-slate-400">&bull;</span>
+                    <span className="text-slate-500 font-medium">Category: {selectedCategory.toUpperCase()}</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-emerald-700 font-extrabold">
+                      Inflow: +₹{financialTotals.totalInflow.toLocaleString("en-IN")}
+                    </span>
+                    <span className="text-rose-700 font-extrabold">
+                      Outflow: -₹{financialTotals.totalOutflow.toLocaleString("en-IN")}
+                    </span>
+                    <span className="text-slate-900 font-black pl-2 border-l border-slate-300">
+                      Net: ₹{financialTotals.netBalance.toLocaleString("en-IN")}
                     </span>
                   </div>
                 </div>
@@ -871,7 +1323,7 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
         {/* ================= MODAL FOOTER ================= */}
         <div className="px-6 py-3.5 bg-slate-100 border-t border-slate-200 flex items-center justify-between text-xs">
           <span className="text-slate-500 font-medium">
-            Fortune Tourism &bull; Accounts &amp; Operational Expenses Report
+            Fortune Tourism &bull; Operating Ledger &amp; Cash Inflow Analysis
           </span>
           <button
             type="button"
