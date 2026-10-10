@@ -22,6 +22,7 @@ import { FareAmountEditorModal } from "@/components/admin/FareAmountEditorModal"
 import { CarFareEditorModal } from "@/components/admin/CarFareEditorModal";
 import { TourFareEditorModal } from "@/components/admin/TourFareEditorModal";
 import { DriverDetailsEditorModal } from "@/components/admin/DriverDetailsEditorModal";
+import { CarDriverPackagesTripsModal } from "@/components/admin/CarDriverPackagesTripsModal";
 import { ExpenseReportModal } from "@/components/admin/ExpenseReportModal";
 import logoAsset from "@/assets/fortune-tourism-logo.png";
 import fullLogoAsset from "@/assets/fortune-tourism-full-logo.png";
@@ -179,6 +180,7 @@ import {
   Sparkles,
   Palmtree,
   UserCheck,
+  Compass,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
@@ -347,6 +349,7 @@ function AdminPage() {
   const [carFareEditorOpen, setCarFareEditorOpen] = useState(false);
   const [tourFareEditorOpen, setTourFareEditorOpen] = useState(false);
   const [driverDetailsEditorOpen, setDriverDetailsEditorOpen] = useState(false);
+  const [carPackagesTripsModalOpen, setCarPackagesTripsModalOpen] = useState(false);
   const [expenseReportModalOpen, setExpenseReportModalOpen] = useState(false);
   const [offlineBookingSource, setOfflineBookingSource] = useState<any>({});
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
@@ -372,6 +375,7 @@ function AdminPage() {
         setProfileModalOpen(false);
         setSettingsModalOpen(false);
         setDriverDetailsEditorOpen(false);
+        setCarPackagesTripsModalOpen(false);
         setExpenseReportModalOpen(false);
       }
     }
@@ -1410,6 +1414,17 @@ function AdminPage() {
                 <UserCheck className="w-4 h-4 text-emerald-700" />
                 <span>Driver Details</span>
               </button>
+
+              {/* Car Packages Trips Edit Direct Header Button */}
+              <button
+                type="button"
+                onClick={() => setCarPackagesTripsModalOpen(true)}
+                className="hidden xl:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 shadow-2xs shrink-0"
+                title="Car Driver Packages & Outstation Trips"
+              >
+                <Compass className="w-4 h-4 text-amber-600" />
+                <span>Packages Trips</span>
+              </button>
             </div>
 
             {/* Right: Account with image dropdown */}
@@ -1527,6 +1542,24 @@ function AdminPage() {
                       </div>
                       <span className="text-[10px] bg-emerald-100 text-[#063f2d] font-extrabold px-1.5 py-0.5 rounded-md">
                         Duty Log
+                      </span>
+                    </button>
+
+                    {/* Car Packages Trips Edit */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        setCarPackagesTripsModalOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50 transition text-left cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Compass className="w-4 h-4 text-amber-600 shrink-0 group-hover:scale-110 transition-transform" />
+                        <span>Car Packages Trips Edit</span>
+                      </div>
+                      <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-1.5 py-0.5 rounded-md">
+                        Trip Details
                       </span>
                     </button>
 
@@ -2646,6 +2679,14 @@ function AdminPage() {
         <DriverDetailsEditorModal
           isOpen={driverDetailsEditorOpen}
           onClose={() => setDriverDetailsEditorOpen(false)}
+        />
+      )}
+
+      {/* Car Packages Trips Edit Modal */}
+      {carPackagesTripsModalOpen && (
+        <CarDriverPackagesTripsModal
+          isOpen={carPackagesTripsModalOpen}
+          onClose={() => setCarPackagesTripsModalOpen(false)}
         />
       )}
     </SiteLayout>
