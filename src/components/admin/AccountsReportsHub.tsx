@@ -428,8 +428,26 @@ export function AccountsReportsHub({
   const [activeReport, setActiveReport] = useState<AccountReportKey>(
     initialReport === "daybook" ? "reports" : initialReport
   );
-  const [transactions, setTransactions] = useState<TransactionRecord[]>(SEED_TRANSACTIONS);
-  const [dailyRecords, setDailyRecords] = useState<DailyReportRecord[]>(INITIAL_DAILY_REPORTS);
+  const [transactions, setTransactions] = useState<TransactionRecord[]>(() => {
+    if (typeof window === "undefined") return SEED_TRANSACTIONS;
+    if (localStorage.getItem("fortune_reports_cleared") === "true") return [];
+    try {
+      const deleted = new Set(JSON.parse(localStorage.getItem("fortune_deleted_transaction_ids") || "[]"));
+      return SEED_TRANSACTIONS.filter((s) => !deleted.has(String(s.id)));
+    } catch {
+      return SEED_TRANSACTIONS;
+    }
+  });
+  const [dailyRecords, setDailyRecords] = useState<DailyReportRecord[]>(() => {
+    if (typeof window === "undefined") return INITIAL_DAILY_REPORTS;
+    if (localStorage.getItem("fortune_reports_cleared") === "true") return [];
+    try {
+      const deleted = new Set(JSON.parse(localStorage.getItem("fortune_deleted_daily_record_ids") || "[]"));
+      return INITIAL_DAILY_REPORTS.filter((s) => !deleted.has(String(s.id)));
+    } catch {
+      return INITIAL_DAILY_REPORTS;
+    }
+  });
   const [loading, setLoading] = useState(false);
 
   // Daily Reports Header Filter States (From Date, To Date, All Booking Types, Search Query)
@@ -1058,19 +1076,40 @@ export function AccountsReportsHub({
             };
           });
 
-          // Merge: ensure INITIAL_DAILY_REPORTS are included if not present in DB
-          const existingKeys = new Set(
-            liveDaily.map((d) => `${(d.pax || "").toLowerCase()}_${d.ph_no || ""}`)
+          const isCleared = typeof window !== "undefined" && localStorage.getItem("fortune_reports_cleared") === "true";
+          const deletedDailyIds = new Set<string>(
+            typeof window !== "undefined"
+              ? JSON.parse(localStorage.getItem("fortune_deleted_daily_record_ids") || "[]")
+              : []
           );
-          const seedsToKeep = INITIAL_DAILY_REPORTS.filter(
-            (s) => !existingKeys.has(`${s.pax.toLowerCase()}_${s.ph_no}`)
-          );
-          setDailyRecords([...seedsToKeep, ...liveDaily]);
+          const filteredLiveDaily = liveDaily.filter((r) => !deletedDailyIds.has(String(r.id)));
+
+          if (isCleared) {
+            setDailyRecords(filteredLiveDaily);
+          } else {
+            const existingKeys = new Set(
+              filteredLiveDaily.map((d) => `${(d.pax || "").toLowerCase()}_${d.ph_no || ""}`)
+            );
+            const seedsToKeep = INITIAL_DAILY_REPORTS.filter(
+              (s) => !deletedDailyIds.has(String(s.id)) && !existingKeys.has(`${s.pax.toLowerCase()}_${s.ph_no}`)
+            );
+            setDailyRecords([...seedsToKeep, ...filteredLiveDaily]);
+          }
         }
       }
     } catch (err) {
       console.warn("Using seeded daily records:", err);
-      setDailyRecords(INITIAL_DAILY_REPORTS);
+      const isCleared = typeof window !== "undefined" && localStorage.getItem("fortune_reports_cleared") === "true";
+      if (!isCleared) {
+        const deletedDailyIds = new Set<string>(
+          typeof window !== "undefined"
+            ? JSON.parse(localStorage.getItem("fortune_deleted_daily_record_ids") || "[]")
+            : []
+        );
+        setDailyRecords(INITIAL_DAILY_REPORTS.filter((s) => !deletedDailyIds.has(String(s.id))));
+      } else {
+        setDailyRecords([]);
+      }
     }
 
     // 2. Fetch general business transactions for other reports
@@ -1102,11 +1141,36 @@ export function AccountsReportsHub({
               notes: r.notes || "",
             };
           });
-          setTransactions([...mapped, ...SEED_TRANSACTIONS]);
+
+          const isCleared = typeof window !== "undefined" && localStorage.getItem("fortune_reports_cleared") === "true";
+          const deletedTxnIds = new Set<string>(
+            typeof window !== "undefined"
+              ? JSON.parse(localStorage.getItem("fortune_deleted_transaction_ids") || "[]")
+              : []
+          );
+          const filteredMapped = mapped.filter((t) => !deletedTxnIds.has(String(t.id)));
+
+          if (isCleared) {
+            setTransactions(filteredMapped);
+          } else {
+            const seeds = SEED_TRANSACTIONS.filter((s) => !deletedTxnIds.has(String(s.id)));
+            setTransactions([...filteredMapped, ...seeds]);
+          }
         }
       }
     } catch (err) {
       console.warn("Using seeded transactions:", err);
+      const isCleared = typeof window !== "undefined" && localStorage.getItem("fortune_reports_cleared") === "true";
+      if (!isCleared) {
+        const deletedTxnIds = new Set<string>(
+          typeof window !== "undefined"
+            ? JSON.parse(localStorage.getItem("fortune_deleted_transaction_ids") || "[]")
+            : []
+        );
+        setTransactions(SEED_TRANSACTIONS.filter((s) => !deletedTxnIds.has(String(s.id))));
+      } else {
+        setTransactions([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -1236,10 +1300,22 @@ export function AccountsReportsHub({
 
   const handleDeleteDailyRecord = async (id: string | number) => {
     if (!window.confirm("Are you sure you want to delete this Daily Report entry?")) return;
-    setDailyRecords((prev) => prev.filter((r) => r.id !== id));
-    if (typeof id === "number") {
+
+    // Permanently record deletion in localStorage
+    try {
+      const stored = JSON.parse(localStorage.getItem("fortune_deleted_daily_record_ids") || "[]");
+      if (!stored.includes(String(id))) {
+        stored.push(String(id));
+        localStorage.setItem("fortune_deleted_daily_record_ids", JSON.stringify(stored));
+      }
+    } catch {}
+
+    setDailyRecords((prev) => prev.filter((r) => String(r.id) !== String(id)));
+
+    const numId = Number(id);
+    if (!isNaN(numId) && numId > 0 && typeof id === "number") {
       try {
-        await fetch(`/api/business/day_book_entries?id=${id}`, {
+        await fetch(`/api/business/day_book_entries?id=${numId}`, {
           method: "DELETE",
           headers: { "x-admin-key": "Admin@fortunetourism2026" },
         });
@@ -1247,6 +1323,80 @@ export function AccountsReportsHub({
         console.warn("DELETE /api/business/day_book_entries error:", err);
       }
     }
+    toast.success("Daily report entry deleted successfully.");
+  };
+
+  const handleDeleteTransactionRecord = async (id: string | number, label?: string) => {
+    const desc = label ? ` "${label}"` : "";
+    if (!window.confirm(`Are you sure you want to delete this report entry${desc}?`)) return;
+
+    try {
+      const stored = JSON.parse(localStorage.getItem("fortune_deleted_transaction_ids") || "[]");
+      if (!stored.includes(String(id))) {
+        stored.push(String(id));
+        localStorage.setItem("fortune_deleted_transaction_ids", JSON.stringify(stored));
+      }
+    } catch {}
+
+    setTransactions((prev) => prev.filter((t) => String(t.id) !== String(id)));
+
+    const rawId = String(id).replace("TXN-", "");
+    const numId = Number(rawId);
+    if (!isNaN(numId) && numId > 0) {
+      try {
+        await fetch(`/api/business/business_records?id=${numId}`, {
+          method: "DELETE",
+          headers: { "x-admin-key": "Admin@fortunetourism2026" },
+        });
+      } catch (err) {
+        console.warn("DELETE /api/business/business_records error:", err);
+      }
+    }
+    toast.success("Report entry deleted successfully.");
+  };
+
+  const handleClearAllReportData = async () => {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete and clear ALL records across all financial reports?\n\nThis will permanently remove all daily reports and transaction data."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      localStorage.setItem("fortune_reports_cleared", "true");
+      localStorage.setItem("fortune_deleted_daily_record_ids", JSON.stringify([]));
+      localStorage.setItem("fortune_deleted_transaction_ids", JSON.stringify([]));
+
+      setDailyRecords([]);
+      setTransactions([]);
+
+      await Promise.allSettled([
+        fetch("/api/business/day_book_entries?all=true", {
+          method: "DELETE",
+          headers: { "x-admin-key": "Admin@fortunetourism2026" },
+        }),
+        fetch("/api/business/business_records?all=true", {
+          method: "DELETE",
+          headers: { "x-admin-key": "Admin@fortunetourism2026" },
+        }),
+      ]);
+
+      toast.success("All report data deleted and cleared successfully.");
+    } catch (err) {
+      console.error("Error clearing reports:", err);
+      toast.error("Failed to delete some records from server.");
+    }
+  };
+
+  const handleRestoreDemoData = () => {
+    if (!window.confirm("Restore default sample/demo report data?")) return;
+    localStorage.removeItem("fortune_reports_cleared");
+    localStorage.removeItem("fortune_deleted_daily_record_ids");
+    localStorage.removeItem("fortune_deleted_transaction_ids");
+    fetchLiveTransactions();
+    toast.success("Default sample report data restored.");
   };
 
   const handleSaveDailyRecord = async (e: React.FormEvent) => {
@@ -1512,6 +1662,24 @@ export function AccountsReportsHub({
 
           {/* Action buttons across all Financial Ledger reports */}
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleClearAllReportData}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white border border-rose-500/40 text-xs font-bold transition shadow-xs cursor-pointer"
+              title="Permanently delete and clear all records across all reports"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete All Data</span>
+            </button>
+            {dailyRecords.length === 0 && transactions.length === 0 && (
+              <button
+                onClick={handleRestoreDemoData}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 text-xs font-bold transition cursor-pointer"
+                title="Restore default sample report data"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Restore Sample Data</span>
+              </button>
+            )}
             <button
               onClick={fetchLiveTransactions}
               disabled={loading}
@@ -2165,12 +2333,13 @@ export function AccountsReportsHub({
                     <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">INCOME</th>
                     <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">EXPENSE</th>
                     <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">BALANCE</th>
+                    <th className="py-2.5 px-3 text-center whitespace-nowrap w-20 border border-[#0d6535]">ACTION</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 font-sans">
                   {filteredTransactions.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className="py-12 text-center text-slate-400 bg-white">
+                      <td colSpan={12} className="py-12 text-center text-slate-400 bg-white">
                         <AlertCircle className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                         <p className="font-bold text-sm text-slate-600">No transaction records match the selected filters.</p>
                         <p className="text-xs text-slate-400 mt-1">Try clearing your search query or selecting another date range.</p>
@@ -2266,6 +2435,18 @@ export function AccountsReportsHub({
                           <td className="py-2 px-3 text-right whitespace-nowrap font-black text-slate-900 border border-slate-300 bg-slate-50/30">
                             ₹{Number(t.balance).toLocaleString("en-IN")}
                           </td>
+
+                          {/* Action */}
+                          <td className="py-2 px-3 text-center whitespace-nowrap border border-slate-300 bg-slate-50/40">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTransactionRecord(t.id, t.ref_number || t.particulars)}
+                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition cursor-pointer"
+                              title="Delete Entry"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
                         </tr>
                       );
                     })
@@ -2286,6 +2467,7 @@ export function AccountsReportsHub({
                       <td className="py-2.5 px-3 text-right font-black text-blue-800 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
                         ₹{metrics.netBalance.toLocaleString("en-IN")}
                       </td>
+                      <td className="py-2.5 px-3 border border-slate-300 bg-slate-100/70"></td>
                     </tr>
                   </tfoot>
                 )}

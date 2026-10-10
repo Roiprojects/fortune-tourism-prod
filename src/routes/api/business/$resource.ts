@@ -211,6 +211,15 @@ export const Route = createFileRoute("/api/business/$resource")({
           const cfg = getResourceConfig(resource)!;
           const url = new URL(request.url);
           const id = url.searchParams.get("id");
+          const deleteAll = url.searchParams.get("all") === "true";
+
+          if (deleteAll) {
+            await query(`DELETE FROM ${cfg.table}`);
+            return new Response(
+              JSON.stringify({ success: true, message: `All ${cfg.table} records deleted.` }),
+              { headers: { "Content-Type": "application/json" } },
+            );
+          }
 
           if (!id) {
             return new Response(JSON.stringify({ success: false, error: "ID is required." }), {
