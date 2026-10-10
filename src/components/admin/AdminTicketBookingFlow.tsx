@@ -152,14 +152,33 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
   const fromLocationDisplay = useMemo(() => {
     if (serviceType === "TRAIN") return trainData.from_station || "BANGALORE";
     if (serviceType === "BUS") return otherFormData.from_location || "BANGALORE";
+    if (serviceType === "FLIGHT" && otherFormData.flight_trip_type === "Multi City" && Array.isArray(otherFormData.multi_city_flights) && otherFormData.multi_city_flights[0]?.from) {
+      return (otherFormData.multi_city_flights[0].from.split(",")[0] || otherFormData.multi_city_flights[0].from).toUpperCase();
+    }
     return otherFormData.from_airport || otherFormData.from_location || otherFormData.pickup || "BANGALORE";
-  }, [serviceType, trainData.from_station, otherFormData.from_location, otherFormData.from_airport, otherFormData.pickup]);
+  }, [serviceType, trainData.from_station, otherFormData.from_location, otherFormData.from_airport, otherFormData.pickup, otherFormData.flight_trip_type, otherFormData.multi_city_flights]);
 
   const toLocationDisplay = useMemo(() => {
     if (serviceType === "TRAIN") return trainData.to_station || "CHENNAI";
     if (serviceType === "BUS") return otherFormData.destination || "CHENNAI";
+    if (serviceType === "FLIGHT") {
+      if (otherFormData.flight_trip_type === "Multi City" && Array.isArray(otherFormData.multi_city_flights) && otherFormData.multi_city_flights.length > 0) {
+        const route = otherFormData.multi_city_flights
+          .map((f: any) => {
+            const code = f.to?.match(/\(([A-Z]{3})\)/);
+            return code ? code[1] : f.to?.split(",")[0]?.trim() || "";
+          })
+          .filter(Boolean)
+          .join(" → ");
+        if (route) return (route + " (MULTI CITY)").toUpperCase();
+      }
+      if (otherFormData.flight_trip_type === "Round Trip") {
+        const to = (otherFormData.destination || otherFormData.to_airport || "DELHI").toUpperCase();
+        return `${to} (ROUND TRIP)`;
+      }
+    }
     return otherFormData.destination || otherFormData.to_airport || otherFormData.to_destination || otherFormData.to_location || "DELHI";
-  }, [serviceType, trainData.to_station, otherFormData.destination, otherFormData.to_airport, otherFormData.to_destination, otherFormData.to_location]);
+  }, [serviceType, trainData.to_station, otherFormData.destination, otherFormData.to_airport, otherFormData.to_destination, otherFormData.to_location, otherFormData.flight_trip_type, otherFormData.multi_city_flights]);
 
   const vehicleDisplay = useMemo(() => {
     if (serviceType === "TRAIN") {
@@ -212,6 +231,10 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
       const count = Math.max(1, otherFormData.passengers?.length || 1);
       let per = otherFormData.cabin_class === "Business" ? tariffs.flight.business ?? 14500 : tariffs.flight.economy ?? 4850;
       if (otherFormData.flight_trip_type === "Round Trip") per *= 2;
+      if (otherFormData.flight_trip_type === "Multi City") {
+        const legsCount = Array.isArray(otherFormData.multi_city_flights) ? otherFormData.multi_city_flights.length : 2;
+        per *= legsCount;
+      }
       return count * per;
     }
     return 1200;
@@ -377,7 +400,13 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
           `Ticket No: ${ticketNumber}`,
           `PNR: ${pnrNumber}`,
           isBus && `Bus Type: ${otherFormData.bus_type}`,
-          !isBus && `Flight: ${otherFormData.cabin_class} | Trip: ${otherFormData.flight_trip_type} | Route: ${flightFrom} → ${flightTo}`,
+          !isBus && (
+            otherFormData.flight_trip_type === "Multi City" && Array.isArray(otherFormData.multi_city_flights)
+              ? `Flight: ${otherFormData.cabin_class || "Economy"} | Multi City (${otherFormData.multi_city_flights.length} Flights): ${otherFormData.multi_city_flights.map((f: any, i: number) => `F${i + 1}: ${f.from?.split(",")[0] || f.from} → ${f.to?.split(",")[0] || f.to} (${f.date || "?"} ${f.preferred_time || ""})`).join(" | ")}`
+              : otherFormData.flight_trip_type === "Round Trip"
+              ? `Flight: ${otherFormData.cabin_class || "Economy"} | Round Trip: ${flightFrom} ⇄ ${flightTo} | Dep: ${otherFormData.date || today} | Return: ${otherFormData.return_date || "N/A"}`
+              : `Flight: ${otherFormData.cabin_class || "Economy"} | Trip: ${otherFormData.flight_trip_type} | Route: ${flightFrom} → ${flightTo}`
+          ),
           `Total Fare: ₹${ticketFareAmount}`,
         ]
           .filter(Boolean)

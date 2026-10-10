@@ -392,6 +392,10 @@ function BookingPage() {
       const cabin = String(otherFormData.cabin_class || "ECONOMY").toUpperCase();
       let perFlight = cabin === "BUSINESS" ? 14500 : 4850;
       if (trip.includes("ROUND")) perFlight *= 2;
+      if (trip.includes("MULTI")) {
+        const legsCount = Array.isArray(otherFormData.multi_city_flights) ? otherFormData.multi_city_flights.length : 2;
+        perFlight *= legsCount;
+      }
       return count * perFlight;
     }
     return calculatedFare;
@@ -401,7 +405,12 @@ function BookingPage() {
   const fromLocationDisplay = useMemo(() => {
     if (serviceType === "TRAIN") return (otherFormData.from_station || "BANGALORE CITY (SBC)").toUpperCase();
     if (serviceType === "BUS") return (otherFormData.from_location || "BANGALORE").toUpperCase();
-    if (serviceType === "FLIGHT") return (otherFormData.from_airport || otherFormData.from_location || otherFormData.pickup || "BANGALORE (BLR)").toUpperCase();
+    if (serviceType === "FLIGHT") {
+      if (otherFormData.flight_trip_type === "Multi City" && Array.isArray(otherFormData.multi_city_flights) && otherFormData.multi_city_flights[0]?.from) {
+        return (otherFormData.multi_city_flights[0].from.split(",")[0] || otherFormData.multi_city_flights[0].from).toUpperCase();
+      }
+      return (otherFormData.from_airport || otherFormData.from_location || otherFormData.pickup || "BANGALORE (BLR)").toUpperCase();
+    }
     if (serviceType === "TOUR") return "BANGALORE";
     if (cabTripType === "AIRPORT" && airportTripType === "Pickup from Airport") {
       return airportName.split(",")[0].toUpperCase();
@@ -412,7 +421,23 @@ function BookingPage() {
   const toLocationDisplay = useMemo(() => {
     if (serviceType === "TRAIN") return (otherFormData.to_station || "CHENNAI CENTRAL (MAS)").toUpperCase();
     if (serviceType === "BUS") return (otherFormData.destination || "MYSORE").toUpperCase();
-    if (serviceType === "FLIGHT") return (otherFormData.destination || otherFormData.to_airport || otherFormData.to_destination || otherFormData.to_location || "DELHI (DEL)").toUpperCase();
+    if (serviceType === "FLIGHT") {
+      if (otherFormData.flight_trip_type === "Multi City" && Array.isArray(otherFormData.multi_city_flights) && otherFormData.multi_city_flights.length > 0) {
+        const route = otherFormData.multi_city_flights
+          .map((f: any) => {
+            const code = f.to?.match(/\(([A-Z]{3})\)/);
+            return code ? code[1] : f.to?.split(",")[0]?.trim() || "";
+          })
+          .filter(Boolean)
+          .join(" → ");
+        if (route) return (route + " (MULTI CITY)").toUpperCase();
+      }
+      if (otherFormData.flight_trip_type === "Round Trip") {
+        const to = (otherFormData.destination || otherFormData.to_airport || "DELHI (DEL)").toUpperCase();
+        return `${to} (ROUND TRIP)`;
+      }
+      return (otherFormData.destination || otherFormData.to_airport || otherFormData.to_destination || otherFormData.to_location || "DELHI (DEL)").toUpperCase();
+    }
     if (serviceType === "TOUR") return (otherFormData.package_title || "SOUTH INDIA TOUR").toUpperCase();
     if (cabTripType === "AIRPORT" && airportTripType === "Drop to Airport") {
       return airportName.split(",")[0].toUpperCase();
@@ -503,7 +528,13 @@ function BookingPage() {
           `PNR: ${pnrNumber}`,
           isTrain && `Train: ${otherFormData.preferred_train || "Any"} | No: ${otherFormData.train_number || "N/A"} | Class: ${otherFormData.travel_class} | Quota: ${otherFormData.quota}`,
           isBus && `Bus Type: ${otherFormData.bus_type}`,
-          isFlight && `Flight: ${otherFormData.cabin_class} | Trip: ${otherFormData.flight_trip_type} | Route: ${flightFrom} → ${flightTo}`,
+          isFlight && (
+            otherFormData.flight_trip_type === "Multi City" && Array.isArray(otherFormData.multi_city_flights)
+              ? `Flight: ${otherFormData.cabin_class || "Economy"} | Multi City (${otherFormData.multi_city_flights.length} Flights): ${otherFormData.multi_city_flights.map((f: any, i: number) => `F${i + 1}: ${f.from?.split(",")[0] || f.from} → ${f.to?.split(",")[0] || f.to} (${f.date || "?"} ${f.preferred_time || ""})`).join(" | ")}`
+              : otherFormData.flight_trip_type === "Round Trip"
+              ? `Flight: ${otherFormData.cabin_class || "Economy"} | Round Trip: ${flightFrom} ⇄ ${flightTo} | Dep: ${otherFormData.date || today} | Return: ${otherFormData.return_date || "N/A"}`
+              : `Flight: ${otherFormData.cabin_class || "Economy"} | Trip: ${otherFormData.flight_trip_type} | Route: ${flightFrom} → ${flightTo}`
+          ),
           `Fare: ₹${displayTotalFare}`,
           otherFormData.passengers && `Passengers: ${otherFormData.passengers.map((p: any, i: number) => `P${i + 1}: ${p.name} (${p.age}y/${p.gender}/${p.berth_preference || "None"})`).join(", ")}`,
         ].filter(Boolean).join(" | "),
