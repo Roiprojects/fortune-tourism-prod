@@ -23,6 +23,7 @@ import { CarFareEditorModal } from "@/components/admin/CarFareEditorModal";
 import { TourFareEditorModal } from "@/components/admin/TourFareEditorModal";
 import { DriverDetailsEditorModal } from "@/components/admin/DriverDetailsEditorModal";
 import { CarDriverPackagesTripsModal } from "@/components/admin/CarDriverPackagesTripsModal";
+import { HourlyPackagesTripsModal } from "@/components/admin/HourlyPackagesTripsModal";
 import { ExpenseReportModal } from "@/components/admin/ExpenseReportModal";
 import logoAsset from "@/assets/fortune-tourism-logo.png";
 import fullLogoAsset from "@/assets/fortune-tourism-full-logo.png";
@@ -350,6 +351,7 @@ function AdminPage() {
   const [tourFareEditorOpen, setTourFareEditorOpen] = useState(false);
   const [driverDetailsEditorOpen, setDriverDetailsEditorOpen] = useState(false);
   const [carPackagesTripsModalOpen, setCarPackagesTripsModalOpen] = useState(false);
+  const [hourlyPackagesTripsModalOpen, setHourlyPackagesTripsModalOpen] = useState(false);
   const [expenseReportModalOpen, setExpenseReportModalOpen] = useState(false);
   const [offlineBookingSource, setOfflineBookingSource] = useState<any>({});
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
@@ -376,6 +378,7 @@ function AdminPage() {
         setSettingsModalOpen(false);
         setDriverDetailsEditorOpen(false);
         setCarPackagesTripsModalOpen(false);
+        setHourlyPackagesTripsModalOpen(false);
         setExpenseReportModalOpen(false);
       }
     }
@@ -1425,6 +1428,17 @@ function AdminPage() {
                 <Compass className="w-4 h-4 text-amber-600" />
                 <span>Packages Trips</span>
               </button>
+
+              {/* Hourly Packages Trips Edit Direct Header Button */}
+              <button
+                type="button"
+                onClick={() => setHourlyPackagesTripsModalOpen(true)}
+                className="hidden 2xl:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200/80 shadow-2xs shrink-0"
+                title="Hourly Packages Tours & Rentals"
+              >
+                <Clock className="w-4 h-4 text-blue-600" />
+                <span>Hourly Tours</span>
+              </button>
             </div>
 
             {/* Right: Account with image dropdown */}
@@ -1560,6 +1574,24 @@ function AdminPage() {
                       </div>
                       <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-1.5 py-0.5 rounded-md">
                         Trip Details
+                      </span>
+                    </button>
+
+                    {/* Hourly Packages Trips Edit */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        setHourlyPackagesTripsModalOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50 transition text-left cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Clock className="w-4 h-4 text-blue-600 shrink-0 group-hover:scale-110 transition-transform" />
+                        <span>Hourly Packages Tours Edit</span>
+                      </div>
+                      <span className="text-[10px] bg-blue-100 text-blue-900 font-extrabold px-1.5 py-0.5 rounded-md">
+                        Hourly Trips
                       </span>
                     </button>
 
@@ -2687,6 +2719,14 @@ function AdminPage() {
         <CarDriverPackagesTripsModal
           isOpen={carPackagesTripsModalOpen}
           onClose={() => setCarPackagesTripsModalOpen(false)}
+        />
+      )}
+
+      {/* Hourly Packages Trips Modal */}
+      {hourlyPackagesTripsModalOpen && (
+        <HourlyPackagesTripsModal
+          isOpen={hourlyPackagesTripsModalOpen}
+          onClose={() => setHourlyPackagesTripsModalOpen(false)}
         />
       )}
     </SiteLayout>
