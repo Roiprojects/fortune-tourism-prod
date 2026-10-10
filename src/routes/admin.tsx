@@ -21,6 +21,7 @@ import { AdminTourBookingFlow } from "@/components/admin/AdminTourBookingFlow";
 import { FareAmountEditorModal } from "@/components/admin/FareAmountEditorModal";
 import { CarFareEditorModal } from "@/components/admin/CarFareEditorModal";
 import { TourFareEditorModal } from "@/components/admin/TourFareEditorModal";
+import { DriverDetailsEditorModal } from "@/components/admin/DriverDetailsEditorModal";
 import { ExpenseReportModal } from "@/components/admin/ExpenseReportModal";
 import logoAsset from "@/assets/fortune-tourism-logo.png";
 import fullLogoAsset from "@/assets/fortune-tourism-full-logo.png";
@@ -177,6 +178,7 @@ import {
   Phone,
   Sparkles,
   Palmtree,
+  UserCheck,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
@@ -344,6 +346,7 @@ function AdminPage() {
   const [fareEditorModalOpen, setFareEditorModalOpen] = useState(false);
   const [carFareEditorOpen, setCarFareEditorOpen] = useState(false);
   const [tourFareEditorOpen, setTourFareEditorOpen] = useState(false);
+  const [driverDetailsEditorOpen, setDriverDetailsEditorOpen] = useState(false);
   const [expenseReportModalOpen, setExpenseReportModalOpen] = useState(false);
   const [offlineBookingSource, setOfflineBookingSource] = useState<any>({});
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
@@ -368,6 +371,7 @@ function AdminPage() {
         setAccountMenuOpen(false);
         setProfileModalOpen(false);
         setSettingsModalOpen(false);
+        setDriverDetailsEditorOpen(false);
         setExpenseReportModalOpen(false);
       }
     }
@@ -1395,6 +1399,17 @@ function AdminPage() {
                 <span className="hidden sm:inline">New Offline Booking</span>
                 <span className="sm:hidden">Offline Booking</span>
               </button>
+
+              {/* Driver Details Edit Direct Header Button */}
+              <button
+                type="button"
+                onClick={() => setDriverDetailsEditorOpen(true)}
+                className="hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer bg-emerald-50 hover:bg-emerald-100 text-[#063f2d] border border-emerald-200/80 shadow-2xs shrink-0"
+                title="Driver Details & Duty Sheet"
+              >
+                <UserCheck className="w-4 h-4 text-emerald-700" />
+                <span>Driver Details</span>
+              </button>
             </div>
 
             {/* Right: Account with image dropdown */}
@@ -1494,6 +1509,24 @@ function AdminPage() {
                       </div>
                       <span className="text-[10px] bg-purple-100 text-purple-800 font-extrabold px-1.5 py-0.5 rounded-md">
                         Tour Packages
+                      </span>
+                    </button>
+
+                    {/* Driver Details Edit */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        setDriverDetailsEditorOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50 transition text-left cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <UserCheck className="w-4 h-4 text-emerald-600 shrink-0 group-hover:scale-110 transition-transform" />
+                        <span>Driver Details Edit</span>
+                      </div>
+                      <span className="text-[10px] bg-emerald-100 text-[#063f2d] font-extrabold px-1.5 py-0.5 rounded-md">
+                        Duty Log
                       </span>
                     </button>
 
@@ -2605,6 +2638,14 @@ function AdminPage() {
         <ExpenseReportModal
           isOpen={expenseReportModalOpen}
           onClose={() => setExpenseReportModalOpen(false)}
+        />
+      )}
+
+      {/* Driver Details Edit Modal */}
+      {driverDetailsEditorOpen && (
+        <DriverDetailsEditorModal
+          isOpen={driverDetailsEditorOpen}
+          onClose={() => setDriverDetailsEditorOpen(false)}
         />
       )}
     </SiteLayout>
