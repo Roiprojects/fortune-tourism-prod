@@ -222,7 +222,7 @@ export const Route = createFileRoute("/api/enquiries")({
               category,
               email || null,
               whatsapp || phone || null,
-              trip_type === "Round Trip" ? return_date || null : return_date || null,
+              return_date || body.return_date || null,
               time || null,
               trip_type || null,
               car_type || vehicle_slug || null,
@@ -269,6 +269,15 @@ export const Route = createFileRoute("/api/enquiries")({
               ? "Advance Paid"
               : "Pending";
 
+          const finalReturnDate = return_date || body.return_date || null;
+          const isRoundTrip = String(trip_type || "").toUpperCase().includes("ROUND");
+          const distKm = Number(body.distance_km) || (bCategory === "CAR" ? (isRoundTrip ? 300 : 150) : null);
+          const rateKm = Number(body.rate_per_km) || (bCategory === "CAR" ? 14 : null);
+          const minKm = Number(body.min_km) || (bCategory === "CAR" ? (isRoundTrip ? 250 : 145) : null);
+          const driverAllowance = Number(body.driver_allowance) || (bCategory === "CAR" ? 350 : 0);
+          const gstAmt = Number(body.gst_amount) || (fareVal > 0 ? Math.round(fareVal * 0.05) : 0);
+          const baseAmt = Number(body.base_amount) || Math.max(0, fareVal - driverAllowance - gstAmt);
+
           const bookingRes = await query(
             `INSERT INTO bookings (
               booking_id, booking_reference, booking_number, ticket_number, pnr_number,
@@ -276,22 +285,25 @@ export const Route = createFileRoute("/api/enquiries")({
               enquiry_id, enquiry_number, total_amount, advance_amount,
               passenger_name, passenger_phone, customer_email, customer_whatsapp,
               departure_datetime, return_date, pickup_time, number_of_members, 
-              from_location, to_location, trip_type, vehicle_type, notes
+              from_location, to_location, trip_type, vehicle_type, notes,
+              distance_km, rate_per_km, min_km, base_amount, driver_allowance, gst_amount
             ) VALUES (
               $1, $2, $3, $4, $5, 
               $6, $7, $8, $9, 'WEBSITE', 
               $10, $11, $12, $13,
               $14, $15, $16, $17,
               $18, $19, $20, $21,
-              $22, $23, $24, $25, $26
+              $22, $23, $24, $25, $26,
+              $27, $28, $29, $30, $31, $32
             ) RETURNING *`,
             [
               bId, bookingRef, bookingNum, ticketNum, pnrNum,
               bType, bCategory, bookingStatus, initialPaymentStatus,
               enquiry.id, enquiryNumber, fareVal, advancePaid,
               name, phone, email || null, whatsapp || phone || null,
-              date || null, return_date || null, time || null, passengers ? parseInt(String(passengers), 10) || null : null,
-              pickup || null, destination || null, trip_type || null, car_type || vehicle_slug || null, combinedNotes || null
+              date || null, finalReturnDate, time || null, passengers ? parseInt(String(passengers), 10) || null : null,
+              pickup || null, destination || null, trip_type || null, car_type || vehicle_slug || null, combinedNotes || null,
+              distKm, rateKm, minKm, baseAmt, driverAllowance, gstAmt
             ]
           );
 

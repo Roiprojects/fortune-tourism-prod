@@ -11,6 +11,7 @@ export interface TicketCopyData {
   fromLocation: string;
   toLocation: string;
   departureOn: string;
+  returnDate?: string;
   tripType: string;
   vehicleOrMode: string;
   boardingPoint: string;
@@ -18,6 +19,8 @@ export interface TicketCopyData {
   serviceType?: string;
   vehicleLabel?: string;
   fareAmount?: number | string;
+  baseFare?: number | string;
+  driverAllowance?: number | string;
 }
 
 export function downloadTicketCopyPDF(data: TicketCopyData) {
@@ -104,8 +107,8 @@ export function downloadTicketCopyPDF(data: TicketCopyData) {
           content: (data.pnrNumber || "FC17G3423").toUpperCase(),
           styles: { fontStyle: "bold", fontSize: 9.5, textColor: [10, 10, 10] },
         },
-        { content: "Departure On:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
-        { content: data.departureOn, styles: { fontStyle: "bold" } },
+        { content: data.returnDate ? "Departure & Return:" : "Departure On:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
+        { content: data.returnDate ? `${data.departureOn} (Dep)\n${data.returnDate} (Ret)` : data.departureOn, styles: { fontStyle: "bold" } },
       ],
       [
         { content: "Boarding Point:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
@@ -131,12 +134,14 @@ export function downloadTicketCopyPDF(data: TicketCopyData) {
           styles: { fontStyle: "bold", fillColor: [245, 245, 245] },
         },
         { content: (data.vehicleOrMode || "MARUTI SUZUKI CIAZ").toUpperCase(), styles: { fontStyle: "bold" } },
-        { content: "Fare Amount:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
+        { content: data.returnDate ? "Return Date:" : "Fare Amount:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
         {
-          content: data.fareAmount
+          content: data.returnDate
+            ? data.returnDate
+            : data.fareAmount
             ? `INR ${Number(data.fareAmount).toLocaleString("en-IN")}`
             : "INR 2,499",
-          styles: { fontStyle: "bold", textColor: [14, 107, 80] },
+          styles: { fontStyle: "bold", textColor: data.returnDate ? [10, 10, 10] : [14, 107, 80] },
         },
       ],
       [

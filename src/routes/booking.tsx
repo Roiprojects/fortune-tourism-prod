@@ -323,6 +323,13 @@ function BookingPage() {
     return `${d}-${m}-${y}.${rawTime}`;
   }, [cabDate, cabTime, today]);
 
+  // Format return date for Round Trip
+  const cabReturnDateFormatted = useMemo(() => {
+    const rawDate = cabReturnDate || cabDate || today;
+    const [y, m, d] = rawDate.split("-");
+    return `${d}-${m}-${y}`;
+  }, [cabReturnDate, cabDate, today]);
+
   // Selected Fleet details
   const selectedFleet = useMemo(() => {
     return fleetOptions.find((f) => f.id === selectedFleetId) || fleetOptions[1] || fleetOptions[0];
@@ -578,13 +585,17 @@ function BookingPage() {
       if (!cabTo.trim()) e.to = "Drop location is required.";
     }
     if (!cabDate) e.date = "Travel date is required.";
+    if (cabTripType === "ROUND TRIP") {
+      if (!cabReturnDate) e.returnDate = "Return date is required for round trip.";
+      else if (cabReturnDate < cabDate) e.returnDate = "Return date cannot be earlier than departure date.";
+    }
 
     setErrors(e);
     if (Object.keys(e).length === 0) {
       setStep(2);
       window.scrollTo({ top: 80, behavior: "smooth" });
     } else {
-      toast.error("Please fill required journey details.");
+      toast.error(e.returnDate || "Please fill required journey details.");
     }
   };
 
@@ -621,6 +632,14 @@ function BookingPage() {
     setIsSubmitting(true);
 
     try {
+      const isRt = cabTripType === "ROUND TRIP";
+      const totalKm = isRt ? ((selectedFleet.includedKms || 145) * 2) : (selectedFleet.includedKms || 145);
+      const rateKm = selectedFleet.postLimitRate || 14;
+      const minKm = isRt ? 250 : 145;
+      const driverAllowance = 350;
+      const gstAmt = Math.round(calculatedFare * 0.05);
+      const baseAmt = Math.max(0, calculatedFare - driverAllowance - gstAmt);
+
       const payload: Record<string, any> = {
         name: passengerName || "GUEST",
         phone: passengerPhone.replace(/\s+/g, ""),
@@ -628,19 +647,31 @@ function BookingPage() {
         service: "Taxi",
         booking_type: "CAB",
         pickup: fromLocationDisplay,
-        destination: toLocationDisplay,
+        destination: isRt ? `${toLocationDisplay} (Round Trip)` : toLocationDisplay,
         date: cabDate || today,
+        return_date: isRt ? cabReturnDate : null,
         time: cabTime || "07:00",
         passengers: String(selectedFleet.seats),
         trip_type: cabTripType,
-        car_type: vehicleDisplay,
+        car_type: selectedFleet.name,
+        vehicle_type: selectedFleet.name,
+        distance_km: totalKm,
+        rate_per_km: rateKm,
+        min_km: minKm,
+        base_amount: baseAmt,
+        driver_allowance: driverAllowance,
+        gst_amount: gstAmt,
         boarding_point: boardingPoint,
         boarding_address: boardingAddress,
         notes: [
           `Ticket No: ${ticketNumber}`,
           `PNR: ${pnrNumber}`,
-          `Fleet: ${vehicleDisplay}`,
-          `Fare: ₹${calculatedFare}`,
+          `Fleet: ${selectedFleet.name} (${selectedFleet.seats} Seater)`,
+          isRt
+            ? `Round Trip: ${fromLocationDisplay} ⇄ ${toLocationDisplay} | Dep: ${cabDate} ${cabTime} | Ret: ${cabReturnDate}`
+            : `One Way: ${fromLocationDisplay} → ${toLocationDisplay} | Dep: ${cabDate} ${cabTime}`,
+          `Distance: ~${totalKm} km | Rate: ₹${rateKm}/km`,
+          `Fare: ₹${calculatedFare} (Base: ₹${baseAmt} + Driver Allowance: ₹${driverAllowance} + GST: ₹${gstAmt})`,
           `Payment: ${advanceOption === 100 ? "₹100 Advance Paid" : "Zero Advance"}`,
           utrRef && `UTR: ${utrRef}`,
         ]
@@ -691,8 +722,9 @@ function BookingPage() {
       passengerPhone: passengerPhone || "9845003000",
       tourType: tourTypeDisplay,
       fromLocation: fromLocationDisplay,
-      toLocation: toLocationDisplay,
+      toLocation: cabTripType === "ROUND TRIP" ? `${toLocationDisplay} (ROUND TRIP)` : toLocationDisplay,
       departureOn: departureDateFormatted,
+      returnDate: cabTripType === "ROUND TRIP" ? cabReturnDateFormatted : undefined,
       tripType: cabTripType,
       vehicleOrMode: vehicleDisplay,
       boardingPoint: boardingPointDisplay,
@@ -1295,7 +1327,7 @@ function BookingPage() {
                     Select Vehicle Fleet
                   </h2>
                   <p className="text-xs text-slate-400">
-                    {fromLocationDisplay} → {toLocationDisplay} · {departureDateFormatted}
+                    {cabTripType === "ROUND TRIP" ? `${fromLocationDisplay} ⇄ ${toLocationDisplay} (Round Trip)` : `${fromLocationDisplay} → ${toLocationDisplay}`} · Dep: {departureDateFormatted} {cabTripType === "ROUND TRIP" ? `· Ret: ${cabReturnDateFormatted}` : ""}
                   </p>
                 </div>
 
@@ -1362,6 +1394,17 @@ function BookingPage() {
                               <ShieldCheck className="w-3.5 h-3.5 text-[#00c58e]" /> Driver Allowance Included
                             </span>
                           </div>
+
+                          {cabTripType === "ROUND TRIP" && (
+                            <div className="flex flex-wrap items-center gap-2 pt-1.5 text-[11px]">
+                              <span className="bg-[#00c58e]/20 text-[#00c58e] border border-[#00c58e]/30 px-2 py-0.5 rounded-lg font-bold flex items-center gap-1">
+                                🔄 2-Way Return ({fleet.includedKms * 2} km incl.)
+                              </span>
+                              <span className="text-slate-300 font-medium">
+                                Extra km: ₹{fleet.postLimitRate}/km · Return: {cabReturnDateFormatted}
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         <div className="md:col-span-4 flex flex-col items-end justify-center space-y-2 border-t md:border-t-0 md:border-l border-white/10 pt-3 md:pt-0 md:pl-4 text-right">
@@ -1462,7 +1505,7 @@ function BookingPage() {
                     {vehicleDisplay}
                   </div>
                   <div className="text-xs text-slate-300 font-medium">
-                    {fromLocationDisplay} → {toLocationDisplay} · {departureDateFormatted} · {cabTripType}
+                    {cabTripType === "ROUND TRIP" ? `${fromLocationDisplay} ⇄ ${toLocationDisplay}` : `${fromLocationDisplay} → ${toLocationDisplay}`} · Dep: {departureDateFormatted} {cabTripType === "ROUND TRIP" ? `· Ret: ${cabReturnDateFormatted}` : ""} · {cabTripType}
                   </div>
                 </div>
 
@@ -1591,6 +1634,52 @@ function BookingPage() {
                 </button>
               </div>
 
+
+              {/* Trip & Fare Components Breakdown */}
+              <div className="bg-[#111c3a]/90 border border-white/15 rounded-2xl p-4 sm:p-5 space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                      TRIP SUMMARY &amp; FARE COMPONENTS
+                    </span>
+                    <div className="font-extrabold text-white text-sm sm:text-base">
+                      {vehicleDisplay}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold text-slate-400 block">TOTAL FARE</span>
+                    <span className="font-black text-[#00c58e] text-lg sm:text-xl">₹{calculatedFare.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="space-y-1">
+                    <div className="text-slate-400 font-semibold">Route &amp; Journey:</div>
+                    <div className="text-white font-bold">
+                      {cabTripType === "ROUND TRIP" ? `${fromLocationDisplay} ⇄ ${toLocationDisplay}` : `${fromLocationDisplay} → ${toLocationDisplay}`}
+                    </div>
+                    <div className="text-slate-300 text-[11px]">
+                      Departure: {departureDateFormatted}
+                      {cabTripType === "ROUND TRIP" && ` · Return: ${cabReturnDateFormatted}`}
+                    </div>
+                    {cabTripType === "ROUND TRIP" && (
+                      <span className="inline-block mt-1 bg-[#00c58e]/20 text-[#00c58e] border border-[#00c58e]/30 px-2 py-0.5 rounded font-bold text-[10px]">
+                        🔄 2-Way Round Trip ({selectedFleet.includedKms * 2} km included)
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-1 sm:text-right">
+                    <div className="text-slate-400 font-semibold">Fare Components Breakdown:</div>
+                    <div className="text-slate-300 text-[11px] space-y-0.5">
+                      <div>Base Fare: <strong className="text-white">₹{Math.max(0, calculatedFare - 350 - Math.round(calculatedFare * 0.05)).toLocaleString()}</strong></div>
+                      <div>Driver Allowance: <strong className="text-emerald-400">Included (₹350)</strong></div>
+                      <div>Taxes &amp; GST: <strong className="text-emerald-400">Included (5% GST)</strong></div>
+                      <div>Total All-Inclusive: <strong className="text-[#00c58e] font-black">₹{calculatedFare.toLocaleString()}</strong></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               {/* Payment Options */}
               <div className="space-y-4">
@@ -1902,11 +1991,11 @@ function BookingPage() {
                           TO:
                         </td>
                         <td colSpan={2} className="p-2.5 font-black text-slate-900 uppercase">
-                          {toLocationDisplay}
+                          {cabTripType === "ROUND TRIP" ? `${toLocationDisplay} (ROUND TRIP RETURN)` : toLocationDisplay}
                         </td>
                       </tr>
 
-                      {/* Row 3: Ticket Number | PNR Number | Departure On */}
+                      {/* Row 3: Ticket Number | PNR Number | Departure & Return */}
                       <tr className="border-b border-slate-900 divide-x divide-slate-900">
                         <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
                           Ticket Number:
@@ -1921,10 +2010,17 @@ function BookingPage() {
                           {pnrNumber}
                         </td>
                         <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
-                          Departure On:
+                          {cabTripType === "ROUND TRIP" ? "Departure & Return:" : "Departure On:"}
                         </td>
                         <td className="p-2.5 font-bold text-slate-900">
-                          {departureDateFormatted}
+                          {cabTripType === "ROUND TRIP" ? (
+                            <div>
+                              <div>Dep: <strong>{departureDateFormatted}</strong></div>
+                              <div className="text-emerald-800 font-black">Ret: <strong>{cabReturnDateFormatted}</strong></div>
+                            </div>
+                          ) : (
+                            departureDateFormatted
+                          )}
                         </td>
                       </tr>
 
@@ -1944,13 +2040,13 @@ function BookingPage() {
                         </td>
                       </tr>
 
-                      {/* Row 4: Trip Type | Type Of Car:/bus/Flight | Boarding point */}
+                      {/* Row 4: Trip Type | Type Of Car:/bus/Flight | Fare Amount */}
                       <tr className="border-b border-slate-900 divide-x divide-slate-900">
                         <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
                           Trip Type:
                         </td>
                         <td className="p-2.5 font-bold text-slate-900 uppercase">
-                          {cabTripType}
+                          {cabTripType === "ROUND TRIP" ? "ROUND TRIP (2-WAY)" : cabTripType}
                         </td>
                         <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
                           {serviceType === "FLIGHT"
@@ -1967,10 +2063,14 @@ function BookingPage() {
                           {vehicleDisplay}
                         </td>
                         <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
-                          Fare Amount:
+                          {cabTripType === "ROUND TRIP" ? "Return Date:" : "Fare Amount:"}
                         </td>
-                        <td className="p-2.5 font-black text-emerald-700 uppercase">
-                          ₹{Number(displayTotalFare || 0).toLocaleString("en-IN")}
+                        <td className="p-2.5 font-black uppercase">
+                          {cabTripType === "ROUND TRIP" ? (
+                            <span className="text-emerald-800 font-black">{cabReturnDateFormatted}</span>
+                          ) : (
+                            <span className="text-emerald-700">₹{Number(displayTotalFare || 0).toLocaleString("en-IN")}</span>
+                          )}
                         </td>
                       </tr>
 
@@ -1992,7 +2092,7 @@ function BookingPage() {
                           GST &amp; Taxes:
                         </td>
                         <td className="p-2.5 font-bold text-slate-900">
-                          Included (5% GST)
+                          {cabTripType === "ROUND TRIP" ? "Base + Driver Allowance + 5% GST Included" : "Included (5% GST)"}
                         </td>
                       </tr>
                     </tbody>

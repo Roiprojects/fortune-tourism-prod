@@ -232,6 +232,10 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
       const cat = String(src.category || "").toUpperCase();
       if (["CAR", "BUS", "TRAIN", "FLIGHT"].includes(cat)) f.category = cat;
       else if (cat === "OTHER") f.category = "CAR";
+      const enquiryTotal = Number(src.total_amount || src.fare || src.amount || (src.notes?.match(/(?:Total Fare|Fare|Amount|Price):\s*₹?(\d+(?:\.\d+)?)/i)?.[1]) || 0);
+      if (enquiryTotal > 0 && Number(f.base_amount || 0) === 0) {
+        f.base_amount = String(enquiryTotal);
+      }
     }
     const b = source?.booking;
     if (b) {
@@ -277,6 +281,11 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
         const v = (b as any)[key];
         if (v != null && Number(v) !== 0) f[key] = String(v);
         else if (v != null) f[key] = "0";
+      }
+      const totalAmountVal = Number(b.total_amount || b.fare || 0);
+      if (totalAmountVal > 0 && Number(f.base_amount || 0) === 0) {
+        const otherComponents = Number(f.driver_allowance || 0) + Number(f.toll_amount || 0) + Number(f.parking_amount || 0) + Number(f.tax_amount || 0) + Number(f.gst_amount || 0);
+        f.base_amount = String(Math.max(0, totalAmountVal - otherComponents));
       }
     }
     setForm(f);
@@ -611,14 +620,27 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
           {/* Category specifics */}
           {cat === "CAR" && (
             <div className="grid gap-4 sm:grid-cols-3 rounded-xl border border-sky-200 bg-sky-50/50 p-4">
-              <p className="sm:col-span-3 text-xs font-bold uppercase text-sky-800">
-                Car / Cab Details
-              </p>
+              <div className="sm:col-span-3 flex items-center justify-between flex-wrap gap-2">
+                <p className="text-xs font-bold uppercase text-sky-800 flex items-center gap-2">
+                  <span>Car / Cab Details</span>
+                  {String(form.trip_type).toUpperCase().includes("ROUND") && (
+                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-emerald-300">
+                      🔄 ROUND TRIP (2-WAY)
+                    </span>
+                  )}
+                </p>
+                {form.return_date && (
+                  <span className="text-xs font-semibold text-sky-900 bg-white/80 px-2.5 py-0.5 rounded-md border border-sky-200">
+                    Return Date: <strong>{form.return_date}</strong>
+                  </span>
+                )}
+              </div>
               <Field label="Vehicle">
                 <input
                   className={inputCls}
                   value={form.vehicle_type}
                   onChange={(e) => set("vehicle_type", e.target.value)}
+                  placeholder="e.g. Hatchback / Sedan / SUV"
                 />
               </Field>
               <Field label="Driver Name">
@@ -626,6 +648,7 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
                   className={inputCls}
                   value={form.driver_name}
                   onChange={(e) => set("driver_name", e.target.value)}
+                  placeholder="Assigned driver name"
                 />
               </Field>
               <Field label="Driver Phone">
@@ -633,6 +656,7 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
                   className={inputCls}
                   value={form.driver_phone}
                   onChange={(e) => set("driver_phone", e.target.value)}
+                  placeholder="10-digit mobile number"
                 />
               </Field>
               <Field label="Taxi Number">
@@ -640,6 +664,7 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
                   className={inputCls}
                   value={form.taxi_number}
                   onChange={(e) => set("taxi_number", e.target.value)}
+                  placeholder="e.g. KA-01-AB-1234"
                 />
               </Field>
               <Field label="Distance (km)">
@@ -648,6 +673,7 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
                   className={inputCls}
                   value={form.distance_km}
                   onChange={(e) => set("distance_km", e.target.value)}
+                  placeholder={String(form.trip_type).toUpperCase().includes("ROUND") ? "One-way km or total km" : "e.g. 150"}
                 />
               </Field>
               <Field label="Rate / km">
@@ -656,6 +682,7 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
                   className={inputCls}
                   value={form.rate_per_km}
                   onChange={(e) => set("rate_per_km", e.target.value)}
+                  placeholder="e.g. 14"
                 />
               </Field>
               <Field label="Min. km">
@@ -664,23 +691,50 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
                   className={inputCls}
                   value={form.min_km}
                   onChange={(e) => set("min_km", e.target.value)}
+                  placeholder={String(form.trip_type).toUpperCase().includes("ROUND") ? "250 or 300" : "145"}
                 />
               </Field>
-              <div className="sm:col-span-3 flex justify-end">
-                <button
-                  type="button"
-                  className="text-xs font-semibold text-sky-700 hover:underline"
-                  onClick={() => {
-                    const km = Number(form.distance_km) || 0;
-                    const rate = Number(form.rate_per_km) || 0;
-                    if (km > 0 && rate > 0) {
-                      const billable = Math.max(km, Number(form.min_km) || 0);
-                      set("base_amount", String(Math.round(billable * rate)));
-                    }
-                  }}
-                >
-                  Calculate base fare from distance × rate
-                </button>
+              <div className="sm:col-span-3 flex justify-between items-center flex-wrap gap-2 pt-2 border-t border-sky-200/80">
+                <span className="text-xs text-sky-700 font-medium">
+                  {String(form.trip_type).toUpperCase().includes("ROUND")
+                    ? "🔄 Round Trip: choose single or 2-way round trip calculation below"
+                    : "Standard one-way calculation (km × rate)"}
+                </span>
+                <div className="flex items-center gap-3">
+                  {String(form.trip_type).toUpperCase().includes("ROUND") && (
+                    <button
+                      type="button"
+                      className="text-xs font-bold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 px-3 py-1 rounded-lg transition-colors cursor-pointer"
+                      onClick={() => {
+                        const km = Number(form.distance_km) || 0;
+                        const rate = Number(form.rate_per_km) || 0;
+                        if (km > 0 && rate > 0) {
+                          const billable = Math.max(km * 2, Number(form.min_km) || 0);
+                          set("base_amount", String(Math.round(billable * rate)));
+                          if (!Number(form.driver_allowance)) {
+                            set("driver_allowance", "350");
+                          }
+                        }
+                      }}
+                    >
+                      Calculate 2-Way Round Trip (2 × km × rate)
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-sky-700 hover:underline cursor-pointer"
+                    onClick={() => {
+                      const km = Number(form.distance_km) || 0;
+                      const rate = Number(form.rate_per_km) || 0;
+                      if (km > 0 && rate > 0) {
+                        const billable = Math.max(km, Number(form.min_km) || 0);
+                        set("base_amount", String(Math.round(billable * rate)));
+                      }
+                    }}
+                  >
+                    Calculate base fare from distance × rate
+                  </button>
+                </div>
               </div>
             </div>
           )}

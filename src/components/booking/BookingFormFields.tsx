@@ -283,7 +283,7 @@ export function BookingFormFields({ bookingType, formData, onChange, errors }: B
             {renderError("date")}
           </div>
 
-          {(bookingType === "FLIGHT" && formData.trip_type === "Round Trip") ? (
+          {((bookingType === "FLIGHT" || bookingType === "TAXI" || bookingType === "CAR") && (formData.trip_type === "Round Trip" || formData.trip_type === "ROUND TRIP")) && (
             <div>
               <label htmlFor="return_date" className={labelClass}>
                 <Calendar className="h-3 w-3 inline mr-1" /> Return Date *
@@ -298,21 +298,77 @@ export function BookingFormFields({ bookingType, formData, onChange, errors }: B
               />
               {renderError("return_date")}
             </div>
-          ) : (
-            <div>
-              <label htmlFor="time" className={labelClass}>
-                <Clock className="h-3 w-3 inline mr-1" /> Preferred Travel Time
-              </label>
-              <input
-                id="time"
-                type="time"
-                value={formData.time || ""}
-                onChange={(e) => onChange("time", e.target.value)}
-                className={inputClass("time")}
-              />
-            </div>
           )}
+
+          <div>
+            <label htmlFor="time" className={labelClass}>
+              <Clock className="h-3 w-3 inline mr-1" /> Preferred Travel Time
+            </label>
+            <input
+              id="time"
+              type="time"
+              value={formData.time || ""}
+              onChange={(e) => onChange("time", e.target.value)}
+              className={inputClass("time")}
+            />
+          </div>
         </div>
+
+        {/* Round Trip Cab Details & Fare Components for TAXI */}
+        {(bookingType === "TAXI" || bookingType === "CAR") && (formData.trip_type === "Round Trip" || formData.trip_type === "ROUND TRIP") && (
+          <div className="rounded-2xl border border-sky-200 bg-sky-50/50 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black uppercase text-sky-900 tracking-wider flex items-center gap-1.5">
+                🚖 Round Trip Cab Details &amp; Fare
+              </span>
+              <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
+                2-Way Journey
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className={labelClass}>Distance (km)</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 300"
+                  value={formData.distance_km || ""}
+                  onChange={(e) => onChange("distance_km", e.target.value)}
+                  className={inputClass("distance_km")}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Rate / km (₹)</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 14"
+                  value={formData.rate_per_km || ""}
+                  onChange={(e) => onChange("rate_per_km", e.target.value)}
+                  className={inputClass("rate_per_km")}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Driver Allowance (₹)</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 350"
+                  value={formData.driver_allowance || "350"}
+                  onChange={(e) => onChange("driver_allowance", e.target.value)}
+                  className={inputClass("driver_allowance")}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-sky-200 text-xs">
+              <span className="text-slate-600 font-semibold">
+                Round Trip Estimate (2 × Distance × Rate + Driver Allowance):
+              </span>
+              <span className="font-mono font-black text-emerald-800 text-sm">
+                ₹{((Number(formData.distance_km || 0) * Number(formData.rate_per_km || 0)) + Number(formData.driver_allowance || 350)).toLocaleString()}
+              </span>
+            </div>
+          </div>
+        )}
 
         {bookingType === "BUS" && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
