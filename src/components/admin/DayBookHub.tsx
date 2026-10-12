@@ -11,7 +11,9 @@ import {
   Car,
   User,
   CheckCircle2,
+  UserCheck,
 } from "lucide-react";
+import { DriverDetailsEditorModal } from "@/components/admin/DriverDetailsEditorModal";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -58,6 +60,8 @@ export function DayBookHub() {
   const [tripToComplete, setTripToComplete] = useState<DayBookTrip | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [driverDetailsModalOpen, setDriverDetailsModalOpen] = useState(false);
+  const [driverDetailsSearch, setDriverDetailsSearch] = useState("");
 
   // Fetch real database records from the Day Book API
   const fetchDayBookTrips = useCallback(async (showToast = false) => {
@@ -220,13 +224,26 @@ export function DayBookHub() {
             )}
           </div>
 
-          {/* Refresh Button */}
+          {/* Action Buttons: Driver Details & Refresh */}
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setDriverDetailsSearch("");
+                setDriverDetailsModalOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer bg-emerald-50 hover:bg-emerald-100 text-[#063f2d] border border-emerald-200/80 shadow-2xs shrink-0 hover:scale-102"
+              title="Driver Details & Duty Sheet"
+            >
+              <UserCheck className="w-4 h-4 text-emerald-700" />
+              <span>Driver Details</span>
+            </button>
+
             <button
               type="button"
               onClick={() => fetchDayBookTrips(true)}
               disabled={refreshing}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#063f2d] hover:bg-[#085a3f] active:scale-95 text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition cursor-pointer disabled:opacity-50"
+              className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-[#063f2d] hover:bg-[#085a3f] active:scale-95 text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition cursor-pointer disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
               <span>Refresh</span>
@@ -275,7 +292,7 @@ export function DayBookHub() {
                 </th>
                 <th
                   rowSpan={2}
-                  className="px-3.5 py-3 border border-slate-700 text-center whitespace-nowrap w-32"
+                  className="px-3.5 py-3 border border-slate-700 text-center whitespace-nowrap min-w-[210px]"
                 >
                   ACTION
                 </th>
@@ -378,14 +395,29 @@ export function DayBookHub() {
 
                     {/* ACTION */}
                     <td className="px-3 py-3 border border-slate-300 text-center whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => handleInitiateTripDone(trip)}
-                        className="inline-flex items-center justify-center gap-1 px-3 py-1.5 bg-[#063f2d] hover:bg-[#085a3f] active:scale-95 text-white text-xs font-extrabold rounded-lg shadow-xs transition-all cursor-pointer"
-                      >
-                        <CheckCircle className="w-3.5 h-3.5" />
-                        <span>Trip Done</span>
-                      </button>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleInitiateTripDone(trip)}
+                          className="inline-flex items-center justify-center gap-1 px-3 py-1.5 bg-[#063f2d] hover:bg-[#085a3f] active:scale-95 text-white text-xs font-extrabold rounded-lg shadow-xs transition-all cursor-pointer"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          <span>Trip Done</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDriverDetailsSearch(trip.passenger_phone || trip.from_location || "");
+                            setDriverDetailsModalOpen(true);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer bg-emerald-50 hover:bg-emerald-100 text-[#063f2d] border border-emerald-200/80 shadow-2xs shrink-0 active:scale-95"
+                          title="Driver Details & Duty Sheet"
+                        >
+                          <UserCheck className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>Driver Details</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -453,6 +485,14 @@ export function DayBookHub() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* Driver Details Modal */}
+      {driverDetailsModalOpen && (
+        <DriverDetailsEditorModal
+          isOpen={driverDetailsModalOpen}
+          initialSearchQuery={driverDetailsSearch}
+          onClose={() => setDriverDetailsModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

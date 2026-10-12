@@ -18,7 +18,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ShieldCheck,
+  UserCheck,
 } from "lucide-react";
+import { DriverDetailsEditorModal } from "@/components/admin/DriverDetailsEditorModal";
 import { DayBookHub } from "@/components/admin/DayBookHub";
 import logoAsset from "@/assets/fortune-tourism-logo.png";
 import fullLogoAsset from "@/assets/fortune-tourism-full-logo.png";
@@ -135,6 +137,7 @@ function AdminDayBookPage() {
   // Account dropdown
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+  const [driverDetailsModalOpen, setDriverDetailsModalOpen] = useState(false);
 
   // Login states
   const [loginEmail, setLoginEmail] = useState("adminfortunetourism@gmail.com");
@@ -517,6 +520,17 @@ function AdminDayBookPage() {
                 <Home className="w-4 h-4" />
                 <span>Dashboard</span>
               </a>
+
+              {/* 3. Driver Details Button */}
+              <button
+                type="button"
+                onClick={() => setDriverDetailsModalOpen(true)}
+                className="hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer bg-emerald-50 hover:bg-emerald-100 text-[#063f2d] border border-emerald-200/80 shadow-2xs shrink-0"
+                title="Driver Details & Duty Sheet"
+              >
+                <UserCheck className="w-4 h-4 text-emerald-700" />
+                <span>Driver Details</span>
+              </button>
             </div>
 
             {/* Right: Account with image dropdown */}
@@ -606,6 +620,14 @@ function AdminDayBookPage() {
           <DayBookHub />
         </div>
       </section>
+
+      {/* Driver Details Modal */}
+      {driverDetailsModalOpen && (
+        <DriverDetailsEditorModal
+          isOpen={driverDetailsModalOpen}
+          onClose={() => setDriverDetailsModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

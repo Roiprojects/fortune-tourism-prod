@@ -253,26 +253,42 @@ export const Route = createFileRoute("/api/enquiries")({
           const bId = generateBookingId();
           const bookingStatus = bType === 'TAXI' ? 'PENDING CONFIRMATION' : 'BOOKING REQUESTED';
 
+          // Extract fare amount from body or notes
+          let fareVal = Number(body.total_amount || body.fare || body.amount || 0);
+          if (!fareVal && combinedNotes) {
+            const m = combinedNotes.match(/(?:Total Fare|Fare|Amount|Price):\s*₹?(\d+(?:\.\d+)?)/i);
+            if (m && m[1]) fareVal = Number(m[1]);
+          }
+
+          // Handle Token Advance Payment (e.g. ₹100 advance)
+          const advancePaid = Number(body.advance_amount || (body.notes?.includes("₹100 Advance") ? 100 : 0));
+          const initialPaymentStatus =
+            fareVal > 0 && advancePaid >= fareVal
+              ? "Fully Paid"
+              : advancePaid > 0
+              ? "Advance Paid"
+              : "Pending";
+
           const bookingRes = await query(
             `INSERT INTO bookings (
               booking_id, booking_reference, booking_number, ticket_number, pnr_number,
               booking_type, category, booking_status, payment_status, booking_source,
-              enquiry_id, enquiry_number, total_amount, 
+              enquiry_id, enquiry_number, total_amount, advance_amount,
               passenger_name, passenger_phone, customer_email, customer_whatsapp,
               departure_datetime, return_date, pickup_time, number_of_members, 
               from_location, to_location, trip_type, vehicle_type, notes
             ) VALUES (
               $1, $2, $3, $4, $5, 
-              $6, $7, $8, 'Pending', 'WEBSITE', 
-              $9, $10, 0,
-              $11, $12, $13, $14,
-              $15, $16, $17, $18,
-              $19, $20, $21, $22, $23
+              $6, $7, $8, $9, 'WEBSITE', 
+              $10, $11, $12, $13,
+              $14, $15, $16, $17,
+              $18, $19, $20, $21,
+              $22, $23, $24, $25, $26
             ) RETURNING *`,
             [
               bId, bookingRef, bookingNum, ticketNum, pnrNum,
-              bType, bCategory, bookingStatus,
-              enquiry.id, enquiryNumber,
+              bType, bCategory, bookingStatus, initialPaymentStatus,
+              enquiry.id, enquiryNumber, fareVal, advancePaid,
               name, phone, email || null, whatsapp || phone || null,
               date || null, return_date || null, time || null, passengers ? parseInt(String(passengers), 10) || null : null,
               pickup || null, destination || null, trip_type || null, car_type || vehicle_slug || null, combinedNotes || null
@@ -281,8 +297,6 @@ export const Route = createFileRoute("/api/enquiries")({
 
           const booking = bookingRes.rows[0];
 
-          // Handle Token Advance Payment (e.g. ₹100 advance)
-          const advancePaid = Number(body.advance_amount || 0);
           if (advancePaid > 0) {
             const payId = `PAY-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
             const payMethod = String(body.payment_method || "UPI").toUpperCase();
@@ -299,7 +313,7 @@ export const Route = createFileRoute("/api/enquiries")({
               `UPDATE bookings SET
                 advance_amount = $2,
                 amount_paid = $2,
-                payment_status = 'Advance Paid',
+                payment_status = CASE WHEN total_amount > 0 AND total_amount <= $2 THEN 'Fully Paid' ELSE 'Advance Paid' END,
                 booking_status = CASE WHEN booking_status = 'PENDING CONFIRMATION' THEN 'ADVANCE RECEIVED' ELSE booking_status END,
                 updated_at = NOW()
               WHERE id = $1`,
@@ -514,10 +528,23 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
   // 2. Always create a Day Book Entry
   try {
     const serialNo = `DB-${Date.now().toString().slice(-6)}`;
-    const pnrVal = body.pnr_number || (combinedNotes.match(/PNR:\s*([A-Z0-9-]+)/i)?.[1]) || null;
+    const pnrVal = payload.pnr_number || (combinedNotes.match(/PNR:\s*([A-Z0-9-]+)/i)?.[1]) || null;
+    let fareVal = Number(payload.total_amount || payload.fare || payload.amount || 0);
+    if (!fareVal && combinedNotes) {
+      const m = combinedNotes.match(/(?:Total Fare|Fare|Amount|Price):\s*₹?(\d+(?:\.\d+)?)/i);
+      if (m && m[1]) fareVal = Number(m[1]);
+    }
+    const advanceVal = Number(payload.advance_amount || (combinedNotes.includes("₹100 Advance") ? 100 : 0));
+    const dueVal = Math.max(0, fareVal - advanceVal);
+    const dayBookStatus = fareVal > 0 && dueVal === 0 ? "Paid" : "Pending";
+
     await query(
-      `INSERT INTO day_book_entries (serial_number, booking_date, travel_date, travel_by, passenger_name, passenger_phone, from_location, to_location, status, notes, pnr)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Pending', $9, $10)`,
+      `INSERT INTO day_book_entries (
+        serial_number, booking_date, travel_date, travel_by, 
+        passenger_name, passenger_phone, from_location, to_location, 
+        booking_amount, office_advance, due_amount, total_amount,
+        status, notes, pnr
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
       [
         serialNo,
         todayStr,
@@ -527,13 +554,22 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
         phone,
         pickup || "Bengaluru",
         destination || "Outstation",
+        fareVal,
+        advanceVal,
+        dueVal,
+        fareVal,
+        dayBookStatus,
         combinedNotes,
         pnrVal,
       ],
     ).catch(async () => {
       await query(
-        `INSERT INTO day_book_entries (serial_number, booking_date, travel_date, travel_by, passenger_name, passenger_phone, from_location, to_location, status, notes)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Pending', $9)`,
+        `INSERT INTO day_book_entries (
+          serial_number, booking_date, travel_date, travel_by, 
+          passenger_name, passenger_phone, from_location, to_location, 
+          booking_amount, office_advance, due_amount,
+          status, notes, pnr
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
         [
           serialNo,
           todayStr,
@@ -543,9 +579,31 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
           phone,
           pickup || "Bengaluru",
           destination || "Outstation",
+          fareVal,
+          advanceVal,
+          dueVal,
+          dayBookStatus,
           combinedNotes,
+          pnrVal,
         ],
-      ).catch(() => {});
+      ).catch(async () => {
+        await query(
+          `INSERT INTO day_book_entries (serial_number, booking_date, travel_date, travel_by, passenger_name, passenger_phone, from_location, to_location, status, notes, pnr)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Pending', $9, $10)`,
+          [
+            serialNo,
+            todayStr,
+            travelDate,
+            car_type || service || "Cab",
+            name,
+            phone,
+            pickup || "Bengaluru",
+            destination || "Outstation",
+            combinedNotes,
+            pnrVal,
+          ],
+        ).catch(() => {});
+      });
     });
   } catch (e) {}
 
@@ -622,7 +680,7 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
     } else if (sUpper.includes("FLIGHT")) {
       const bkNo = `FLT-${Date.now().toString().slice(-6)}`;
       const paxCount = passengers ? parseInt(String(passengers)) || 1 : 1;
-      const pnrVal = body.pnr_number || (combinedNotes.match(/PNR:\s*([A-Z0-9-]+)/i)?.[1]) || null;
+      const pnrVal = payload.pnr_number || (combinedNotes.match(/PNR:\s*([A-Z0-9-]+)/i)?.[1]) || null;
       await query(
         `INSERT INTO flight_bookings (booking_number, booking_date, travel_date, from_location, to_location, phone, pax, notes, pnr)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,

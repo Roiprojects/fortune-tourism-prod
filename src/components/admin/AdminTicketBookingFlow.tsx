@@ -343,6 +343,10 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
         ]
           .filter(Boolean)
           .join(" | "),
+        total_amount: Number(ticketFareAmount || 0),
+        fare: Number(ticketFareAmount || 0),
+        ticket_number: ticketNumber,
+        pnr_number: pnrNumber,
         client_token: `FT-ADMIN-TRAIN-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       };
 
@@ -411,6 +415,8 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
         ]
           .filter(Boolean)
           .join(" | "),
+        total_amount: Number(ticketFareAmount || 0),
+        fare: Number(ticketFareAmount || 0),
         ticket_number: ticketNumber,
         pnr_number: pnrNumber,
         client_token: `FT-ADMIN-TKT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,

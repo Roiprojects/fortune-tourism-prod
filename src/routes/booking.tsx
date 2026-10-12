@@ -540,6 +540,10 @@ function BookingPage() {
         ].filter(Boolean).join(" | "),
         ticket_number: ticketNumber,
         pnr_number: pnrNumber,
+        total_amount: Number(displayTotalFare || 0),
+        fare: Number(displayTotalFare || 0),
+        advance_amount: advanceOption === 100 ? 100 : 0,
+        payment_method: advanceOption === 100 ? "UPI" : "PAY_ON_ARRIVAL",
         client_token: `FT-TKT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       };
 
@@ -642,6 +646,10 @@ function BookingPage() {
         ]
           .filter(Boolean)
           .join(" | "),
+        total_amount: Number(calculatedFare || 0),
+        fare: Number(calculatedFare || 0),
+        advance_amount: advanceOption === 100 ? 100 : 0,
+        payment_method: advanceOption === 100 ? "UPI" : "PAY_ON_ARRIVAL",
         client_token: `FT-BKG-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       };
 

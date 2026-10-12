@@ -188,11 +188,13 @@ const STORAGE_KEY = "fortune_driver_details_data";
 interface DriverDetailsEditorModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialSearchQuery?: string;
 }
 
 export function DriverDetailsEditorModal({
   isOpen,
   onClose,
+  initialSearchQuery = "",
 }: DriverDetailsEditorModalProps) {
   const [records, setRecords] = useState<DriverDutyRecord[]>(() => {
     try {
@@ -207,9 +209,20 @@ export function DriverDetailsEditorModal({
     return INITIAL_DRIVER_DUTY_RECORDS;
   });
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSearchQuery(initialSearchQuery || "");
+    }
+  }, [isOpen, initialSearchQuery]);
+
   const [selectedDriverFilter, setSelectedDriverFilter] = useState("ALL");
   const [selectedCarFilter, setSelectedCarFilter] = useState("ALL");
+
+  // Inline editable spreadsheet mode (default true for instant editing)
+  const [inlineEditMode, setInlineEditMode] = useState(true);
+  const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
 
   // Edit / Add modal states
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -220,9 +233,65 @@ export function DriverDetailsEditorModal({
   const saveToStorage = (data: DriverDutyRecord[]) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      const now = new Date();
+      setLastSavedTime(
+        `${now.getHours().toString().padStart(2, "0")}:${now
+          .getMinutes()
+          .toString()
+          .padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`
+      );
     } catch (e) {
       console.error("Error saving driver records:", e);
     }
+  };
+
+  // Update single cell across any row & column
+  const handleUpdateCell = (
+    id: string,
+    field: keyof DriverDutyRecord,
+    value: any
+  ) => {
+    setRecords((prev) => {
+      const updated = prev.map((r) => {
+        if (r.id === id) {
+          return { ...r, [field]: value };
+        }
+        return r;
+      });
+      saveToStorage(updated);
+      return updated;
+    });
+  };
+
+  // Add new row directly into table
+  const handleAddNewRow = () => {
+    const nextSl =
+      records.length > 0 ? Math.max(...records.map((r) => r.slNo)) + 1 : 1;
+    const today = new Date();
+    const dateStr = `${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
+    const newRecord: DriverDutyRecord = {
+      id: `DD-${Date.now()}`,
+      slNo: nextSl,
+      date: dateStr,
+      onDate: dateStr,
+      from: "",
+      to: "",
+      time: "10.00 AM",
+      driver: "",
+      driverPhone: "",
+      carNo: "",
+      car: "",
+      due: 0,
+      toPay: 0,
+      settled: 0,
+      payDate: dateStr,
+      paxName: "",
+      paxPhone: "",
+    };
+    const updated = [...records, newRecord];
+    setRecords(updated);
+    saveToStorage(updated);
+    toast.success(`Row #${nextSl} added! Type directly into any column.`);
   };
 
   // Close on Escape key
@@ -559,6 +628,48 @@ export function DriverDetailsEditorModal({
 
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-2">
+            {/* Quick Edit Mode Toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                const nextState = !inlineEditMode;
+                setInlineEditMode(nextState);
+                toast.info(
+                  nextState
+                    ? "⚡ Spreadsheet Edit Mode enabled: You can edit every row and column directly!"
+                    : "👁️ View Mode enabled"
+                );
+              }}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer ${
+                inlineEditMode
+                  ? "bg-[#063f2d] text-white hover:bg-[#085a3f] ring-2 ring-emerald-500/50"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
+              }`}
+              title="Toggle inline cell editing for every row and column"
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+              <span>{inlineEditMode ? "⚡ Quick Edit: ON" : "✏️ Enable Edit Mode"}</span>
+            </button>
+
+            {/* Direct Add Row Button */}
+            <button
+              type="button"
+              onClick={handleAddNewRow}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-2xs transition cursor-pointer"
+              title="Add a new blank row directly into the sheet"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Add Row</span>
+            </button>
+
+            {/* Last saved indicator */}
+            {lastSavedTime && (
+              <span className="hidden lg:inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200/80">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                Auto-saved {lastSavedTime}
+              </span>
+            )}
+
             <button
               type="button"
               onClick={handleExportExcel}
@@ -617,30 +728,31 @@ export function DriverDetailsEditorModal({
             <table className="w-full border-collapse text-center text-xs">
               <thead>
                 <tr className="bg-[#64748b] text-white font-extrabold uppercase text-[11px] tracking-wider divide-x divide-slate-400/70 border-b border-slate-400">
-                  <th className="py-2.5 px-2 w-14">SL NO</th>
+                  <th className="py-2.5 px-2 w-14 sticky left-0 z-20 bg-[#64748b]">SL NO</th>
+                  <th className="py-2.5 px-2 w-20 sticky left-14 z-20 bg-[#526071] text-amber-300">ACTION</th>
                   <th className="py-2.5 px-2.5 w-24">DATE</th>
                   <th className="py-2.5 px-2.5 w-24">ON</th>
-                  <th className="py-2.5 px-3">FROM</th>
-                  <th className="py-2.5 px-4">TO</th>
+                  <th className="py-2.5 px-3 min-w-[130px]">FROM</th>
+                  <th className="py-2.5 px-4 min-w-[130px]">TO</th>
                   <th className="py-2.5 px-2.5 w-24">TIME</th>
-                  <th className="py-2.5 px-3">DRIVER</th>
-                  <th className="py-2.5 px-3 w-28">PH NO</th>
+                  <th className="py-2.5 px-3 min-w-[110px]">DRIVER</th>
+                  <th className="py-2.5 px-3 w-32">PH NO</th>
                   <th className="py-2.5 px-3 w-32">CAR NO</th>
-                  <th className="py-2.5 px-2.5 w-20">CAR</th>
+                  <th className="py-2.5 px-2.5 w-24">CAR</th>
                   <th className="py-2.5 px-2.5 w-20">DUE</th>
                   <th className="py-2.5 px-2.5 w-20">TOPAY</th>
                   <th className="py-2.5 px-2.5 w-22">SETTLED</th>
                   <th className="py-2.5 px-2.5 w-24">PAY DT</th>
-                  <th className="py-2.5 px-4">PAX NAME</th>
-                  <th className="py-2.5 px-3 w-28">PH NO</th>
-                  <th className="py-2.5 px-3 w-24 bg-slate-700 text-amber-300">ACTION</th>
+                  <th className="py-2.5 px-4 min-w-[140px]">PAX NAME</th>
+                  <th className="py-2.5 px-3 w-32">PH NO (PAX)</th>
+                  <th className="py-2.5 px-3 w-20 bg-slate-700 text-amber-300">ACTION</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-300 font-medium text-slate-800">
                 {filteredRecords.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={17}
+                      colSpan={18}
                       className="py-12 text-center text-slate-500 font-semibold bg-slate-50/50"
                     >
                       <div className="flex flex-col items-center justify-center gap-2">
@@ -648,10 +760,10 @@ export function DriverDetailsEditorModal({
                         <p className="text-sm">No driver duty records found.</p>
                         <button
                           type="button"
-                          onClick={handleRestoreDefaults}
-                          className="mt-1 text-xs font-bold text-emerald-700 underline hover:text-emerald-800 cursor-pointer"
+                          onClick={handleAddNewRow}
+                          className="mt-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold shadow-xs hover:bg-emerald-700 cursor-pointer"
                         >
-                          Restore default 7 records from image
+                          + Add First Row
                         </button>
                       </div>
                     </td>
@@ -663,111 +775,29 @@ export function DriverDetailsEditorModal({
                       className="hover:bg-amber-50/60 transition-colors divide-x divide-slate-300/80 group"
                     >
                       {/* SL NO */}
-                      <td className="py-2 px-2 font-bold text-slate-700 bg-slate-50">
-                        {item.slNo}
+                      <td className="py-1.5 px-2 font-bold text-slate-700 bg-slate-50 sticky left-0 z-10">
+                        {inlineEditMode ? (
+                          <input
+                            type="number"
+                            value={item.slNo}
+                            onChange={(e) =>
+                              handleUpdateCell(item.id, "slNo", Number(e.target.value) || item.slNo)
+                            }
+                            className="w-10 text-center font-bold text-slate-700 bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-300 focus:border-emerald-600 rounded outline-none py-0.5"
+                          />
+                        ) : (
+                          item.slNo
+                        )}
                       </td>
 
-                      {/* DATE */}
-                      <td className="py-2 px-2.5 font-semibold text-slate-800">
-                        {item.date}
-                      </td>
-
-                      {/* ON */}
-                      <td className="py-2 px-2.5 font-semibold text-slate-800">
-                        {item.onDate}
-                      </td>
-
-                      {/* FROM (Signature Green Tint from Excel image) */}
-                      <td className="py-2 px-3 text-left font-bold text-[#064e3b] bg-[#a6d862]/25">
-                        {item.from}
-                      </td>
-
-                      {/* TO (Signature Green Tint from Excel image) */}
-                      <td className="py-2 px-4 text-left font-bold text-[#064e3b] bg-[#a6d862]/25">
-                        {item.to}
-                      </td>
-
-                      {/* TIME (Signature Green Tint from Excel image) */}
-                      <td className="py-2 px-2.5 font-semibold text-[#064e3b] bg-[#a6d862]/25 whitespace-nowrap">
-                        {item.time}
-                      </td>
-
-                      {/* DRIVER (Signature Green Tint from Excel image) */}
-                      <td className="py-2 px-3 font-extrabold text-[#064e3b] bg-[#a6d862]/25 uppercase">
-                        {item.driver}
-                      </td>
-
-                      {/* PH NO (Driver) (Signature Green Tint from Excel image) */}
-                      <td className="py-2 px-3 font-semibold text-[#064e3b] bg-[#a6d862]/25 tracking-wide">
-                        {item.driverPhone}
-                      </td>
-
-                      {/* CAR NO (Signature Green Tint from Excel image) */}
-                      <td className="py-2 px-3 font-extrabold text-[#064e3b] bg-[#a6d862]/25 uppercase whitespace-nowrap">
-                        {item.carNo}
-                      </td>
-
-                      {/* CAR (Signature Green Tint from Excel image) */}
-                      <td className="py-2 px-2.5 font-extrabold text-[#064e3b] bg-[#a6d862]/25 uppercase">
-                        {item.car}
-                      </td>
-
-                      {/* DUE */}
-                      <td className={`py-2 px-2.5 font-bold ${item.due > 0 ? "text-amber-700 bg-amber-50/50" : "text-slate-600"}`}>
-                        {item.due}
-                      </td>
-
-                      {/* TOPAY */}
-                      <td className={`py-2 px-2.5 font-bold ${item.toPay > 0 ? "text-blue-700 bg-blue-50/50" : "text-slate-600"}`}>
-                        {item.toPay}
-                      </td>
-
-                      {/* SETTLED (Green tint in rows 5 and 7 in image) */}
-                      <td
-                        className={`py-2 px-2.5 font-extrabold ${
-                          item.settled > 0
-                            ? "text-[#064e3b] bg-[#a6d862]/35"
-                            : "text-slate-600"
-                        }`}
-                      >
-                        {item.settled}
-                      </td>
-
-                      {/* PAY DT */}
-                      <td
-                        className={`py-2 px-2.5 font-semibold ${
-                          item.settled > 0 ? "bg-[#a6d862]/20" : ""
-                        }`}
-                      >
-                        {item.payDate}
-                      </td>
-
-                      {/* PAX NAME */}
-                      <td
-                        className={`py-2 px-4 text-left font-bold uppercase text-slate-800 ${
-                          item.settled > 0 ? "bg-[#a6d862]/20" : ""
-                        }`}
-                      >
-                        {item.paxName || "—"}
-                      </td>
-
-                      {/* PH NO (Pax) */}
-                      <td
-                        className={`py-2 px-3 font-semibold text-slate-800 tracking-wide ${
-                          item.settled > 0 ? "bg-[#a6d862]/20" : ""
-                        }`}
-                      >
-                        {item.paxPhone || "—"}
-                      </td>
-
-                      {/* ACTION (Edit / Delete) */}
-                      <td className="py-2 px-2.5 bg-slate-50">
-                        <div className="flex items-center justify-center gap-1.5">
+                      {/* LEFT ACTION: Sticky row actions */}
+                      <td className="py-1.5 px-2 bg-slate-100/90 sticky left-14 z-10">
+                        <div className="flex items-center justify-center gap-1">
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(item)}
-                            className="p-1 rounded bg-slate-200 hover:bg-emerald-600 hover:text-white text-slate-700 transition cursor-pointer"
-                            title={`Edit row #${item.slNo}`}
+                            className="p-1 rounded bg-white hover:bg-emerald-600 hover:text-white text-slate-700 border border-slate-200 transition cursor-pointer shadow-2xs"
+                            title={`Edit row #${item.slNo} in modal`}
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
@@ -776,7 +806,295 @@ export function DriverDetailsEditorModal({
                             onClick={() =>
                               handleDeleteRecord(item.id, item.slNo, item.driver)
                             }
-                            className="p-1 rounded bg-slate-200 hover:bg-rose-600 hover:text-white text-slate-700 transition cursor-pointer"
+                            className="p-1 rounded bg-white hover:bg-rose-600 hover:text-white text-slate-700 border border-slate-200 transition cursor-pointer shadow-2xs"
+                            title={`Delete row #${item.slNo}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* DATE */}
+                      <td className="py-1 px-1.5 font-semibold text-slate-800">
+                        {inlineEditMode ? (
+                          <input
+                            type="text"
+                            value={item.date}
+                            onChange={(e) => handleUpdateCell(item.id, "date", e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            className="w-full text-center px-1.5 py-1 text-xs font-semibold text-slate-800 bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-300 focus:border-emerald-600 rounded outline-none transition"
+                          />
+                        ) : (
+                          item.date
+                        )}
+                      </td>
+
+                      {/* ON */}
+                      <td className="py-1 px-1.5 font-semibold text-slate-800">
+                        {inlineEditMode ? (
+                          <input
+                            type="text"
+                            value={item.onDate}
+                            onChange={(e) => handleUpdateCell(item.id, "onDate", e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            className="w-full text-center px-1.5 py-1 text-xs font-semibold text-slate-800 bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-300 focus:border-emerald-600 rounded outline-none transition"
+                          />
+                        ) : (
+                          item.onDate
+                        )}
+                      </td>
+
+                      {/* FROM (Signature Green Tint from Excel image) */}
+                      <td className="py-1 px-1.5 text-left font-bold text-[#064e3b] bg-[#a6d862]/25">
+                        {inlineEditMode ? (
+                          <input
+                            type="text"
+                            value={item.from}
+                            onChange={(e) => handleUpdateCell(item.id, "from", e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            placeholder="FROM location..."
+                            className="w-full px-1.5 py-1 text-xs font-bold text-[#064e3b] bg-white/60 hover:bg-white focus:bg-white border border-transparent hover:border-slate-300 focus:border-emerald-600 rounded outline-none transition uppercase"
+                          />
+                        ) : (
+                          item.from
+                        )}
+                      </td>
+
+                      {/* TO (Signature Green Tint from Excel image) */}
+                      <td className="py-1 px-1.5 text-left font-bold text-[#064e3b] bg-[#a6d862]/25">
+                        {inlineEditMode ? (
+                          <input
+                            type="text"
+                            value={item.to}
+                            onChange={(e) => handleUpdateCell(item.id, "to", e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            placeholder="TO location..."
+                            className="w-full px-1.5 py-1 text-xs font-bold text-[#064e3b] bg-white/60 hover:bg-white focus:bg-white border border-transparent hover:border-slate-300 focus:border-emerald-600 rounded outline-none transition uppercase"
+                          />
+                        ) : (
+                          item.to
+                        )}
+                      </td>
+
+                      {/* TIME (Signature Green Tint from Excel image) */}
+                      <td className="py-1 px-1.5 font-semibold text-[#064e3b] bg-[#a6d862]/25 whitespace-nowrap">
+                        {inlineEditMode ? (
+                          <input
+                            type="text"
+                            value={item.time}
+                            onChange={(e) => handleUpdateCell(item.id, "time", e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            className="w-full text-center px-1.5 py-1 text-xs font-semibold text-[#064e3b] bg-white/60 hover:bg-white focus:bg-white border border-transparent hover:border-slate-300 focus:border-emerald-600 rounded outline-none transition uppercase"
+                          />
+                        ) : (
+                          item.time
+                        )}
+                      </td>
+
+                      {/* DRIVER (Signature Green Tint from Excel image) */}
+                      <td className="py-1 px-1.5 font-extrabold text-[#064e3b] bg-[#a6d862]/25 uppercase">
+                        {inlineEditMode ? (
+                          <input
+                            type="text"
+                            value={item.driver}
+                            onChange={(e) => handleUpdateCell(item.id, "driver", e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            placeholder="DRIVER..."
+                            className="w-full px-1.5 py-1 text-xs font-extrabold text-[#064e3b] bg-white/60 hover:bg-white focus:bg-white border border-transparent hover:border-slate-300 focus:border-emerald-600 rounded outline-none transition uppercase"
+                          />
+                        ) : (
+                          item.driver
+                        )}
+                      </td>
+
+                      {/* PH NO (Driver) (Signature Green Tint from Excel image) */}
+                      <td className="py-1 px-1.5 font-semibold text-[#064e3b] bg-[#a6d862]/25 tracking-wide">
+                        {inlineEditMode ? (
+                          <input
+                            type="text"
+                            value={item.driverPhone}
+                            onChange={(e) => handleUpdateCell(item.id, "driverPhone", e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            placeholder="Phone..."
+                            className="w-full text-center px-1.5 py-1 text-xs font-semibold text-[#064e3b] bg-white/60 hover:bg-white focus:bg-white border border-transparent hover:border-slate-300 focus:border-emerald-600 rounded outline-none transition tracking-wide"
+                          />
+                        ) : (
+                          item.driverPhone
+                        )}
+                      </td>
+
+                      {/* CAR NO (Signature Green Tint from Excel image) */}
+                      <td className="py-1 px-1.5 font-extrabold text-[#064e3b] bg-[#a6d862]/25 uppercase whitespace-nowrap">
+                        {inlineEditMode ? (
+                          <input
+                            type="text"
+                            value={item.carNo}
+                            onChange={(e) => handleUpdateCell(item.id, "carNo", e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            placeholder="CAR NO..."
+                            className="w-full text-center px-1.5 py-1 text-xs font-extrabold text-[#064e3b] bg-white/60 hover:bg-white focus:bg-white border border-transparent hover:border-slate-300 focus:border-emerald-600 rounded outline-none transition uppercase"
+                          />
+                        ) : (
+                          item.carNo
+                        )}
+                      </td>
+
+                      {/* CAR (Signature Green Tint from Excel image) */}
+                      <td className="py-1 px-1.5 font-extrabold text-[#064e3b] bg-[#a6d862]/25 uppercase">
+                        {inlineEditMode ? (
+                          <input
+                            type="text"
+                            value={item.car}
+                            onChange={(e) => handleUpdateCell(item.id, "car", e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            placeholder="VEHICLE..."
+                            className="w-full text-center px-1.5 py-1 text-xs font-extrabold text-[#064e3b] bg-white/60 hover:bg-white focus:bg-white border border-transparent hover:border-slate-300 focus:border-emerald-600 rounded outline-none transition uppercase"
+                          />
+                        ) : (
+                          item.car
+                        )}
+                      </td>
+
+                      {/* DUE */}
+                      <td className={`py-1 px-1.5 font-bold ${item.due > 0 ? "text-amber-700 bg-amber-50/50" : "text-slate-600"}`}>
+                        {inlineEditMode ? (
+                          <input
+                            type="number"
+                            value={item.due === 0 ? "" : item.due}
+                            placeholder="0"
+                            onChange={(e) =>
+                              handleUpdateCell(item.id, "due", Number(e.target.value) || 0)
+                            }
+                            onFocus={(e) => e.target.select()}
+                            className="w-full text-center px-1 py-1 text-xs font-bold text-amber-700 bg-white/70 hover:bg-white focus:bg-white border border-transparent hover:border-slate-300 focus:border-emerald-600 rounded outline-none transition"
+                          />
+                        ) : (
+                          item.due
+                        )}
+                      </td>
+
+                      {/* TOPAY */}
+                      <td className={`py-1 px-1.5 font-bold ${item.toPay > 0 ? "text-blue-700 bg-blue-50/50" : "text-slate-600"}`}>
+                        {inlineEditMode ? (
+                          <input
+                            type="number"
+                            value={item.toPay === 0 ? "" : item.toPay}
+                            placeholder="0"
+                            onChange={(e) =>
+                              handleUpdateCell(item.id, "toPay", Number(e.target.value) || 0)
+                            }
+                            onFocus={(e) => e.target.select()}
+                            className="w-full text-center px-1 py-1 text-xs font-bold text-blue-700 bg-white/70 hover:bg-white focus:bg-white border border-transparent hover:border-slate-300 focus:border-emerald-600 rounded outline-none transition"
+                          />
+                        ) : (
+                          item.toPay
+                        )}
+                      </td>
+
+                      {/* SETTLED (Green tint in rows 5 and 7 in image) */}
+                      <td
+                        className={`py-1 px-1.5 font-extrabold ${
+                          item.settled > 0
+                            ? "text-[#064e3b] bg-[#a6d862]/35"
+                            : "text-slate-600"
+                        }`}
+                      >
+                        {inlineEditMode ? (
+                          <input
+                            type="number"
+                            value={item.settled === 0 ? "" : item.settled}
+                            placeholder="0"
+                            onChange={(e) =>
+                              handleUpdateCell(item.id, "settled", Number(e.target.value) || 0)
+                            }
+                            onFocus={(e) => e.target.select()}
+                            className={`w-full text-center px-1 py-1 text-xs font-extrabold rounded outline-none transition border border-transparent hover:border-slate-300 focus:border-emerald-600 ${
+                              item.settled > 0
+                                ? "text-[#064e3b] bg-white/80 focus:bg-white"
+                                : "text-slate-700 bg-white/60 focus:bg-white"
+                            }`}
+                          />
+                        ) : (
+                          item.settled
+                        )}
+                      </td>
+
+                      {/* PAY DT */}
+                      <td
+                        className={`py-1 px-1.5 font-semibold ${
+                          item.settled > 0 ? "bg-[#a6d862]/20" : ""
+                        }`}
+                      >
+                        {inlineEditMode ? (
+                          <input
+                            type="text"
+                            value={item.payDate}
+                            onChange={(e) => handleUpdateCell(item.id, "payDate", e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            className="w-full text-center px-1.5 py-1 text-xs font-semibold text-slate-800 bg-white/60 hover:bg-white focus:bg-white border border-transparent hover:border-slate-300 focus:border-emerald-600 rounded outline-none transition"
+                          />
+                        ) : (
+                          item.payDate
+                        )}
+                      </td>
+
+                      {/* PAX NAME */}
+                      <td
+                        className={`py-1 px-1.5 text-left font-bold uppercase text-slate-800 ${
+                          item.settled > 0 ? "bg-[#a6d862]/20" : ""
+                        }`}
+                      >
+                        {inlineEditMode ? (
+                          <input
+                            type="text"
+                            value={item.paxName}
+                            onChange={(e) => handleUpdateCell(item.id, "paxName", e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            placeholder="Passenger name..."
+                            className="w-full px-1.5 py-1 text-xs font-bold uppercase text-slate-800 bg-white/60 hover:bg-white focus:bg-white border border-transparent hover:border-slate-300 focus:border-emerald-600 rounded outline-none transition"
+                          />
+                        ) : (
+                          item.paxName || "—"
+                        )}
+                      </td>
+
+                      {/* PH NO (Pax) */}
+                      <td
+                        className={`py-1 px-1.5 font-semibold text-slate-800 tracking-wide ${
+                          item.settled > 0 ? "bg-[#a6d862]/20" : ""
+                        }`}
+                      >
+                        {inlineEditMode ? (
+                          <input
+                            type="text"
+                            value={item.paxPhone}
+                            onChange={(e) => handleUpdateCell(item.id, "paxPhone", e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            placeholder="Pax Phone..."
+                            className="w-full text-center px-1.5 py-1 text-xs font-semibold text-slate-800 bg-white/60 hover:bg-white focus:bg-white border border-transparent hover:border-slate-300 focus:border-emerald-600 rounded outline-none transition tracking-wide"
+                          />
+                        ) : (
+                          item.paxPhone || "—"
+                        )}
+                      </td>
+
+                      {/* RIGHT ACTION (Edit Modal / Delete) */}
+                      <td className="py-1.5 px-2 bg-slate-50">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(item)}
+                            className="p-1 rounded bg-slate-200 hover:bg-emerald-600 hover:text-white text-slate-700 transition cursor-pointer shadow-2xs"
+                            title={`Open full edit dialog for row #${item.slNo}`}
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDeleteRecord(item.id, item.slNo, item.driver)
+                            }
+                            className="p-1 rounded bg-slate-200 hover:bg-rose-600 hover:text-white text-slate-700 transition cursor-pointer shadow-2xs"
                             title={`Delete row #${item.slNo}`}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -792,7 +1110,7 @@ export function DriverDetailsEditorModal({
               {filteredRecords.length > 0 && (
                 <tfoot>
                   <tr className="bg-slate-100 font-black text-slate-900 border-t-2 border-slate-400 divide-x divide-slate-300">
-                    <td colSpan={10} className="py-3 px-4 text-right uppercase tracking-wider text-[11px] text-slate-600">
+                    <td colSpan={11} className="py-3 px-4 text-right uppercase tracking-wider text-[11px] text-slate-600">
                       TOTAL SUMMARY:
                     </td>
                     <td className="py-3 px-2 text-amber-700 font-extrabold text-sm">

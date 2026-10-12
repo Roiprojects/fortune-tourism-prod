@@ -909,6 +909,134 @@ export function AccountsReportsHub({
     due: 0,
   });
 
+  // Transaction Edit Modal State
+  const [txnModalOpen, setTxnModalOpen] = useState(false);
+  const [editingTxn, setEditingTxn] = useState<TransactionRecord | null>(null);
+  const [txnFormData, setTxnFormData] = useState({
+    particulars: "",
+    category: "CAR" as TransactionRecord["category"],
+    payment_method: "UPI" as TransactionRecord["payment_method"],
+    status: "PAID" as TransactionRecord["status"],
+    income: 0,
+    expense: 0,
+    customer_name: "",
+    phone: "",
+    notes: "",
+  });
+
+  const openEditTxnModal = (t: TransactionRecord) => {
+    setEditingTxn(t);
+    setTxnFormData({
+      particulars: t.particulars,
+      category: t.category,
+      payment_method: t.payment_method,
+      status: t.status,
+      income: t.income,
+      expense: t.expense,
+      customer_name: t.customer_name || "",
+      phone: t.phone || "",
+      notes: t.notes || "",
+    });
+    setTxnModalOpen(true);
+  };
+
+  const handleSaveTxnRecord = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTxn) return;
+
+    const incomeVal = Number(txnFormData.income || 0);
+    const expenseVal = Number(txnFormData.expense || 0);
+
+    const updated: TransactionRecord = {
+      ...editingTxn,
+      particulars: txnFormData.particulars,
+      category: txnFormData.category,
+      payment_method: txnFormData.payment_method,
+      status: txnFormData.status,
+      income: incomeVal,
+      expense: expenseVal,
+      balance: incomeVal - expenseVal,
+      customer_name: txnFormData.customer_name,
+      phone: txnFormData.phone,
+      notes: txnFormData.notes,
+    };
+
+    setTransactions((prev) => prev.map((t) => (t.id === editingTxn.id ? updated : t)));
+
+    // Also sync to dailyRecords if it corresponds to a booking
+    if (editingTxn.id.startsWith("BKG-TXN-")) {
+      const bkgId = Number(editingTxn.id.replace("BKG-TXN-", ""));
+      setDailyRecords((prev) =>
+        prev.map((d) =>
+          d.id === `BKG-${bkgId}`
+            ? {
+                ...d,
+                pax: txnFormData.customer_name || d.pax,
+                ph_no: txnFormData.phone || d.ph_no,
+                booking: incomeVal,
+                status: txnFormData.status === "PAID" ? "Paid" : "Pending",
+              }
+            : d
+        )
+      );
+
+      if (!isNaN(bkgId) && bkgId > 0) {
+        try {
+          await fetch(`/api/bookings/${bkgId}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "x-admin-key": "Admin@fortunetourism2026",
+            },
+            body: JSON.stringify({
+              id: bkgId,
+              passenger_name: txnFormData.customer_name,
+              passenger_phone: txnFormData.phone,
+              category: txnFormData.category,
+              total_amount: incomeVal,
+              booking_status: txnFormData.status === "PAID" ? "CONFIRMED" : txnFormData.status,
+              payment_status: txnFormData.status === "PAID" ? "Fully Paid" : "Pending",
+              notes: txnFormData.notes,
+            }),
+          });
+        } catch (err) {
+          console.warn("PUT /api/bookings error:", err);
+        }
+      }
+    } else {
+      const rawId = String(editingTxn.id).replace("TXN-", "");
+      const numId = Number(rawId);
+      if (!isNaN(numId) && numId > 0) {
+        try {
+          await fetch("/api/business/business_records", {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "x-admin-key": "Admin@fortunetourism2026",
+            },
+            body: JSON.stringify({
+              id: numId,
+              particulars: txnFormData.particulars,
+              category: txnFormData.category,
+              payment_mode: txnFormData.payment_method,
+              status: txnFormData.status,
+              amount: incomeVal,
+              expense_amount: expenseVal,
+              client_name: txnFormData.customer_name,
+              phone: txnFormData.phone,
+              notes: txnFormData.notes,
+            }),
+          });
+        } catch (err) {
+          console.warn("PUT /api/business/business_records error:", err);
+        }
+      }
+    }
+
+    setTxnModalOpen(false);
+    toast.success("Transaction updated successfully.");
+  };
+
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [datePreset, setDatePreset] = useState("all");
@@ -995,22 +1123,26 @@ export function AccountsReportsHub({
   const fetchLiveTransactions = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Day Book Entries + Bookings for Daily Reports
-      const [dbRes, bkgRes] = await Promise.all([
-        fetch("/api/business/day_book_entries?limit=200", {
+      // 1. Fetch Day Book Entries + Bookings + Business Records concurrently
+      const [dbRes, bkgRes, bizRes] = await Promise.all([
+        fetch("/api/business/day_book_entries?limit=500", {
           headers: { "x-admin-key": "Admin@fortunetourism2026" },
         }).catch(() => null),
-        fetch("/api/bookings?limit=200").catch(() => null),
+        fetch("/api/bookings?limit=500").catch(() => null),
+        fetch("/api/business/business_records?limit=500", {
+          headers: { "x-admin-key": "Admin@fortunetourism2026" },
+        }).catch(() => null),
       ]);
 
       const pnrByPhone = new Map<string, string>();
       const pnrByTicket = new Map<string, string>();
       const pnrByName = new Map<string, string>();
+      let bList: any[] = [];
 
       if (bkgRes && bkgRes.ok) {
         try {
           const bData = await bkgRes.json();
-          const bList = Array.isArray(bData.bookings) ? bData.bookings : Array.isArray(bData.rows) ? bData.rows : [];
+          bList = Array.isArray(bData.bookings) ? bData.bookings : Array.isArray(bData.rows) ? bData.rows : [];
           bList.forEach((b: any) => {
             const pnr = b.pnr_number || b.pnr_external || b.pnr || "";
             if (pnr) {
@@ -1029,10 +1161,14 @@ export function AccountsReportsHub({
         } catch (e) {}
       }
 
+      // Map day book entries
+      let liveDaily: DailyReportRecord[] = [];
+      const matchedBkgIds = new Set<string>();
+
       if (dbRes && dbRes.ok) {
         const dbData = await dbRes.json();
         if (dbData.success && Array.isArray(dbData.rows)) {
-          const liveDaily: DailyReportRecord[] = dbData.rows.map((r: any) => {
+          liveDaily = dbData.rows.map((r: any) => {
             // Extract PNR
             let pnr = r.pnr || r.pnr_number || "";
             if (!pnr && r.notes) {
@@ -1053,74 +1189,118 @@ export function AccountsReportsHub({
               }
             }
 
+            // Cross-match with bookings table to enrich amounts if day_book was 0
+            const matchingBkg = bList.find((b: any) => {
+              if (pnr && (b.pnr_number === pnr || b.ticket_number === pnr)) return true;
+              if (r.passenger_phone && b.passenger_phone) {
+                const p1 = String(r.passenger_phone).replace(/\D/g, "").slice(-10);
+                const p2 = String(b.passenger_phone).replace(/\D/g, "").slice(-10);
+                if (p1 && p1 === p2) return true;
+              }
+              return false;
+            });
+
+            if (matchingBkg) {
+              matchedBkgIds.add(String(matchingBkg.id));
+            }
+
+            const rawBookingAmt = Number(r.booking_amount || r.total_amount || 0);
+            const bkgTotal = matchingBkg ? Number(matchingBkg.total_amount || matchingBkg.fare || 0) : 0;
+            const finalBookingAmt = rawBookingAmt > 0 ? rawBookingAmt : bkgTotal;
+
+            const rawAdvAmt = Number(r.office_advance || 0);
+            const bkgPaid = matchingBkg ? Number(matchingBkg.paid_total ?? matchingBkg.advance_amount ?? 0) : 0;
+            const finalAdvAmt = rawAdvAmt > 0 ? rawAdvAmt : bkgPaid;
+
+            const rawDue = r.due_amount !== null && r.due_amount !== undefined ? Number(r.due_amount) : null;
+            const bkgRem = matchingBkg && matchingBkg.remaining_amount !== undefined ? Number(matchingBkg.remaining_amount) : null;
+            const finalDue = rawDue !== null ? rawDue : bkgRem !== null ? bkgRem : Math.max(0, finalBookingAmt - finalAdvAmt);
+
             return {
               id: r.id,
               date: formatDisplayDate(r.booking_date || r.created_at),
               raw_date: r.booking_date || r.created_at,
-              trav_on: formatDisplayDate(r.travel_date),
+              trav_on: formatDisplayDate(r.travel_date || r.booking_date || r.created_at),
               pnr: pnr || "—",
-              trav_by: (r.travel_by || "CAR").toUpperCase(),
-              pax: r.passenger_name || "",
-              ph_no: r.passenger_phone || "",
-              from: r.from_location || "",
-              to: r.to_location || "",
-              pickup: r.pickup_location || "—",
-              booking: Number(r.booking_amount || r.total_amount || 0),
-              off_adv: Number(r.office_advance || 0),
-              due:
-                r.due_amount !== null && r.due_amount !== undefined
-                  ? Number(r.due_amount)
-                  : Math.max(0, Number(r.booking_amount || 0) - Number(r.office_advance || 0)),
-              status: r.status || (Number(r.due_amount || 0) > 0 ? "Pending" : "Paid"),
-              notes: r.notes || "",
+              trav_by: (r.travel_by || (matchingBkg?.booking_type) || (matchingBkg?.category) || "CAR").toUpperCase(),
+              pax: r.passenger_name || matchingBkg?.passenger_name || "",
+              ph_no: r.passenger_phone || matchingBkg?.passenger_phone || "",
+              from: r.from_location || matchingBkg?.from_location || "",
+              to: r.to_location || matchingBkg?.to_location || "",
+              pickup: r.pickup_location || matchingBkg?.pickup_location || "—",
+              booking: finalBookingAmt,
+              off_adv: finalAdvAmt,
+              due: finalDue,
+              status: r.status || (finalDue === 0 && finalBookingAmt > 0 ? "Paid" : "Pending"),
+              notes: r.notes || matchingBkg?.notes || "",
             };
           });
-
-          const isCleared = typeof window !== "undefined" && localStorage.getItem("fortune_reports_cleared") === "true";
-          const deletedDailyIds = new Set<string>(
-            typeof window !== "undefined"
-              ? JSON.parse(localStorage.getItem("fortune_deleted_daily_record_ids") || "[]")
-              : []
-          );
-          const filteredLiveDaily = liveDaily.filter((r) => !deletedDailyIds.has(String(r.id)));
-
-          if (isCleared) {
-            setDailyRecords(filteredLiveDaily);
-          } else {
-            const existingKeys = new Set(
-              filteredLiveDaily.map((d) => `${(d.pax || "").toLowerCase()}_${d.ph_no || ""}`)
-            );
-            const seedsToKeep = INITIAL_DAILY_REPORTS.filter(
-              (s) => !deletedDailyIds.has(String(s.id)) && !existingKeys.has(`${s.pax.toLowerCase()}_${s.ph_no}`)
-            );
-            setDailyRecords([...seedsToKeep, ...filteredLiveDaily]);
-          }
         }
       }
-    } catch (err) {
-      console.warn("Using seeded daily records:", err);
-      const isCleared = typeof window !== "undefined" && localStorage.getItem("fortune_reports_cleared") === "true";
-      if (!isCleared) {
-        const deletedDailyIds = new Set<string>(
-          typeof window !== "undefined"
-            ? JSON.parse(localStorage.getItem("fortune_deleted_daily_record_ids") || "[]")
-            : []
-        );
-        setDailyRecords(INITIAL_DAILY_REPORTS.filter((s) => !deletedDailyIds.has(String(s.id))));
-      } else {
-        setDailyRecords([]);
-      }
-    }
 
-    // 2. Fetch general business transactions for other reports
-    try {
-      const res = await fetch("/api/business/business_records?limit=200", {
-        headers: { "x-admin-key": "Admin@fortunetourism2026" },
+      // Add ALL bookings that were not already linked in day_book_entries into liveDaily!
+      bList.forEach((b: any) => {
+        if (!matchedBkgIds.has(String(b.id))) {
+          const rawCat = (b.booking_type || b.category || "CAR").toUpperCase();
+          const travBy = rawCat === "TAXI" || rawCat === "CAB" ? "CAR" : rawCat;
+          const totalAmt = Number(b.total_amount || b.fare || 0);
+          const advAmt = Number(b.paid_total ?? b.advance_amount ?? 0);
+          const remAmt = Number(
+            b.remaining_amount !== undefined ? b.remaining_amount : Math.max(0, totalAmt - advAmt)
+          );
+          const isFullyPaid =
+            (remAmt === 0 && totalAmt > 0) ||
+            (b.payment_status || "").toUpperCase() === "PAID" ||
+            (b.payment_status || "").toUpperCase() === "FULLY PAID" ||
+            (b.payment_status || "").toUpperCase() === "SUCCESS";
+
+          liveDaily.push({
+            id: `BKG-${b.id}`,
+            date: formatDisplayDate(b.booking_date || b.created_at),
+            raw_date: b.booking_date || b.created_at,
+            trav_on: formatDisplayDate(b.departure_datetime || b.travel_date || b.created_at),
+            pnr: b.pnr_number || b.ticket_number || "—",
+            trav_by: travBy,
+            pax: b.passenger_name || "Direct Customer",
+            ph_no: b.passenger_phone || "",
+            from: b.from_location || "—",
+            to: b.to_location || "—",
+            pickup: b.pickup_location || "—",
+            booking: totalAmt,
+            off_adv: advAmt,
+            due: remAmt,
+            status: isFullyPaid ? "Paid" : "Pending",
+            notes: b.notes || "",
+          });
+        }
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && Array.isArray(data.rows) && data.rows.length > 0) {
-          const mapped: TransactionRecord[] = data.rows.map((r: any, idx: number) => {
+
+      const isCleared = typeof window !== "undefined" && localStorage.getItem("fortune_reports_cleared") === "true";
+      const deletedDailyIds = new Set<string>(
+        typeof window !== "undefined"
+          ? JSON.parse(localStorage.getItem("fortune_deleted_daily_record_ids") || "[]")
+          : []
+      );
+      const filteredLiveDaily = liveDaily.filter((r) => !deletedDailyIds.has(String(r.id)));
+
+      if (isCleared) {
+        setDailyRecords(filteredLiveDaily);
+      } else {
+        const existingKeys = new Set(
+          filteredLiveDaily.map((d) => `${(d.pax || "").toLowerCase()}_${d.ph_no || ""}`)
+        );
+        const seedsToKeep = INITIAL_DAILY_REPORTS.filter(
+          (s) => !deletedDailyIds.has(String(s.id)) && !existingKeys.has(`${s.pax.toLowerCase()}_${s.ph_no}`)
+        );
+        setDailyRecords([...seedsToKeep, ...filteredLiveDaily]);
+      }
+
+      // 2. Map Transactions (combines business_records AND all bookings!)
+      let mappedBiz: TransactionRecord[] = [];
+      if (bizRes && bizRes.ok) {
+        const data = await bizRes.json();
+        if (data.success && Array.isArray(data.rows)) {
+          mappedBiz = data.rows.map((r: any, idx: number) => {
             const amount = Number(r.amount || r.total_amount || r.fare || 0);
             const isExpense = (r.record_type || r.type || "").toUpperCase().includes("EXPENSE");
             const income = isExpense ? 0 : amount;
@@ -1141,36 +1321,86 @@ export function AccountsReportsHub({
               notes: r.notes || "",
             };
           });
-
-          const isCleared = typeof window !== "undefined" && localStorage.getItem("fortune_reports_cleared") === "true";
-          const deletedTxnIds = new Set<string>(
-            typeof window !== "undefined"
-              ? JSON.parse(localStorage.getItem("fortune_deleted_transaction_ids") || "[]")
-              : []
-          );
-          const filteredMapped = mapped.filter((t) => !deletedTxnIds.has(String(t.id)));
-
-          if (isCleared) {
-            setTransactions(filteredMapped);
-          } else {
-            const seeds = SEED_TRANSACTIONS.filter((s) => !deletedTxnIds.has(String(s.id)));
-            setTransactions([...filteredMapped, ...seeds]);
-          }
         }
       }
-    } catch (err) {
-      console.warn("Using seeded transactions:", err);
-      const isCleared = typeof window !== "undefined" && localStorage.getItem("fortune_reports_cleared") === "true";
-      if (!isCleared) {
-        const deletedTxnIds = new Set<string>(
-          typeof window !== "undefined"
-            ? JSON.parse(localStorage.getItem("fortune_deleted_transaction_ids") || "[]")
-            : []
+
+      // Map every booking into TransactionRecord so Master Report, P&L, Dues, and Payments display all bookings
+      const bookingTxns: TransactionRecord[] = bList.map((b: any) => {
+        const total = Number(b.total_amount || b.fare || 0);
+        const adv = Number(b.paid_total ?? b.advance_amount ?? 0);
+        const rem = Number(
+          b.remaining_amount !== undefined ? b.remaining_amount : Math.max(0, total - adv)
         );
-        setTransactions(SEED_TRANSACTIONS.filter((s) => !deletedTxnIds.has(String(s.id))));
+        const rawCat = (b.category || b.booking_type || "CAR").toUpperCase();
+        let cat: TransactionRecord["category"] = "CAR";
+        if (rawCat.includes("FLIGHT")) cat = "FLIGHT";
+        else if (rawCat.includes("BUS")) cat = "BUS";
+        else if (rawCat.includes("TRAIN")) cat = "TRAIN";
+        else if (rawCat.includes("HOTEL")) cat = "HOTEL";
+        else if (rawCat.includes("TOUR") || rawCat.includes("PACKAGE")) cat = "TOUR";
+        else if (rawCat.includes("CAR") || rawCat.includes("CAB") || rawCat.includes("TAXI")) cat = "CAR";
+
+        const isPaid =
+          (rem === 0 && total > 0) ||
+          (b.payment_status || "").toUpperCase() === "PAID" ||
+          (b.payment_status || "").toUpperCase() === "SUCCESS" ||
+          (b.payment_status || "").toUpperCase() === "FULLY PAID";
+        const isCancelled = (b.booking_status || "").toUpperCase().includes("CANCEL");
+        const isRefunded =
+          (b.booking_status || "").toUpperCase().includes("REFUND") ||
+          (b.payment_status || "").toUpperCase().includes("REFUND");
+
+        let status: TransactionRecord["status"] = "PENDING";
+        if (isRefunded) status = "REFUNDED";
+        else if (isCancelled) status = "CANCELLED";
+        else if (isPaid) status = "PAID";
+
+        let method: TransactionRecord["payment_method"] = "UPI";
+        const pMode = String(b.payment_mode || b.payment_method || "UPI").toUpperCase();
+        if (pMode.includes("CASH")) method = "CASH";
+        else if (pMode.includes("CARD")) method = "CARD";
+        else if (pMode.includes("NET") || pMode.includes("BANK")) method = "NETBANKING";
+        else if (pMode.includes("RAZORPAY")) method = "RAZORPAY";
+
+        const fromTo = b.from_location && b.to_location ? ` (${b.from_location} → ${b.to_location})` : "";
+        const pnrSnippet = b.pnr_number ? ` [PNR: ${b.pnr_number}]` : "";
+
+        return {
+          id: `BKG-TXN-${b.id}`,
+          date: b.created_at || b.departure_datetime || b.travel_date || new Date().toISOString(),
+          ref_number: b.booking_number || b.ticket_number || b.pnr_number || `BKG-${b.id}`,
+          particulars: `${cat} Booking: ${b.passenger_name || "Guest"}${fromTo}${pnrSnippet}`,
+          category: cat,
+          payment_method: method,
+          status,
+          income: isPaid ? total : adv > 0 ? adv : total,
+          expense: 0,
+          balance: isPaid ? total : adv > 0 ? adv : total,
+          customer_name: b.passenger_name || "Direct Customer",
+          phone: b.passenger_phone || "",
+          notes: b.notes || (rem > 0 ? `Remaining Due: ₹${rem}` : "Fully Settled"),
+        };
+      });
+
+      const allCombinedTxns = [...bookingTxns, ...mappedBiz];
+      const deletedTxnIds = new Set<string>(
+        typeof window !== "undefined"
+          ? JSON.parse(localStorage.getItem("fortune_deleted_transaction_ids") || "[]")
+          : []
+      );
+      const filteredCombined = allCombinedTxns.filter((t) => !deletedTxnIds.has(String(t.id)));
+
+      if (isCleared) {
+        setTransactions(filteredCombined);
       } else {
-        setTransactions([]);
+        const existingTxnKeys = new Set(filteredCombined.map((t) => t.ref_number.toLowerCase()));
+        const seeds = SEED_TRANSACTIONS.filter(
+          (s) => !deletedTxnIds.has(String(s.id)) && !existingTxnKeys.has(s.ref_number.toLowerCase())
+        );
+        setTransactions([...filteredCombined, ...seeds]);
       }
+    } catch (err) {
+      console.warn("Error fetching live transactions:", err);
     } finally {
       setLoading(false);
     }
@@ -1312,15 +1542,31 @@ export function AccountsReportsHub({
 
     setDailyRecords((prev) => prev.filter((r) => String(r.id) !== String(id)));
 
-    const numId = Number(id);
-    if (!isNaN(numId) && numId > 0 && typeof id === "number") {
-      try {
-        await fetch(`/api/business/day_book_entries?id=${numId}`, {
-          method: "DELETE",
-          headers: { "x-admin-key": "Admin@fortunetourism2026" },
-        });
-      } catch (err) {
-        console.warn("DELETE /api/business/day_book_entries error:", err);
+    if (typeof id === "string" && id.startsWith("BKG-")) {
+      const bkgId = Number(id.replace("BKG-", ""));
+      if (!isNaN(bkgId) && bkgId > 0) {
+        // Also remove matching transaction
+        setTransactions((prev) => prev.filter((t) => t.id !== `BKG-TXN-${bkgId}`));
+        try {
+          await fetch(`/api/bookings/${bkgId}`, {
+            method: "DELETE",
+            headers: { "x-admin-key": "Admin@fortunetourism2026" },
+          });
+        } catch (err) {
+          console.warn("DELETE /api/bookings error:", err);
+        }
+      }
+    } else {
+      const numId = Number(id);
+      if (!isNaN(numId) && numId > 0) {
+        try {
+          await fetch(`/api/business/day_book_entries?id=${numId}`, {
+            method: "DELETE",
+            headers: { "x-admin-key": "Admin@fortunetourism2026" },
+          });
+        } catch (err) {
+          console.warn("DELETE /api/business/day_book_entries error:", err);
+        }
       }
     }
     toast.success("Daily report entry deleted successfully.");
@@ -1340,16 +1586,31 @@ export function AccountsReportsHub({
 
     setTransactions((prev) => prev.filter((t) => String(t.id) !== String(id)));
 
-    const rawId = String(id).replace("TXN-", "");
-    const numId = Number(rawId);
-    if (!isNaN(numId) && numId > 0) {
-      try {
-        await fetch(`/api/business/business_records?id=${numId}`, {
-          method: "DELETE",
-          headers: { "x-admin-key": "Admin@fortunetourism2026" },
-        });
-      } catch (err) {
-        console.warn("DELETE /api/business/business_records error:", err);
+    if (typeof id === "string" && id.startsWith("BKG-TXN-")) {
+      const bkgId = Number(id.replace("BKG-TXN-", ""));
+      if (!isNaN(bkgId) && bkgId > 0) {
+        setDailyRecords((prev) => prev.filter((r) => r.id !== `BKG-${bkgId}`));
+        try {
+          await fetch(`/api/bookings/${bkgId}`, {
+            method: "DELETE",
+            headers: { "x-admin-key": "Admin@fortunetourism2026" },
+          });
+        } catch (err) {
+          console.warn("DELETE /api/bookings error:", err);
+        }
+      }
+    } else {
+      const rawId = String(id).replace("TXN-", "");
+      const numId = Number(rawId);
+      if (!isNaN(numId) && numId > 0) {
+        try {
+          await fetch(`/api/business/business_records?id=${numId}`, {
+            method: "DELETE",
+            headers: { "x-admin-key": "Admin@fortunetourism2026" },
+          });
+        } catch (err) {
+          console.warn("DELETE /api/business/business_records error:", err);
+        }
       }
     }
     toast.success("Report entry deleted successfully.");
@@ -1420,12 +1681,60 @@ export function AccountsReportsHub({
         booking: bookingVal,
         off_adv: offAdvVal,
         due: dueVal,
-        status: dueVal === 0 ? "Paid" : "Pending",
+        status: dueVal === 0 && bookingVal > 0 ? "Paid" : "Pending",
       };
 
       setDailyRecords((prev) => prev.map((r) => (r.id === editingRecord.id ? updated : r)));
 
-      if (typeof editingRecord.id === "number") {
+      // If it's a booking record (id starting with BKG-), update backend bookings
+      if (typeof editingRecord.id === "string" && editingRecord.id.startsWith("BKG-")) {
+        const bkgId = Number(editingRecord.id.replace("BKG-", ""));
+        // Update matching transaction in transactions state
+        setTransactions((prev) =>
+          prev.map((t) =>
+            t.id === `BKG-TXN-${bkgId}`
+              ? {
+                  ...t,
+                  customer_name: dailyFormData.pax,
+                  phone: dailyFormData.ph_no,
+                  income: dueVal === 0 ? bookingVal : offAdvVal > 0 ? offAdvVal : bookingVal,
+                  balance: dueVal === 0 ? bookingVal : offAdvVal > 0 ? offAdvVal : bookingVal,
+                  status: dueVal === 0 ? "PAID" : "PENDING",
+                }
+              : t
+          )
+        );
+
+        if (!isNaN(bkgId) && bkgId > 0) {
+          try {
+            await fetch(`/api/bookings/${bkgId}`, {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                "x-admin-key": "Admin@fortunetourism2026",
+              },
+              body: JSON.stringify({
+                id: bkgId,
+                passenger_name: dailyFormData.pax,
+                passenger_phone: dailyFormData.ph_no,
+                from_location: dailyFormData.from,
+                to_location: dailyFormData.to,
+                pickup_location: dailyFormData.pickup,
+                pnr_number: dailyFormData.pnr,
+                total_amount: bookingVal,
+                advance_amount: offAdvVal,
+                remaining_amount: dueVal,
+                departure_datetime: parseToComparableDate(dailyFormData.trav_on),
+                category: dailyFormData.trav_by,
+                booking_status: dueVal === 0 ? "CONFIRMED" : "PENDING CONFIRMATION",
+                payment_status: dueVal === 0 ? "Fully Paid" : offAdvVal > 0 ? "Advance Received" : "Pending",
+              }),
+            });
+          } catch (err) {
+            console.warn("PUT /api/bookings error:", err);
+          }
+        }
+      } else if (typeof editingRecord.id === "number") {
         try {
           await fetch("/api/business/day_book_entries", {
             method: "PUT",
@@ -1447,7 +1756,7 @@ export function AccountsReportsHub({
               booking_amount: bookingVal,
               office_advance: offAdvVal,
               due_amount: dueVal,
-              status: dueVal === 0 ? "Paid" : "Pending",
+              status: dueVal === 0 && bookingVal > 0 ? "Paid" : "Pending",
             }),
           });
         } catch (err) {
@@ -1471,7 +1780,7 @@ export function AccountsReportsHub({
         booking: bookingVal,
         off_adv: offAdvVal,
         due: dueVal,
-        status: dueVal === 0 ? "Paid" : "Pending",
+        status: dueVal === 0 && bookingVal > 0 ? "Paid" : "Pending",
       };
 
       setDailyRecords((prev) => [newRec, ...prev]);
@@ -1487,6 +1796,7 @@ export function AccountsReportsHub({
             booking_date: parseToComparableDate(dailyFormData.date),
             travel_date: parseToComparableDate(dailyFormData.trav_on),
             travel_by: dailyFormData.trav_by,
+            pnr: dailyFormData.pnr,
             passenger_name: dailyFormData.pax,
             passenger_phone: dailyFormData.ph_no,
             from_location: dailyFormData.from,
@@ -1495,7 +1805,7 @@ export function AccountsReportsHub({
             booking_amount: bookingVal,
             office_advance: offAdvVal,
             due_amount: dueVal,
-            status: dueVal === 0 ? "Paid" : "Pending",
+            status: dueVal === 0 && bookingVal > 0 ? "Paid" : "Pending",
           }),
         });
         if (res.ok) {
@@ -2438,14 +2748,24 @@ export function AccountsReportsHub({
 
                           {/* Action */}
                           <td className="py-2 px-3 text-center whitespace-nowrap border border-slate-300 bg-slate-50/40">
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteTransactionRecord(t.id, t.ref_number || t.particulars)}
-                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition cursor-pointer"
-                              title="Delete Entry"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => openEditTxnModal(t)}
+                                className="p-1 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-md transition cursor-pointer"
+                                title="Edit Entry"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTransactionRecord(t.id, t.ref_number || t.particulars)}
+                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition cursor-pointer"
+                                title="Delete Entry"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -2725,6 +3045,170 @@ export function AccountsReportsHub({
                 >
                   <Check className="w-4 h-4" />
                   <span>{editingRecord ? "Update Entry" : "Save Entry"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Transaction Edit Modal */}
+      {txnModalOpen && editingTxn && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-gradient-to-r from-[#0b1329] via-[#101e46] to-[#0b1329] p-4 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Pencil className="w-4 h-4 text-amber-400" />
+                <h3 className="font-black text-sm text-white">
+                  Edit Report Transaction · {editingTxn.ref_number}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTxnModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTxnRecord} className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Particulars / Description</label>
+                <input
+                  type="text"
+                  required
+                  value={txnFormData.particulars}
+                  onChange={(e) => setTxnFormData({ ...txnFormData, particulars: e.target.value })}
+                  placeholder="Booking description"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-400 outline-none font-semibold text-slate-800"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Sector / Category</label>
+                  <select
+                    value={txnFormData.category}
+                    onChange={(e) => setTxnFormData({ ...txnFormData, category: e.target.value as any })}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-400 outline-none font-bold text-slate-800 cursor-pointer"
+                  >
+                    <option value="CAR">CAR / CAB</option>
+                    <option value="BUS">BUS</option>
+                    <option value="TRAIN">TRAIN</option>
+                    <option value="FLIGHT">FLIGHT</option>
+                    <option value="HOTEL">HOTEL</option>
+                    <option value="TOUR">TOUR PACKAGE</option>
+                    <option value="UTILITY">UTILITY</option>
+                    <option value="OFFICE">OFFICE</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Payment Method</label>
+                  <select
+                    value={txnFormData.payment_method}
+                    onChange={(e) => setTxnFormData({ ...txnFormData, payment_method: e.target.value as any })}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-400 outline-none font-bold text-slate-800 cursor-pointer"
+                  >
+                    <option value="UPI">UPI</option>
+                    <option value="CASH">CASH</option>
+                    <option value="CARD">CARD</option>
+                    <option value="NETBANKING">NET BANKING</option>
+                    <option value="RAZORPAY">RAZORPAY</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Customer / Passenger Name</label>
+                  <input
+                    type="text"
+                    value={txnFormData.customer_name}
+                    onChange={(e) => setTxnFormData({ ...txnFormData, customer_name: e.target.value })}
+                    placeholder="Customer Name"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-400 outline-none font-semibold text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Phone Number</label>
+                  <input
+                    type="text"
+                    value={txnFormData.phone}
+                    onChange={(e) => setTxnFormData({ ...txnFormData, phone: e.target.value })}
+                    placeholder="Mobile Number"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-400 outline-none font-mono text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 border-t border-slate-100">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Income / Amount (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={txnFormData.income}
+                    onChange={(e) => setTxnFormData({ ...txnFormData, income: Number(e.target.value || 0) })}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-400 outline-none font-bold text-emerald-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Expense (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={txnFormData.expense}
+                    onChange={(e) => setTxnFormData({ ...txnFormData, expense: Number(e.target.value || 0) })}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-400 outline-none font-bold text-rose-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Status</label>
+                  <select
+                    value={txnFormData.status}
+                    onChange={(e) => setTxnFormData({ ...txnFormData, status: e.target.value as any })}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-400 outline-none font-black text-slate-800 cursor-pointer"
+                  >
+                    <option value="PAID">PAID</option>
+                    <option value="PENDING">PENDING</option>
+                    <option value="REFUNDED">REFUNDED</option>
+                    <option value="CANCELLED">CANCELLED</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Notes / Remarks</label>
+                <input
+                  type="text"
+                  value={txnFormData.notes}
+                  onChange={(e) => setTxnFormData({ ...txnFormData, notes: e.target.value })}
+                  placeholder="Additional notes"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-400 outline-none text-slate-700"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setTxnModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-black rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md transition cursor-pointer"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Update Transaction</span>
                 </button>
               </div>
             </form>
