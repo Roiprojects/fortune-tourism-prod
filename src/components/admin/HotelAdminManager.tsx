@@ -130,8 +130,27 @@ const INITIAL_HOTEL_BOOKINGS: HotelBooking[] = [
   },
 ];
 
-export function HotelAdminManager() {
-  const [bookings, setBookings] = useState<HotelBooking[]>(INITIAL_HOTEL_BOOKINGS);
+interface HotelAdminManagerProps {
+  onOpenBookingFlow?: () => void;
+}
+
+export function HotelAdminManager({ onOpenBookingFlow }: HotelAdminManagerProps = {}) {
+  const [bookings, setBookings] = useState<HotelBooking[]>(() => {
+    try {
+      const saved = localStorage.getItem("fortune_hotel_bookings");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const ids = new Set(parsed.map((p: any) => p.id));
+          const remainingDefaults = INITIAL_HOTEL_BOOKINGS.filter((item) => !ids.has(item.id));
+          return [...parsed, ...remainingDefaults];
+        }
+      }
+    } catch (e) {
+      console.warn("Could not read fortune_hotel_bookings from storage", e);
+    }
+    return INITIAL_HOTEL_BOOKINGS;
+  });
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [showModal, setShowModal] = useState(false);
@@ -241,12 +260,21 @@ export function HotelAdminManager() {
               Manage client hotel reservations, room vouchers, check-in schedules, and partner resort allotments.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {onOpenBookingFlow && (
+              <button
+                type="button"
+                onClick={onOpenBookingFlow}
+                className="inline-flex items-center gap-2 bg-[#00c58e] hover:bg-[#00a87a] text-white px-4 py-2.5 rounded-xl text-xs font-black shadow-md shadow-[#00c58e]/20 transition-all cursor-pointer hover:scale-105"
+              >
+                <Plus className="w-4 h-4" /> New Hotel Booking Flow
+              </button>
+            )}
             <button
               onClick={() => setShowModal(true)}
               className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white px-4 py-2.5 rounded-xl text-xs font-black shadow-md shadow-amber-500/20 transition-all cursor-pointer hover:scale-105"
             >
-              <Plus className="w-4 h-4" /> Add Hotel Reservation
+              <Plus className="w-4 h-4" /> Quick Reservation
             </button>
           </div>
         </div>

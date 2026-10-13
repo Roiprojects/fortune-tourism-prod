@@ -6,6 +6,7 @@ import {
   ArrowRight,
   Star,
   MapPin,
+  Phone,
 } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { Reveal } from "@/components/site/Reveal";
@@ -143,7 +144,7 @@ function HeroSlideOverlay({
         >
           &ldquo;{quote}&rdquo;
         </p>
-        <div className="mt-4 flex flex-row items-center justify-center gap-2 sm:mt-6 sm:gap-3">
+        <div className="mt-4 flex flex-row items-center justify-center gap-2 sm:mt-5 sm:gap-3">
           <a
             href={waHref}
             target="_blank"
@@ -165,6 +166,17 @@ function HeroSlideOverlay({
             Enquire Now
             <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </Link>
+        </div>
+        <div className="mt-2.5 sm:mt-3 flex items-center justify-center">
+          <a
+            href="tel:+919740463404"
+            onClick={stop}
+            onTouchStart={stop}
+            className="inline-flex items-center gap-1.5 rounded-full bg-black/60 border border-white/30 backdrop-blur-md px-4 py-2 text-xs font-semibold text-white shadow-lg transition hover:bg-black/80 hover:border-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm"
+          >
+            <Phone className="h-3.5 w-3.5 text-[#f6d67a] sm:h-4 sm:w-4" />
+            <span>9740463404</span>
+          </a>
         </div>
       </div>
     </div>

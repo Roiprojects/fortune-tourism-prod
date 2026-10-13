@@ -18,6 +18,7 @@ import { AccountsReportsHub, type AccountReportKey, REPORT_DEFINITIONS } from "@
 import { AdminCabBookingFlow } from "@/components/admin/AdminCabBookingFlow";
 import { AdminTicketBookingFlow } from "@/components/admin/AdminTicketBookingFlow";
 import { AdminTourBookingFlow } from "@/components/admin/AdminTourBookingFlow";
+import { AdminHotelBookingFlow } from "@/components/admin/AdminHotelBookingFlow";
 import { FareAmountEditorModal } from "@/components/admin/FareAmountEditorModal";
 import { CarFareEditorModal } from "@/components/admin/CarFareEditorModal";
 import { TourFareEditorModal } from "@/components/admin/TourFareEditorModal";
@@ -1716,11 +1717,11 @@ function AdminPage() {
                           New Offline Booking
                         </h3>
                         <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                          Car · Bus · Train · Flight
+                          Car · Bus · Train · Flight · Hotel
                         </span>
                       </div>
                       <p className="text-xs sm:text-sm text-slate-600 font-medium max-w-2xl">
-                        Create walk-in or phone reservations, record custom pricing, passenger manifests, and token advance payments.
+                        Create walk-in or phone reservations, record custom pricing, passenger manifests, hotel room stays, and token advance payments.
                       </p>
                     </div>
                   </div>
@@ -1736,8 +1737,8 @@ function AdminPage() {
                   </button>
                 </div>
 
-                {/* The 3 Service Selection Cards / Buttons */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 pt-5 border-t border-slate-200/80">
+                {/* The 4 Service Selection Cards / Buttons */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 pt-5 border-t border-slate-200/80">
                   <button
                     type="button"
                     onClick={() => {
@@ -1789,6 +1790,28 @@ function AdminPage() {
                       </div>
                       <p className="text-[11px] text-purple-200/80 font-medium mt-1">
                         Holiday packages, 1-day tours &amp; tariffs
+                      </p>
+                    </div>
+                    <div className="mt-4 w-full">
+                      <div className="w-full py-2.5 sm:py-3 px-5 rounded-xl sm:rounded-2xl text-center font-black text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 shadow-md bg-[#00c58e] group-hover:bg-[#00a87a] text-white shadow-[#00c58e]/25">
+                        SELECT
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveService("hotel_booking_flow");
+                    }}
+                    className="relative text-center p-6 sm:p-7 rounded-2xl sm:rounded-3xl border transition-all duration-300 flex flex-col justify-between items-center group overflow-hidden shadow-xl backdrop-blur-xl border-t-4 border-t-indigo-400 hover:border-indigo-400/80 shadow-indigo-500/10 bg-[#0B132B]/95 hover:bg-[#101e42] border-white/15 hover:scale-[1.02] cursor-pointer"
+                  >
+                    <div className="w-full my-auto py-3">
+                      <div className="font-black text-xl sm:text-2xl tracking-tight leading-tight text-white group-hover:text-indigo-300 transition-colors">
+                        Hotel Booking
+                      </div>
+                      <p className="text-[11px] text-indigo-200/80 font-medium mt-1">
+                        Resorts, luxury suites &amp; room stays
                       </p>
                     </div>
                     <div className="mt-4 w-full">
@@ -1967,6 +1990,15 @@ function AdminPage() {
             />
           )}
 
+          {/* HOTEL BOOKING FLOW (OFFLINE MULTI-STEP FLOW) */}
+          {activeService === "hotel_booking_flow" && (
+            <AdminHotelBookingFlow
+              onBack={() => setActiveService("home")}
+              onOpenHotelManagement={() => setActiveService("hotel")}
+              onBookingCompleted={fetchData}
+            />
+          )}
+
           {/* FLIGHT MANAGEMENT SECTION */}
           {activeService === "flight" && (
             <div className="space-y-6">
@@ -2074,7 +2106,11 @@ function AdminPage() {
           )}
 
           {/* HOTEL MANAGEMENT SECTION */}
-          {activeService === "hotel" && <HotelAdminManager />}
+          {activeService === "hotel" && (
+            <HotelAdminManager
+              onOpenBookingFlow={() => setActiveService("hotel_booking_flow")}
+            />
+          )}
 
           {/* RECHARGE MANAGEMENT SECTION */}
           {activeService === "recharge" && <RechargeAdminManager />}
@@ -2424,28 +2460,45 @@ function AdminPage() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                  {[
-                    { key: "ALL", label: "All Packages", icon: "✨" },
-                    { key: "1", label: "⚡ 1 Day Trip", icon: "⚡" },
-                    { key: "2", label: "2 Days (1N)", icon: "🌿" },
-                    { key: "3", label: "3 Days (2N)", icon: "🌄" },
-                    { key: "4", label: "4 Days (3N)", icon: "🏖️" },
-                    { key: "5+", label: "5+ Days", icon: "🌟" },
-                  ].map((f) => (
-                    <button
-                      key={f.key}
-                      type="button"
-                      onClick={() => setAdminPkgDurationFilter(f.key)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap flex items-center gap-1 ${
-                        adminPkgDurationFilter === f.key
-                          ? "bg-amber-500 text-slate-900 font-black shadow-xs ring-2 ring-amber-500/50"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
-                    >
-                      <span>{f.label}</span>
-                    </button>
-                  ))}
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Trip Duration Dropdown */}
+                  <select
+                    id="admin-tour-duration-select"
+                    value={adminPkgDurationFilter}
+                    onChange={(e) => setAdminPkgDurationFilter(e.target.value)}
+                    className="bg-slate-50 hover:bg-slate-100 text-slate-800 font-bold text-xs sm:text-sm px-3.5 py-2 rounded-xl border border-slate-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none transition cursor-pointer shadow-xs min-w-[210px]"
+                  >
+                    <option value="ALL">✨ All Packages ({adminPackages.length})</option>
+                    <option value="1">⚡ 1 Day Trip (Same Day Tours)</option>
+                    <option value="2">🌿 2 Days (1 Night Weekend)</option>
+                    <option value="3">🌄 3 Days (2 Nights Holiday)</option>
+                    <option value="4">🏖️ 4 Days (3 Nights Vacation)</option>
+                    <option value="5+">🌟 5+ Days (Extended Tours)</option>
+                  </select>
+
+                  <div className="hidden md:flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                    {[
+                      { key: "ALL", label: "All", icon: "✨" },
+                      { key: "1", label: "1 Day", icon: "⚡" },
+                      { key: "2", label: "2 Days", icon: "🌿" },
+                      { key: "3", label: "3 Days", icon: "🌄" },
+                      { key: "4", label: "4 Days", icon: "🏖️" },
+                      { key: "5+", label: "5+ Days", icon: "🌟" },
+                    ].map((f) => (
+                      <button
+                        key={f.key}
+                        type="button"
+                        onClick={() => setAdminPkgDurationFilter(f.key)}
+                        className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap flex items-center gap-1 ${
+                          adminPkgDurationFilter === f.key
+                            ? "bg-amber-500 text-slate-900 font-black shadow-xs ring-2 ring-amber-500/50"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
+                      >
+                        <span>{f.icon} {f.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 

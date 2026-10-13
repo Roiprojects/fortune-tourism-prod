@@ -12,6 +12,7 @@ import {
   Hotel,
   Car,
   CheckCircle2,
+  Clock,
 } from "lucide-react";
 import { calculateTourFare, FareCalculationResult } from "@/lib/fare-engine";
 import { packages as defaultPackages } from "@/data/packages";
@@ -262,11 +263,14 @@ export function TourBookingForm({
             )}
           </div>
 
-          {/* Duration Filter Selector Bar */}
-          <div className="bg-[#111c3a]/90 border border-white/15 rounded-2xl p-3 shadow-inner space-y-2">
-            <div className="flex items-center justify-between text-xs px-1">
-              <div className="font-bold text-slate-300 flex items-center gap-2">
-                <span>Select Trip Duration:</span>
+          {/* Duration Filter Dropdown Bar */}
+          <div className="bg-[#111c3a]/90 border border-white/15 rounded-2xl p-3 sm:p-4 shadow-inner space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-[#00c58e] shrink-0" />
+                <label htmlFor="tour-trip-duration-select" className="font-extrabold text-white text-xs sm:text-sm tracking-wide">
+                  Select Trip Duration:
+                </label>
                 {durationFilter === "1" ? (
                   <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 rounded-full text-[10px] font-black animate-pulse">
                     ⚡ 1-Day Same Day Tours ({filteredPackages.length} packages available)
@@ -277,9 +281,42 @@ export function TourBookingForm({
                   </span>
                 )}
               </div>
+
+              {/* Trip Duration Dropdown */}
+              <div className="relative min-w-[220px] sm:min-w-[260px]">
+                <select
+                  id="tour-trip-duration-select"
+                  value={durationFilter}
+                  onChange={(e) => setDurationFilter(e.target.value)}
+                  className="w-full bg-[#0b1329] hover:bg-[#14234b] focus:bg-[#14234b] text-white font-bold text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-white/20 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/30 outline-none transition-all shadow-md cursor-pointer [color-scheme:dark]"
+                >
+                  <option value="ALL" className="bg-[#0b1329] text-white py-1.5 font-bold">
+                    ✨ All Packages ({packages.length} packages)
+                  </option>
+                  <option value="1" className="bg-[#0b1329] text-white py-1.5 font-bold">
+                    ⚡ 1 Day Trip (Same Day Tours)
+                  </option>
+                  <option value="2" className="bg-[#0b1329] text-white py-1.5 font-bold">
+                    🌿 2 Days (1 Night Weekend)
+                  </option>
+                  <option value="3" className="bg-[#0b1329] text-white py-1.5 font-bold">
+                    🌄 3 Days (2 Nights Holiday)
+                  </option>
+                  <option value="4" className="bg-[#0b1329] text-white py-1.5 font-bold">
+                    🏖️ 4 Days (3 Nights Vacation)
+                  </option>
+                  <option value="5+" className="bg-[#0b1329] text-white py-1.5 font-bold">
+                    🌟 5+ Days (Extended Tours)
+                  </option>
+                </select>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {/* Quick Filter Buttons Underneath */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none pt-1 border-t border-white/10">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0 mr-1">
+                Quick Select:
+              </span>
               {DURATION_FILTER_TABS.map((tab) => {
                 const active = durationFilter === tab.key;
                 return (
@@ -287,9 +324,9 @@ export function TourBookingForm({
                     key={tab.key}
                     type="button"
                     onClick={() => setDurationFilter(tab.key)}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-black whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
                       active
-                        ? "bg-[#00c58e] text-white shadow-lg shadow-[#00c58e]/30 scale-[1.02] ring-2 ring-[#00c58e]/50 font-black"
+                        ? "bg-[#00c58e] text-white shadow-md shadow-[#00c58e]/30 scale-[1.02] ring-1 ring-[#00c58e]"
                         : "bg-[#0b1329] text-slate-300 border border-white/10 hover:border-white/30 hover:bg-[#162544] hover:text-white"
                     }`}
                   >

@@ -185,28 +185,44 @@ export function TourFareEditorModal({
             />
           </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto scrollbar-none">
-            {[
-              { id: "ALL", label: "All (26)" },
-              { id: "1", label: "1 Day" },
-              { id: "2", label: "2 Days" },
-              { id: "3", label: "3 Days" },
-              { id: "4", label: "4 Days" },
-              { id: "5+", label: "5+ Days" },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setDurationFilter(tab.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-                  durationFilter === tab.id
-                    ? "bg-purple-600 text-white shadow-sm font-black"
-                    : "bg-white/5 text-slate-300 hover:text-white hover:bg-white/10"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            {/* Trip Duration Dropdown */}
+            <select
+              value={durationFilter}
+              onChange={(e) => setDurationFilter(e.target.value)}
+              className="bg-[#111c3a] text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-white/20 focus:border-purple-400 outline-none cursor-pointer [color-scheme:dark] shrink-0"
+            >
+              <option value="ALL">✨ All Durations (26)</option>
+              <option value="1">⚡ 1 Day (Same Day)</option>
+              <option value="2">🌿 2 Days (1 Night)</option>
+              <option value="3">🌄 3 Days (2 Nights)</option>
+              <option value="4">🏖️ 4 Days (3 Nights)</option>
+              <option value="5+">🌟 5+ Days (Extended)</option>
+            </select>
+
+            <div className="hidden md:flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+              {[
+                { id: "ALL", label: "All" },
+                { id: "1", label: "1D" },
+                { id: "2", label: "2D" },
+                { id: "3", label: "3D" },
+                { id: "4", label: "4D" },
+                { id: "5+", label: "5+D" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setDurationFilter(tab.id)}
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+                    durationFilter === tab.id
+                      ? "bg-purple-600 text-white shadow-sm font-black"
+                      : "bg-white/5 text-slate-300 hover:text-white hover:bg-white/10"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
