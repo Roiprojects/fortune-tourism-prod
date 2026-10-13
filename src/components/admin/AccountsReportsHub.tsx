@@ -28,6 +28,7 @@ import {
   Plus,
   Pencil,
   Trash2,
+  RotateCcw,
   X,
   Check,
   ChevronDown,
@@ -448,6 +449,59 @@ export function AccountsReportsHub({
       return INITIAL_DAILY_REPORTS;
     }
   });
+
+  // Isolated per-report deletion map: { [reportKey]: [deletedId1, deletedId2, ...] }
+  // Ensures deleting in Daily Reports ONLY removes from Daily Reports and never reflects in other reports!
+  const [deletedByReport, setDeletedByReport] = useState<Record<string, string[]>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = localStorage.getItem("fortune_deleted_by_report");
+      const parsed: Record<string, string[]> = raw ? JSON.parse(raw) : {};
+      const prevDaily = JSON.parse(localStorage.getItem("fortune_deleted_daily_record_ids") || "[]");
+      if (Array.isArray(prevDaily) && prevDaily.length > 0) {
+        parsed.daily = Array.from(new Set([...(parsed.daily || []), ...prevDaily.map(String)]));
+      }
+      return parsed;
+    } catch {
+      return {};
+    }
+  });
+
+  const markDeletedInReport = (reportKey: string, recordId: string | number) => {
+    const idStr = String(recordId);
+    setDeletedByReport((prev) => {
+      const currentList = prev[reportKey] || [];
+      if (currentList.includes(idStr)) return prev;
+      const updated = {
+        ...prev,
+        [reportKey]: [...currentList, idStr],
+      };
+      try {
+        localStorage.setItem("fortune_deleted_by_report", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  const restoreDeletedForReport = (reportKey: string) => {
+    const reportTitle = REPORT_DEFINITIONS.find((r) => r.key === reportKey)?.shortTitle || reportKey;
+    if (!window.confirm(`Restore all deleted entries in ${reportTitle}?`)) return;
+
+    setDeletedByReport((prev) => {
+      const updated = { ...prev, [reportKey]: [] };
+      try {
+        localStorage.setItem("fortune_deleted_by_report", JSON.stringify(updated));
+        if (reportKey === "daily") {
+          localStorage.removeItem("fortune_deleted_daily_record_ids");
+        }
+      } catch {}
+      return updated;
+    });
+
+    fetchLiveTransactions();
+    toast.success(`All deleted entries restored for ${reportTitle}.`);
+  };
+
   const [loading, setLoading] = useState(false);
 
   // Daily Reports Header Filter States (From Date, To Date, All Booking Types, Search Query)
@@ -1276,11 +1330,12 @@ export function AccountsReportsHub({
       });
 
       const isCleared = typeof window !== "undefined" && localStorage.getItem("fortune_reports_cleared") === "true";
-      const deletedDailyIds = new Set<string>(
-        typeof window !== "undefined"
+      const deletedDailyIds = new Set<string>([
+        ...(deletedByReport["daily"] || []),
+        ...(typeof window !== "undefined"
           ? JSON.parse(localStorage.getItem("fortune_deleted_daily_record_ids") || "[]")
-          : []
-      );
+          : []),
+      ]);
       const filteredLiveDaily = liveDaily.filter((r) => !deletedDailyIds.has(String(r.id)));
 
       if (isCleared) {
@@ -1383,21 +1438,13 @@ export function AccountsReportsHub({
       });
 
       const allCombinedTxns = [...bookingTxns, ...mappedBiz];
-      const deletedTxnIds = new Set<string>(
-        typeof window !== "undefined"
-          ? JSON.parse(localStorage.getItem("fortune_deleted_transaction_ids") || "[]")
-          : []
-      );
-      const filteredCombined = allCombinedTxns.filter((t) => !deletedTxnIds.has(String(t.id)));
 
       if (isCleared) {
-        setTransactions(filteredCombined);
+        setTransactions(allCombinedTxns);
       } else {
-        const existingTxnKeys = new Set(filteredCombined.map((t) => t.ref_number.toLowerCase()));
-        const seeds = SEED_TRANSACTIONS.filter(
-          (s) => !deletedTxnIds.has(String(s.id)) && !existingTxnKeys.has(s.ref_number.toLowerCase())
-        );
-        setTransactions([...filteredCombined, ...seeds]);
+        const existingTxnKeys = new Set(allCombinedTxns.map((t) => t.ref_number.toLowerCase()));
+        const seeds = SEED_TRANSACTIONS.filter((s) => !existingTxnKeys.has(s.ref_number.toLowerCase()));
+        setTransactions([...allCombinedTxns, ...seeds]);
       }
     } catch (err) {
       console.warn("Error fetching live transactions:", err);
@@ -1412,7 +1459,17 @@ export function AccountsReportsHub({
 
   // Filter Daily Reports (Filtered using Header Controls: DATE range, Booking Type, and Search Query)
   const filteredDailyRecords = useMemo(() => {
+    const deletedInDaily = new Set([
+      ...(deletedByReport["daily"] || []),
+      ...(typeof window !== "undefined"
+        ? JSON.parse(localStorage.getItem("fortune_deleted_daily_record_ids") || "[]")
+        : []),
+    ]);
+
     return dailyRecords.filter((r) => {
+      // Exclude if deleted specifically in Daily Reports
+      if (deletedInDaily.has(String(r.id))) return false;
+
       // 1. Filter against the report's DATE field (not TRAV ON)
       const recDate = parseToComparableDate(r.date) || parseToComparableDate(r.raw_date);
       if (appliedDailyFromDate) {
@@ -1529,34 +1586,34 @@ export function AccountsReportsHub({
   };
 
   const handleDeleteDailyRecord = async (id: string | number) => {
-    if (!window.confirm("Are you sure you want to delete this Daily Report entry?")) return;
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this Daily Report entry?\n\nThis will ONLY delete it from Daily Reports. It will NOT affect any other reports (Reports, Final Reports, etc.) or customer bookings."
+      )
+    ) {
+      return;
+    }
 
-    // Permanently record deletion in localStorage
+    const idStr = String(id);
+
+    // 1. Permanently record deletion ONLY for Daily Reports
+    markDeletedInReport("daily", idStr);
     try {
       const stored = JSON.parse(localStorage.getItem("fortune_deleted_daily_record_ids") || "[]");
-      if (!stored.includes(String(id))) {
-        stored.push(String(id));
+      if (!stored.includes(idStr)) {
+        stored.push(idStr);
         localStorage.setItem("fortune_deleted_daily_record_ids", JSON.stringify(stored));
       }
     } catch {}
 
-    setDailyRecords((prev) => prev.filter((r) => String(r.id) !== String(id)));
+    // 2. Remove immediately from dailyRecords in local state
+    setDailyRecords((prev) => prev.filter((r) => String(r.id) !== idStr));
 
-    if (typeof id === "string" && id.startsWith("BKG-")) {
-      const bkgId = Number(id.replace("BKG-", ""));
-      if (!isNaN(bkgId) && bkgId > 0) {
-        // Also remove matching transaction
-        setTransactions((prev) => prev.filter((t) => t.id !== `BKG-TXN-${bkgId}`));
-        try {
-          await fetch(`/api/bookings/${bkgId}`, {
-            method: "DELETE",
-            headers: { "x-admin-key": "Admin@fortunetourism2026" },
-          });
-        } catch (err) {
-          console.warn("DELETE /api/bookings error:", err);
-        }
-      }
-    } else {
+    // 3. IMPORTANT: DO NOT touch transactions state and DO NOT call DELETE /api/bookings!
+    // Other reports (Reports, Final Reports, Credit/Debit, Payments, etc.) and bookings remain 100% intact!
+
+    // 4. If it's a manual entry created directly in day_book_entries table, delete that specific row from day_book_entries
+    if (typeof id === "number" || (!idStr.startsWith("BKG-") && !isNaN(Number(id)))) {
       const numId = Number(id);
       if (!isNaN(numId) && numId > 0) {
         try {
@@ -1569,57 +1626,78 @@ export function AccountsReportsHub({
         }
       }
     }
-    toast.success("Daily report entry deleted successfully.");
+
+    toast.success("Entry removed from Daily Reports only. Other reports remain unchanged.");
   };
 
   const handleDeleteTransactionRecord = async (id: string | number, label?: string) => {
+    const activeDef = REPORT_DEFINITIONS.find((r) => r.key === activeReport) || REPORT_DEFINITIONS[0];
     const desc = label ? ` "${label}"` : "";
-    if (!window.confirm(`Are you sure you want to delete this report entry${desc}?`)) return;
-
-    try {
-      const stored = JSON.parse(localStorage.getItem("fortune_deleted_transaction_ids") || "[]");
-      if (!stored.includes(String(id))) {
-        stored.push(String(id));
-        localStorage.setItem("fortune_deleted_transaction_ids", JSON.stringify(stored));
-      }
-    } catch {}
-
-    setTransactions((prev) => prev.filter((t) => String(t.id) !== String(id)));
-
-    if (typeof id === "string" && id.startsWith("BKG-TXN-")) {
-      const bkgId = Number(id.replace("BKG-TXN-", ""));
-      if (!isNaN(bkgId) && bkgId > 0) {
-        setDailyRecords((prev) => prev.filter((r) => r.id !== `BKG-${bkgId}`));
-        try {
-          await fetch(`/api/bookings/${bkgId}`, {
-            method: "DELETE",
-            headers: { "x-admin-key": "Admin@fortunetourism2026" },
-          });
-        } catch (err) {
-          console.warn("DELETE /api/bookings error:", err);
-        }
-      }
-    } else {
-      const rawId = String(id).replace("TXN-", "");
-      const numId = Number(rawId);
-      if (!isNaN(numId) && numId > 0) {
-        try {
-          await fetch(`/api/business/business_records?id=${numId}`, {
-            method: "DELETE",
-            headers: { "x-admin-key": "Admin@fortunetourism2026" },
-          });
-        } catch (err) {
-          console.warn("DELETE /api/business/business_records error:", err);
-        }
-      }
+    if (
+      !window.confirm(
+        `Are you sure you want to delete this report entry${desc} from ${activeDef.shortTitle}?\n\nThis will ONLY remove it from ${activeDef.shortTitle}. It will remain intact in Daily Reports and all other reports.`
+      )
+    ) {
+      return;
     }
-    toast.success("Report entry deleted successfully.");
+
+    const idStr = String(id);
+
+    // 1. Permanently record deletion ONLY for the currently active report
+    markDeletedInReport(activeReport, idStr);
+
+    // 2. IMPORTANT: DO NOT remove from dailyRecords!
+    // 3. DO NOT delete from /api/bookings!
+    // Other reports and customer bookings remain 100% intact!
+
+    toast.success(`Entry removed from ${activeDef.shortTitle} only. Other reports remain unchanged.`);
+  };
+
+  const handleClearCurrentReportData = async () => {
+    const activeDef = REPORT_DEFINITIONS.find((r) => r.key === activeReport) || REPORT_DEFINITIONS[0];
+    if (
+      !window.confirm(
+        `Are you sure you want to clear entries in ${activeDef.shortTitle}?\n\nThis will ONLY affect ${activeDef.shortTitle}. Other reports and bookings will remain intact.`
+      )
+    ) {
+      return;
+    }
+
+    if (activeReport === "daily") {
+      const allDailyIds = dailyRecords.map((r) => String(r.id));
+      setDeletedByReport((prev) => {
+        const updated = {
+          ...prev,
+          daily: Array.from(new Set([...(prev.daily || []), ...allDailyIds])),
+        };
+        try {
+          localStorage.setItem("fortune_deleted_by_report", JSON.stringify(updated));
+          localStorage.setItem("fortune_deleted_daily_record_ids", JSON.stringify(updated.daily));
+        } catch {}
+        return updated;
+      });
+      setDailyRecords([]);
+      toast.success("Daily Reports sheet cleared.");
+    } else {
+      const currentReportTxnIds = filteredTransactions.map((t) => String(t.id));
+      setDeletedByReport((prev) => {
+        const updated = {
+          ...prev,
+          [activeReport]: Array.from(new Set([...(prev[activeReport] || []), ...currentReportTxnIds])),
+        };
+        try {
+          localStorage.setItem("fortune_deleted_by_report", JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+      toast.success(`${activeDef.shortTitle} entries cleared.`);
+    }
   };
 
   const handleClearAllReportData = async () => {
     if (
       !window.confirm(
-        "Are you sure you want to delete and clear ALL records across all financial reports?\n\nThis will permanently remove all daily reports and transaction data."
+        "Are you sure you want to clear ALL records across all financial reports?\n\nThis will reset all daily reports and ledger sheets."
       )
     ) {
       return;
@@ -1629,9 +1707,11 @@ export function AccountsReportsHub({
       localStorage.setItem("fortune_reports_cleared", "true");
       localStorage.setItem("fortune_deleted_daily_record_ids", JSON.stringify([]));
       localStorage.setItem("fortune_deleted_transaction_ids", JSON.stringify([]));
+      localStorage.setItem("fortune_deleted_by_report", JSON.stringify({}));
 
       setDailyRecords([]);
       setTransactions([]);
+      setDeletedByReport({});
 
       await Promise.allSettled([
         fetch("/api/business/day_book_entries?all=true", {
@@ -1644,20 +1724,22 @@ export function AccountsReportsHub({
         }),
       ]);
 
-      toast.success("All report data deleted and cleared successfully.");
+      toast.success("All report data cleared successfully.");
     } catch (err) {
       console.error("Error clearing reports:", err);
-      toast.error("Failed to delete some records from server.");
+      toast.error("Failed to clear some records from server.");
     }
   };
 
   const handleRestoreDemoData = () => {
-    if (!window.confirm("Restore default sample/demo report data?")) return;
+    if (!window.confirm("Restore default sample/demo report data across all reports?")) return;
     localStorage.removeItem("fortune_reports_cleared");
     localStorage.removeItem("fortune_deleted_daily_record_ids");
     localStorage.removeItem("fortune_deleted_transaction_ids");
+    localStorage.removeItem("fortune_deleted_by_report");
+    setDeletedByReport({});
     fetchLiveTransactions();
-    toast.success("Default sample report data restored.");
+    toast.success("Default sample report data restored across all reports.");
   };
 
   const handleSaveDailyRecord = async (e: React.FormEvent) => {
@@ -1826,7 +1908,12 @@ export function AccountsReportsHub({
 
   // Filter transactions (for other reports)
   const filteredTransactions = useMemo(() => {
+    const deletedInActiveReport = new Set(deletedByReport[activeReport] || []);
+
     return transactions.filter((t) => {
+      // 0. Exclude records deleted specifically in THIS report
+      if (deletedInActiveReport.has(String(t.id))) return false;
+
       // Search
       const q = (appliedSearchQuery || searchQuery).toLowerCase().trim();
       if (q) {
@@ -1972,16 +2059,39 @@ export function AccountsReportsHub({
 
           {/* Action buttons across all Financial Ledger reports */}
           <div className="flex flex-wrap items-center gap-2">
+            {((activeReport === "daily" ? deletedByReport["daily"]?.length : deletedByReport[activeReport]?.length) || 0) > 0 && (
+              <button
+                type="button"
+                onClick={() => restoreDeletedForReport(activeReport)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs font-bold transition shadow-xs cursor-pointer"
+                title={`Restore deleted entries in ${activeDef.shortTitle}`}
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Restore Deleted ({(activeReport === "daily" ? deletedByReport["daily"]?.length : deletedByReport[activeReport]?.length) || 0})</span>
+              </button>
+            )}
+
             <button
-              onClick={handleClearAllReportData}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white border border-rose-500/40 text-xs font-bold transition shadow-xs cursor-pointer"
-              title="Permanently delete and clear all records across all reports"
+              type="button"
+              onClick={handleClearCurrentReportData}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600/90 hover:bg-rose-700 text-white border border-rose-500/40 text-xs font-bold transition shadow-xs cursor-pointer"
+              title={`Clear entries in ${activeDef.shortTitle} only`}
             >
               <Trash2 className="w-3.5 h-3.5" />
-              <span>Delete All Data</span>
+              <span>Clear {activeDef.shortTitle}</span>
             </button>
-            {dailyRecords.length === 0 && transactions.length === 0 && (
+
+            <button
+              type="button"
+              onClick={handleClearAllReportData}
+              className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-bold transition shadow-xs cursor-pointer"
+              title="Permanently clear records across all reports"
+            >
+              <span>Clear All</span>
+            </button>
+            {(dailyRecords.length === 0 || transactions.length === 0) && (
               <button
+                type="button"
                 onClick={handleRestoreDemoData}
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 text-xs font-bold transition cursor-pointer"
                 title="Restore default sample report data"
@@ -2580,7 +2690,7 @@ export function AccountsReportsHub({
                               type="button"
                               onClick={() => handleDeleteDailyRecord(r.id)}
                               className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition cursor-pointer"
-                              title="Delete Entry"
+                              title="Delete from Daily Reports only"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -2761,7 +2871,7 @@ export function AccountsReportsHub({
                                 type="button"
                                 onClick={() => handleDeleteTransactionRecord(t.id, t.ref_number || t.particulars)}
                                 className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition cursor-pointer"
-                                title="Delete Entry"
+                                title={`Delete from ${activeDef.shortTitle} only`}
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
