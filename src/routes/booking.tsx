@@ -62,6 +62,36 @@ export const Route = createFileRoute("/booking")({
 
 type CabTripType = "ONE WAY" | "ROUND TRIP" | "LOCAL" | "AIRPORT" | "HOURLY PACKAGE";
 
+const POPULAR_CAB_CITIES = [
+  "Bangalore",
+  "Mysore",
+  "Ooty",
+  "Coorg (Madikeri)",
+  "Wayanad",
+  "Pondicherry",
+  "Chikmagalur",
+  "Chennai",
+  "Tirupati",
+  "Coimbatore",
+  "Hyderabad",
+  "Mangalore",
+  "Goa",
+  "Hassan",
+  "Shimoga",
+];
+
+const POPULAR_CAB_ROUND_TRIP_DESTINATIONS = [
+  { label: "Mysore", value: "Mysore" },
+  { label: "Ooty", value: "Ooty" },
+  { label: "Coorg", value: "Coorg (Madikeri)" },
+  { label: "Wayanad", value: "Wayanad" },
+  { label: "Pondicherry", value: "Pondicherry" },
+  { label: "Chikmagalur", value: "Chikmagalur" },
+  { label: "Chennai", value: "Chennai" },
+  { label: "Tirupati", value: "Tirupati" },
+  { label: "Goa", value: "Goa" },
+];
+
 interface FleetOption {
   id: string;
   name: string;
@@ -248,9 +278,12 @@ function BookingPage() {
   const [cabTripType, setCabTripType] = useState<CabTripType>("ONE WAY");
   const [cabFrom, setCabFrom] = useState("Bangalore");
   const [cabTo, setCabTo] = useState("Mysore");
+  const [cabReturnFrom, setCabReturnFrom] = useState("Mysore");
+  const [cabReturnTo, setCabReturnTo] = useState("Bangalore");
   const [cabDate, setCabDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [cabReturnDate, setCabReturnDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [cabTime, setCabTime] = useState("07:00");
+  const [cabReturnTime, setCabReturnTime] = useState("18:00");
   const [localPackage, setLocalPackage] = useState<"4hr_40km" | "8hr_80km" | "12hr_120km">("4hr_40km");
   const [airportTripType, setAirportTripType] = useState<"Drop to Airport" | "Pickup from Airport">("Drop to Airport");
   const [airportName, setAirportName] = useState("Terminal 1, Kempegowda International Airport (BLR)");
@@ -449,6 +482,11 @@ function BookingPage() {
     if (cabTripType === "AIRPORT" && airportTripType === "Drop to Airport") {
       return airportName.split(",")[0].toUpperCase();
     }
+    if (cabTripType === "ROUND TRIP") {
+      const dest = cabTo && cabTo.trim() ? cabTo.trim().toUpperCase() : "MYSORE";
+      const ret = cabReturnTo && cabReturnTo.trim() ? cabReturnTo.trim().toUpperCase() : (cabFrom || "BANGALORE").toUpperCase();
+      return `${dest} ➔ ${ret} (ROUND TRIP)`;
+    }
     if (cabTo && cabTo.trim()) {
       return cabTo.trim().toUpperCase();
     }
@@ -498,10 +536,46 @@ function BookingPage() {
     return `${selectedFleet.name.toUpperCase()}${withLuggageCarrier ? " + CARRIER" : ""}`;
   }, [serviceType, otherFormData, selectedFleet, withLuggageCarrier]);
 
+  const handleCabFromChange = (val: string) => {
+    setCabFrom(val);
+    if (!cabReturnTo || cabReturnTo === cabFrom) {
+      setCabReturnTo(val);
+    }
+  };
+
+  const handleCabToChange = (val: string) => {
+    setCabTo(val);
+    if (!cabReturnFrom || cabReturnFrom === cabTo) {
+      setCabReturnFrom(val);
+    }
+  };
+
+  const handleSelectPopularRoundTrip = (destination: string) => {
+    setCabTo(destination);
+    setCabReturnFrom(destination);
+    setCabReturnTo(cabFrom || "Bangalore");
+  };
+
+  const swapOutbound = () => {
+    const temp = cabFrom;
+    setCabFrom(cabTo);
+    setCabTo(temp);
+    setCabReturnFrom(temp);
+    setCabReturnTo(cabFrom);
+  };
+
+  const swapReturn = () => {
+    const temp = cabReturnFrom;
+    setCabReturnFrom(cabReturnTo);
+    setCabReturnTo(temp);
+  };
+
   const swapLocations = () => {
     const temp = cabFrom;
     setCabFrom(cabTo);
     setCabTo(temp);
+    setCabReturnFrom(temp);
+    setCabReturnTo(cabFrom);
   };
 
   // Direct confirmation for Ticket Booking (No payment step)
@@ -588,6 +662,8 @@ function BookingPage() {
     if (cabTripType === "ROUND TRIP") {
       if (!cabReturnDate) e.returnDate = "Return date is required for round trip.";
       else if (cabReturnDate < cabDate) e.returnDate = "Return date cannot be earlier than departure date.";
+      if (!cabReturnFrom.trim()) setCabReturnFrom(cabTo || "Mysore");
+      if (!cabReturnTo.trim()) setCabReturnTo(cabFrom || "Bangalore");
     }
 
     setErrors(e);
@@ -668,7 +744,7 @@ function BookingPage() {
           `PNR: ${pnrNumber}`,
           `Fleet: ${selectedFleet.name} (${selectedFleet.seats} Seater)`,
           isRt
-            ? `Round Trip: ${fromLocationDisplay} ⇄ ${toLocationDisplay} | Dep: ${cabDate} ${cabTime} | Ret: ${cabReturnDate}`
+            ? `Round Trip: ${cabFrom} ➔ ${cabTo} ➔ ${cabReturnTo || cabFrom} | Onward: ${cabDate} ${cabTime} | Return: ${cabReturnDate} ${cabReturnTime}`
             : `One Way: ${fromLocationDisplay} → ${toLocationDisplay} | Dep: ${cabDate} ${cabTime}`,
           `Distance: ~${totalKm} km | Rate: ₹${rateKm}/km`,
           `Fare: ₹${calculatedFare} (Base: ₹${baseAmt} + Driver Allowance: ₹${driverAllowance} + GST: ₹${gstAmt})`,
@@ -942,83 +1018,287 @@ function BookingPage() {
                   </div>
                 )}
 
-                {/* ROUND TRIP */}
+                {/* ROUND TRIP (Matching Image 1: Outbound & Return Leg Cards with Popular Destinations) */}
                 {cabTripType === "ROUND TRIP" && (
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                    {/* FROM + SWAP + TO (Equal 50/50 Symmetrical Width) */}
-                    <div className="md:col-span-6 flex items-end gap-2">
-                      <div className="flex-1 min-w-0 space-y-1">
-                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-                          FROM
-                        </label>
-                        <LocationSearchInput
-                          value={cabFrom}
-                          onChange={setCabFrom}
-                          placeholder="Enter Pickup Location"
-                          dark={true}
-                        />
+                  <div className="space-y-4">
+                    {/* Header Bar matching Image 1 */}
+                    <div className="flex items-center justify-between pb-1 border-b border-white/10">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-black text-xs uppercase tracking-wider">
+                          ROUND TRIP
+                        </span>
+                        <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                          ORIGIN ⇄ DESTINATION
+                        </span>
                       </div>
-
-                      <div className="flex-shrink-0 pb-1">
-                        <button
-                          type="button"
-                          onClick={swapLocations}
-                          className="w-9 h-9 rounded-full bg-[#111c3a] border border-white/20 hover:border-[#00c58e] hover:bg-[#16254c] flex items-center justify-center text-slate-300 transition-all shadow-md hover:scale-105"
-                          title="Swap Locations"
-                        >
-                          <ArrowLeftRight className="w-4 h-4 text-[#00c58e]" />
-                        </button>
-                      </div>
-
-                      <div className="flex-1 min-w-0 space-y-1">
-                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-                          TO
-                        </label>
-                        <LocationSearchInput
-                          value={cabTo}
-                          onChange={setCabTo}
-                          placeholder="Enter Drop Location"
-                          dark={true}
-                        />
+                      <div className="text-[11px] text-slate-300 flex items-center gap-3">
+                        <span>
+                          🚗 <strong>Outbound:</strong> {cabDate || "Not set"}
+                        </span>
+                        <span>
+                          🔄 <strong>Return:</strong> {cabReturnDate || "Not set"}
+                        </span>
                       </div>
                     </div>
 
-                    <div className="md:col-span-2 space-y-1">
-                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-                        PICK UP DATE
-                      </label>
-                      <input
-                        type="date"
-                        min={today}
-                        value={cabDate}
-                        onChange={(e) => setCabDate(e.target.value)}
-                        className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
-                      />
+                    {/* CARD 1: OUTBOUND TRIP (ONWARD JOURNEY) */}
+                    <div className="bg-[#0e1730]/80 border-2 border-emerald-500/30 rounded-2xl p-4 sm:p-5 shadow-lg space-y-4">
+                      <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                        <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-300 flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center">
+                            1
+                          </span>
+                          🚗 Outbound Cab (Onward Journey)
+                        </h3>
+                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                          Leg 1
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end">
+                        <div className="lg:col-span-5">
+                          <label className="text-[11px] font-bold tracking-wider uppercase text-slate-300 block mb-1.5">
+                            From (Departure / Pickup City) *
+                          </label>
+                          <div className="space-y-1.5">
+                            <LocationSearchInput
+                              value={cabFrom}
+                              onChange={handleCabFromChange}
+                              placeholder="Select pickup city"
+                              dark={true}
+                            />
+                            <select
+                              value={cabFrom}
+                              onChange={(e) => handleCabFromChange(e.target.value)}
+                              className="w-full bg-[#0b1329]/80 border border-white/10 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-300 outline-none cursor-pointer [color-scheme:dark]"
+                            >
+                              <option value="">-- Quick Select Departure City --</option>
+                              {POPULAR_CAB_CITIES.map((c) => (
+                                <option key={c} value={c} className="bg-[#0b1329] text-white">
+                                  {c}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="lg:col-span-2 flex justify-center pb-2">
+                          <button
+                            type="button"
+                            onClick={swapOutbound}
+                            className="p-2.5 bg-[#111c3a] hover:bg-[#1a2c5a] text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 rounded-xl transition cursor-pointer shadow-md flex items-center gap-1.5 text-xs font-bold"
+                            title="Swap Outbound route"
+                          >
+                            <ArrowLeftRight className="w-4 h-4" />
+                            <span className="lg:hidden text-[11px]">Swap</span>
+                          </button>
+                        </div>
+
+                        <div className="lg:col-span-5">
+                          <label className="text-[11px] font-bold tracking-wider uppercase text-slate-300 block mb-1.5">
+                            To (Destination / Arrival City) *
+                          </label>
+                          <div className="space-y-1.5">
+                            <LocationSearchInput
+                              value={cabTo}
+                              onChange={handleCabToChange}
+                              placeholder="Select destination city"
+                              dark={true}
+                            />
+                            <select
+                              value={cabTo}
+                              onChange={(e) => handleCabToChange(e.target.value)}
+                              className="w-full bg-[#0b1329]/80 border border-white/10 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-300 outline-none cursor-pointer [color-scheme:dark]"
+                            >
+                              <option value="">-- Quick Select Destination City --</option>
+                              {POPULAR_CAB_CITIES.map((c) => (
+                                <option key={c} value={c} className="bg-[#0b1329] text-white">
+                                  {c}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Popular Destinations Quick Select matching Image 1 */}
+                      <div className="bg-[#111c3a]/60 border border-white/10 rounded-xl p-3">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1.5">
+                          Popular Destinations (Automatically Configures Round Trip):
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {POPULAR_CAB_ROUND_TRIP_DESTINATIONS.map((d) => (
+                            <button
+                              key={d.label}
+                              type="button"
+                              onClick={() => handleSelectPopularRoundTrip(d.value)}
+                              className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                                cabTo === d.value
+                                  ? "bg-[#00c58e] text-white border-[#00c58e] shadow-xs"
+                                  : "bg-[#0b1329] text-slate-300 border-white/15 hover:border-emerald-500 hover:text-white"
+                              }`}
+                            >
+                              🚗 {d.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-[11px] font-bold tracking-wider uppercase text-slate-300 block mb-1.5">
+                            <Calendar className="w-3.5 h-3.5 inline mr-1 text-emerald-400" /> Outbound Departure Date *
+                          </label>
+                          <input
+                            type="date"
+                            min={today}
+                            value={cabDate}
+                            onChange={(e) => {
+                              setCabDate(e.target.value);
+                              if (cabReturnDate && cabReturnDate < e.target.value) {
+                                setCabReturnDate(e.target.value);
+                              }
+                            }}
+                            className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold tracking-wider uppercase text-slate-300 block mb-1.5">
+                            <Clock className="w-3.5 h-3.5 inline mr-1 text-emerald-400" /> Outbound Preferred Time
+                          </label>
+                          <input
+                            type="time"
+                            value={cabTime}
+                            onChange={(e) => setCabTime(e.target.value)}
+                            className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
+                          />
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="md:col-span-2 space-y-1">
-                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-                        RETURN DATE
-                      </label>
-                      <input
-                        type="date"
-                        min={cabDate || today}
-                        value={cabReturnDate}
-                        onChange={(e) => setCabReturnDate(e.target.value)}
-                        className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
-                      />
+                    {/* CARD 2: RETURN TRIP (RETURN JOURNEY) */}
+                    <div className="bg-[#0e1730]/80 border-2 border-cyan-500/30 rounded-2xl p-4 sm:p-5 shadow-lg space-y-4">
+                      <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                        <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-cyan-300 flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-cyan-400 text-slate-950 font-black text-xs flex items-center justify-center">
+                            2
+                          </span>
+                          🔄 Return Cab (Return Journey)
+                        </h3>
+                        <span className="text-[10px] font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded-full">
+                          Leg 2 (Return)
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end">
+                        <div className="lg:col-span-5">
+                          <label className="text-[11px] font-bold tracking-wider uppercase text-slate-300 block mb-1.5">
+                            From (Return Departure City) *
+                          </label>
+                          <div className="space-y-1.5">
+                            <LocationSearchInput
+                              value={cabReturnFrom}
+                              onChange={setCabReturnFrom}
+                              placeholder="Return Departure City"
+                              dark={true}
+                            />
+                            <select
+                              value={cabReturnFrom}
+                              onChange={(e) => setCabReturnFrom(e.target.value)}
+                              className="w-full bg-[#0b1329]/80 border border-white/10 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-300 outline-none cursor-pointer [color-scheme:dark]"
+                            >
+                              <option value="">-- Quick Select Return Departure --</option>
+                              {POPULAR_CAB_CITIES.map((c) => (
+                                <option key={c} value={c} className="bg-[#0b1329] text-white">
+                                  {c}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="lg:col-span-2 flex justify-center pb-2">
+                          <button
+                            type="button"
+                            onClick={swapReturn}
+                            className="p-2.5 bg-[#111c3a] hover:bg-[#1a2c5a] text-cyan-400 hover:text-cyan-300 border border-cyan-500/30 rounded-xl transition cursor-pointer shadow-md flex items-center gap-1.5 text-xs font-bold"
+                            title="Swap Return route"
+                          >
+                            <ArrowLeftRight className="w-4 h-4" />
+                            <span className="lg:hidden text-[11px]">Swap</span>
+                          </button>
+                        </div>
+
+                        <div className="lg:col-span-5">
+                          <label className="text-[11px] font-bold tracking-wider uppercase text-slate-300 block mb-1.5">
+                            To (Return Drop City / Back to Origin) *
+                          </label>
+                          <div className="space-y-1.5">
+                            <LocationSearchInput
+                              value={cabReturnTo}
+                              onChange={setCabReturnTo}
+                              placeholder="Return Drop City"
+                              dark={true}
+                            />
+                            <select
+                              value={cabReturnTo}
+                              onChange={(e) => setCabReturnTo(e.target.value)}
+                              className="w-full bg-[#0b1329]/80 border border-white/10 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-300 outline-none cursor-pointer [color-scheme:dark]"
+                            >
+                              <option value="">-- Quick Select Return Drop --</option>
+                              {POPULAR_CAB_CITIES.map((c) => (
+                                <option key={c} value={c} className="bg-[#0b1329] text-white">
+                                  {c}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-[11px] font-bold tracking-wider uppercase text-slate-300 block mb-1.5">
+                            <Calendar className="w-3.5 h-3.5 inline mr-1 text-cyan-400" /> Return Date *
+                          </label>
+                          <input
+                            type="date"
+                            min={cabDate || today}
+                            value={cabReturnDate}
+                            onChange={(e) => setCabReturnDate(e.target.value)}
+                            className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold tracking-wider uppercase text-slate-300 block mb-1.5">
+                            <Clock className="w-3.5 h-3.5 inline mr-1 text-cyan-400" /> Return Preferred Time
+                          </label>
+                          <input
+                            type="time"
+                            value={cabReturnTime}
+                            onChange={(e) => setCabReturnTime(e.target.value)}
+                            className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
+                          />
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="md:col-span-2 space-y-1">
-                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400 whitespace-nowrap">
-                        PICK UP TIME
-                      </label>
-                      <input
-                        type="time"
-                        value={cabTime}
-                        onChange={(e) => setCabTime(e.target.value)}
-                        className="w-full min-w-[100px] bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
-                      />
+                    {/* Circuit Banner */}
+                    <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-950/60 via-slate-900 to-cyan-950/60 border border-emerald-500/30 text-xs flex flex-col sm:flex-row items-center justify-between gap-2 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#00c58e] animate-pulse shrink-0" />
+                        <span className="text-slate-300">
+                          2-Way Round Trip Circuit:{" "}
+                          <strong className="text-white font-extrabold">{cabFrom}</strong>
+                          {" ➔ "}
+                          <strong className="text-emerald-400 font-extrabold">{cabTo}</strong>
+                          {" ➔ "}
+                          <strong className="text-cyan-300 font-extrabold">{cabReturnTo || cabFrom}</strong>
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-400 font-medium">
+                        Dep: <strong className="text-white">{departureDateFormatted}</strong> ({cabTime}) · Ret: <strong className="text-white">{cabReturnDateFormatted}</strong> ({cabReturnTime})
+                      </span>
                     </div>
                   </div>
                 )}
@@ -1327,7 +1607,7 @@ function BookingPage() {
                     Select Vehicle Fleet
                   </h2>
                   <p className="text-xs text-slate-400">
-                    {cabTripType === "ROUND TRIP" ? `${fromLocationDisplay} ⇄ ${toLocationDisplay} (Round Trip)` : `${fromLocationDisplay} → ${toLocationDisplay}`} · Dep: {departureDateFormatted} {cabTripType === "ROUND TRIP" ? `· Ret: ${cabReturnDateFormatted}` : ""}
+                    {cabTripType === "ROUND TRIP" ? `${fromLocationDisplay} ⇄ ${cabTo} ➔ ${cabReturnTo || cabFrom} (2-Way Round Trip)` : `${fromLocationDisplay} → ${toLocationDisplay}`} · Dep: {departureDateFormatted} {cabTripType === "ROUND TRIP" ? `· Ret: ${cabReturnDateFormatted}` : ""}
                   </p>
                 </div>
 
@@ -1505,7 +1785,7 @@ function BookingPage() {
                     {vehicleDisplay}
                   </div>
                   <div className="text-xs text-slate-300 font-medium">
-                    {cabTripType === "ROUND TRIP" ? `${fromLocationDisplay} ⇄ ${toLocationDisplay}` : `${fromLocationDisplay} → ${toLocationDisplay}`} · Dep: {departureDateFormatted} {cabTripType === "ROUND TRIP" ? `· Ret: ${cabReturnDateFormatted}` : ""} · {cabTripType}
+                    {cabTripType === "ROUND TRIP" ? `${cabFrom} ➔ ${cabTo} ➔ ${cabReturnTo || cabFrom} (Round Trip Circuit)` : `${fromLocationDisplay} → ${toLocationDisplay}`} · Dep: {departureDateFormatted} ({cabTime}) {cabTripType === "ROUND TRIP" ? `· Ret: ${cabReturnDateFormatted} (${cabReturnTime})` : ""} · {cabTripType}
                   </div>
                 </div>
 
@@ -1656,11 +1936,17 @@ function BookingPage() {
                   <div className="space-y-1">
                     <div className="text-slate-400 font-semibold">Route &amp; Journey:</div>
                     <div className="text-white font-bold">
-                      {cabTripType === "ROUND TRIP" ? `${fromLocationDisplay} ⇄ ${toLocationDisplay}` : `${fromLocationDisplay} → ${toLocationDisplay}`}
+                      {cabTripType === "ROUND TRIP" ? `${cabFrom} ➔ ${cabTo} ➔ ${cabReturnTo || cabFrom} (Round Trip)` : `${fromLocationDisplay} → ${toLocationDisplay}`}
                     </div>
-                    <div className="text-slate-300 text-[11px]">
-                      Departure: {departureDateFormatted}
-                      {cabTripType === "ROUND TRIP" && ` · Return: ${cabReturnDateFormatted}`}
+                    <div className="text-slate-300 text-[11px] space-y-0.5 pt-0.5">
+                      {cabTripType === "ROUND TRIP" ? (
+                        <>
+                          <div>🛫 <strong>Leg 1 (Onward):</strong> {cabFrom} → {cabTo} on {departureDateFormatted} at {cabTime}</div>
+                          <div>🛬 <strong>Leg 2 (Return):</strong> {cabReturnFrom || cabTo} → {cabReturnTo || cabFrom} on {cabReturnDateFormatted} at {cabReturnTime}</div>
+                        </>
+                      ) : (
+                        <div>Departure: {departureDateFormatted} at {cabTime}</div>
+                      )}
                     </div>
                     {cabTripType === "ROUND TRIP" && (
                       <span className="inline-block mt-1 bg-[#00c58e]/20 text-[#00c58e] border border-[#00c58e]/30 px-2 py-0.5 rounded font-bold text-[10px]">
@@ -1982,16 +2268,16 @@ function BookingPage() {
                       {/* Row 2: FROM | TO */}
                       <tr className="border-b border-slate-900 divide-x divide-slate-900">
                         <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
-                          FROM
+                          {cabTripType === "ROUND TRIP" ? "ONWARD (FROM):" : "FROM:"}
                         </td>
                         <td colSpan={2} className="p-2.5 font-black text-slate-900 uppercase">
                           {fromLocationDisplay}
                         </td>
                         <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
-                          TO:
+                          {cabTripType === "ROUND TRIP" ? "DESTINATION & RETURN:" : "TO:"}
                         </td>
                         <td colSpan={2} className="p-2.5 font-black text-slate-900 uppercase">
-                          {cabTripType === "ROUND TRIP" ? `${toLocationDisplay} (ROUND TRIP RETURN)` : toLocationDisplay}
+                          {cabTripType === "ROUND TRIP" ? `${(cabTo || "MYSORE").toUpperCase()} ➔ ${(cabReturnTo || cabFrom || "BANGALORE").toUpperCase()} (ROUND TRIP 2-WAY)` : toLocationDisplay}
                         </td>
                       </tr>
 
@@ -2014,9 +2300,9 @@ function BookingPage() {
                         </td>
                         <td className="p-2.5 font-bold text-slate-900">
                           {cabTripType === "ROUND TRIP" ? (
-                            <div>
-                              <div>Dep: <strong>{departureDateFormatted}</strong></div>
-                              <div className="text-emerald-800 font-black">Ret: <strong>{cabReturnDateFormatted}</strong></div>
+                            <div className="text-xs space-y-0.5">
+                              <div>Onward: <strong>{departureDateFormatted} ({cabTime})</strong></div>
+                              <div className="text-emerald-800 font-black">Return: <strong>{cabReturnDateFormatted} ({cabReturnTime})</strong></div>
                             </div>
                           ) : (
                             departureDateFormatted
