@@ -27,6 +27,7 @@ import { CarDriverPackagesTripsModal } from "@/components/admin/CarDriverPackage
 import { HourlyPackagesTripsModal } from "@/components/admin/HourlyPackagesTripsModal";
 import { ExpenseReportModal } from "@/components/admin/ExpenseReportModal";
 import { QuotationGeneratorModal } from "@/components/admin/QuotationGeneratorModal";
+import { BackupFolderModal } from "@/components/admin/BackupFolderModal";
 import logoAsset from "@/assets/fortune-tourism-logo.png";
 import fullLogoAsset from "@/assets/fortune-tourism-full-logo.png";
 import keralaHeroImg from "@/assets/kerala-hero.jpg";
@@ -186,6 +187,8 @@ import {
   Compass,
   FileText,
   Printer,
+  FolderArchive,
+  FolderOpen,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
@@ -346,6 +349,9 @@ function AdminPage() {
   // Account Menu dropdown states & handlers
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [financialLedgersOpen, setFinancialLedgersOpen] = useState(false);
+  const [backupFolderOpen, setBackupFolderOpen] = useState(false);
+  const [backupFolderModalOpen, setBackupFolderModalOpen] = useState(false);
+  const [dashboardBackupExpanded, setDashboardBackupExpanded] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
@@ -1693,6 +1699,172 @@ function AdminPage() {
                       )}
                     </div>
 
+                    {/* Backup Folder with Dropdown */}
+                    <div className="mt-0.5 space-y-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setBackupFolderOpen((prev) => !prev);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition text-left cursor-pointer ${
+                          backupFolderOpen
+                            ? "bg-amber-50 text-amber-900 border border-amber-200/50"
+                            : "text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50/60"
+                        }`}
+                        aria-expanded={backupFolderOpen}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <FolderArchive className="w-4 h-4 text-amber-600 shrink-0" />
+                          <span>Backup Folder</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-1.5 py-0.5 rounded-md">
+                            6 Categories
+                          </span>
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                              backupFolderOpen ? "rotate-180 text-amber-900" : ""
+                            }`}
+                          />
+                        </div>
+                      </button>
+
+                      {backupFolderOpen && (
+                        <div className="pl-1 pr-1 py-1 space-y-1 bg-slate-50/90 rounded-xl border border-slate-200/80 max-h-72 overflow-y-auto scrollbar-thin">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setBackupFolderModalOpen(true);
+                              setAccountMenuOpen(false);
+                            }}
+                            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-black bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-xs transition text-left cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <FolderOpen className="w-3.5 h-3.5" />
+                              <span>View All 6 Cards</span>
+                            </div>
+                            <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded font-extrabold">Open Folder</span>
+                          </button>
+
+                          {/* 1. Cab Booking */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveService("cars");
+                              setAccountMenuOpen(false);
+                            }}
+                            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-white transition text-left cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Car className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span>Cab Booking</span>
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-semibold">{vehiclesList.length || 8} Vehicles</span>
+                          </button>
+
+                          {/* 2. Ticket Booking */}
+                          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-white transition">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveService("train");
+                                setAccountMenuOpen(false);
+                              }}
+                              className="flex items-center gap-2 grow text-left cursor-pointer"
+                            >
+                              <Ticket className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                              <span>Ticket Booking</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFareEditorModalOpen(true);
+                                setAccountMenuOpen(false);
+                              }}
+                              className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200 transition cursor-pointer flex items-center gap-1"
+                              title="Edit Fare Amount"
+                            >
+                              <Pencil className="w-2.5 h-2.5 text-amber-700" />
+                              <span>Edit Fare</span>
+                            </button>
+                          </div>
+
+                          {/* 3. Tour Packages */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveService("packages");
+                              setAccountMenuOpen(false);
+                            }}
+                            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-white transition text-left cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Package className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              <span>Tour Packages</span>
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-semibold">{packagesList.length || 0} Packages</span>
+                          </button>
+
+                          {/* 4. Flight Booking */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveService("flight");
+                              setAccountMenuOpen(false);
+                            }}
+                            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-white transition text-left cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Plane className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                              <span>Flight Booking</span>
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-semibold">{bookingStats.flightBookings || 0} Bookings</span>
+                          </button>
+
+                          {/* 5. Bus Booking */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveService("bus");
+                              setAccountMenuOpen(false);
+                            }}
+                            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-white transition text-left cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Bus className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+                              <span>Bus Booking</span>
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-semibold">{bookingStats.busBookings || 0} Bookings</span>
+                          </button>
+
+                          {/* 6. Hotel Booking */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveService("hotel");
+                              setAccountMenuOpen(false);
+                            }}
+                            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-white transition text-left cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Hotel className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                              <span>Hotel Booking</span>
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-semibold">Stays &amp; Resorts</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
                     <div className="my-1 border-t border-slate-100" />
 
                     {/* Logout */}
@@ -1846,143 +2018,195 @@ function AdminPage() {
                 </div>
               </div>
 
-              {/* Booking Itinerary Service Cards */}
-              <div className="mb-2">
-                <div className="mb-4">
-                  <h2 className="text-2xl sm:text-3xl font-black text-white font-heading drop-shadow-md tracking-tight">
-                    Select Your Category
-                  </h2>
+              {/* Backup Folder: All Category Cards in One Card Folder */}
+              <div className="mb-6 bg-white/95 backdrop-blur-md rounded-3xl border border-white/80 p-5 sm:p-6 shadow-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-md shrink-0">
+                      <FolderArchive className="w-6 h-6 sm:w-7 sm:h-7" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <h3 className="text-lg sm:text-xl font-black text-slate-900">
+                          Backup Folder
+                        </h3>
+                        <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200">
+                          6 Service Categories
+                        </span>
+                      </div>
+                      <p className="text-xs sm:text-sm text-slate-600 font-medium max-w-2xl">
+                        Consolidated card folder for Cab Booking, Ticket Booking, Tour Packages, Flight Booking, Bus Booking, and Hotel Booking. Also accessible anytime from the Account menu.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setDashboardBackupExpanded((prev) => !prev)}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 px-4 py-2.5 text-xs font-bold text-slate-800 shadow-2xs cursor-pointer transition-all"
+                    >
+                      {dashboardBackupExpanded ? (
+                        <>
+                          <ChevronDown className="h-4 w-4 rotate-180" /> Collapse Cards
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="h-4 w-4" /> Expand 6 Cards
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBackupFolderModalOpen(true)}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 px-4 py-2.5 text-xs font-bold text-white shadow hover:brightness-110 cursor-pointer transition-transform hover:scale-105"
+                    >
+                      <FolderOpen className="h-4 w-4" /> Open Folder View
+                    </button>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {[
-                    {
-                      title: "Cab Booking",
-                      description: "Airport transfers, local city rentals & outstation cab fleet tracking",
-                      icon: Car,
-                      badge: `${vehiclesList.length || 8} Vehicles`,
-                      iconBg: "bg-emerald-50 text-[#063f2d]",
-                      onClick: () => setActiveService("cars"),
-                    },
-                    {
-                      title: "Ticket Booking",
-                      description: "Issue tickets, track PNRs, generate official PDF vouchers & ticket copies",
-                      icon: Ticket,
-                      badge: "Ticketing Hub",
-                      iconBg: "bg-blue-50 text-blue-700",
-                      onClick: () => setActiveService("train"),
-                      allowFareEdit: true,
-                    },
-                    {
-                      title: "Tour Packages",
-                      description: "Curate South India holiday itineraries, seasonal tariffs & packages",
-                      icon: Package,
-                      badge: `${packagesList.length || 0} Packages`,
-                      iconBg: "bg-amber-50 text-[#d79a17]",
-                      onClick: () => setActiveService("packages"),
-                    },
-                    {
-                      title: "Flight Booking",
-                      description: "Domestic & international airline reservations, flight manifests & airfares",
-                      icon: Plane,
-                      badge: `${bookingStats.flightBookings || 0} Bookings`,
-                      iconBg: "bg-sky-50 text-sky-700",
-                      onClick: () => setActiveService("flight"),
-                    },
-                    {
-                      title: "Bus Booking",
-                      description: "Intercity sleeper, Volvo multi-axle & private bus seat allocations",
-                      icon: Bus,
-                      badge: `${bookingStats.busBookings || 0} Bookings`,
-                      iconBg: "bg-orange-50 text-orange-700",
-                      onClick: () => setActiveService("bus"),
-                    },
-                    {
-                      title: "Hotel Booking",
-                      description: "Resort suites, business hotel reservations, check-in schedules & tariffs",
-                      icon: Hotel,
-                      badge: "Stays & Resorts",
-                      iconBg: "bg-indigo-50 text-indigo-700",
-                      onClick: () => setActiveService("hotel"),
-                    },
-                  ].map((service) => {
-                    const Icon = service.icon;
-                    return (
-                      <div
-                        key={service.title}
-                        role="button"
-                        tabIndex={0}
-                        onClick={service.onClick}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            service.onClick();
-                          }
-                        }}
-                        className="bg-white/95 backdrop-blur-md rounded-2xl border border-white/80 p-5 shadow-lg hover:shadow-2xl hover:border-amber-400 hover:bg-white hover:-translate-y-1 transition-all duration-300 text-left flex flex-col justify-between group cursor-pointer"
-                      >
-                        <div>
-                          <div className="flex items-center justify-between mb-3">
-                            <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 shadow-2xs ${service.iconBg}`}>
-                              <Icon className="w-5 h-5" />
+                {/* When expanded on dashboard, show the 6 category cards */}
+                {dashboardBackupExpanded && (
+                  <div className="mt-5 pt-5 border-t border-slate-200/80 animate-in fade-in duration-200">
+                    <div className="mb-4 flex items-center justify-between">
+                      <h4 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">
+                        Categories in Backup Folder
+                      </h4>
+                      <span className="text-xs text-slate-500 font-medium">Click any card to open its service panel</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {[
+                        {
+                          title: "Cab Booking",
+                          description: "Airport transfers, local city rentals & outstation cab fleet tracking",
+                          icon: Car,
+                          badge: `${vehiclesList.length || 8} Vehicles`,
+                          iconBg: "bg-emerald-50 text-[#063f2d]",
+                          onClick: () => setActiveService("cars"),
+                        },
+                        {
+                          title: "Ticket Booking",
+                          description: "Issue tickets, track PNRs, generate official PDF vouchers & ticket copies",
+                          icon: Ticket,
+                          badge: "Ticketing Hub",
+                          iconBg: "bg-blue-50 text-blue-700",
+                          onClick: () => setActiveService("train"),
+                          allowFareEdit: true,
+                        },
+                        {
+                          title: "Tour Packages",
+                          description: "Curate South India holiday itineraries, seasonal tariffs & packages",
+                          icon: Package,
+                          badge: `${packagesList.length || 0} Packages`,
+                          iconBg: "bg-amber-50 text-[#d79a17]",
+                          onClick: () => setActiveService("packages"),
+                        },
+                        {
+                          title: "Flight Booking",
+                          description: "Domestic & international airline reservations, flight manifests & airfares",
+                          icon: Plane,
+                          badge: `${bookingStats.flightBookings || 0} Bookings`,
+                          iconBg: "bg-sky-50 text-sky-700",
+                          onClick: () => setActiveService("flight"),
+                        },
+                        {
+                          title: "Bus Booking",
+                          description: "Intercity sleeper, Volvo multi-axle & private bus seat allocations",
+                          icon: Bus,
+                          badge: `${bookingStats.busBookings || 0} Bookings`,
+                          iconBg: "bg-orange-50 text-orange-700",
+                          onClick: () => setActiveService("bus"),
+                        },
+                        {
+                          title: "Hotel Booking",
+                          description: "Resort suites, business hotel reservations, check-in schedules & tariffs",
+                          icon: Hotel,
+                          badge: "Stays & Resorts",
+                          iconBg: "bg-indigo-50 text-indigo-700",
+                          onClick: () => setActiveService("hotel"),
+                        },
+                      ].map((service) => {
+                        const Icon = service.icon;
+                        return (
+                          <div
+                            key={service.title}
+                            role="button"
+                            tabIndex={0}
+                            onClick={service.onClick}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                service.onClick();
+                              }
+                            }}
+                            className="bg-white/95 backdrop-blur-md rounded-2xl border border-white/80 p-5 shadow-lg hover:shadow-2xl hover:border-amber-400 hover:bg-white hover:-translate-y-1 transition-all duration-300 text-left flex flex-col justify-between group cursor-pointer"
+                          >
+                            <div>
+                              <div className="flex items-center justify-between mb-3">
+                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 shadow-2xs ${service.iconBg}`}>
+                                  <Icon className="w-5 h-5" />
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  {service.allowFareEdit && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setFareEditorModalOpen(true);
+                                      }}
+                                      className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200 transition shadow-2xs flex items-center gap-1 cursor-pointer"
+                                      title="Quick edit ticket fare amounts & tariffs"
+                                    >
+                                      <Pencil className="w-2.5 h-2.5 text-amber-700" />
+                                      <span>Edit Fare</span>
+                                    </button>
+                                  )}
+                                  <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 group-hover:bg-amber-100 group-hover:text-amber-900 transition shadow-2xs">
+                                    {service.badge}
+                                  </span>
+                                </div>
+                              </div>
+                              <h3 className="text-base font-extrabold text-slate-900 group-hover:text-[#063f2d] transition">
+                                {service.title}
+                              </h3>
+                              <p className="text-xs text-slate-600 mt-1.5 leading-relaxed font-medium">
+                                {service.description}
+                              </p>
                             </div>
-                            <div className="flex items-center gap-1.5">
-                              {service.allowFareEdit && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setFareEditorModalOpen(true);
-                                  }}
-                                  className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200 transition shadow-2xs flex items-center gap-1 cursor-pointer"
-                                  title="Quick edit ticket fare amounts & tariffs"
-                                >
-                                  <Pencil className="w-2.5 h-2.5 text-amber-700" />
-                                  <span>Edit Fare</span>
-                                </button>
+                            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#063f2d] group-hover:text-[#d79a17] transition">
+                              {service.allowFareEdit ? (
+                                <div className="flex items-center justify-between w-full gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setFareEditorModalOpen(true);
+                                    }}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black text-xs shadow-md hover:shadow-lg transition-all hover:scale-[1.03] cursor-pointer"
+                                  >
+                                    <IndianRupee className="w-3.5 h-3.5 text-white" />
+                                    <span>Edit Fare Amount</span>
+                                  </button>
+                                  <div className="flex items-center gap-1 text-slate-700 group-hover:text-[#063f2d] font-bold text-xs shrink-0">
+                                    <span>Service Panel</span>
+                                    <span className="text-sm leading-none transition-transform group-hover:translate-x-1">→</span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  <span>Open Service Panel</span>
+                                  <span className="text-sm leading-none transition-transform group-hover:translate-x-1">→</span>
+                                </>
                               )}
-                              <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 group-hover:bg-amber-100 group-hover:text-amber-900 transition shadow-2xs">
-                                {service.badge}
-                              </span>
                             </div>
                           </div>
-                          <h3 className="text-base font-extrabold text-slate-900 group-hover:text-[#063f2d] transition">
-                            {service.title}
-                          </h3>
-                          <p className="text-xs text-slate-600 mt-1.5 leading-relaxed font-medium">
-                            {service.description}
-                          </p>
-                        </div>
-                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#063f2d] group-hover:text-[#d79a17] transition">
-                          {service.allowFareEdit ? (
-                            <div className="flex items-center justify-between w-full gap-2">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setFareEditorModalOpen(true);
-                                }}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black text-xs shadow-md hover:shadow-lg transition-all hover:scale-[1.03] cursor-pointer"
-                              >
-                                <IndianRupee className="w-3.5 h-3.5 text-white" />
-                                <span>Edit Fare Amount</span>
-                              </button>
-                              <div className="flex items-center gap-1 text-slate-700 group-hover:text-[#063f2d] font-bold text-xs shrink-0">
-                                <span>Service Panel</span>
-                                <span className="text-sm leading-none transition-transform group-hover:translate-x-1">→</span>
-                              </div>
-                            </div>
-                          ) : (
-                            <>
-                              <span>Open Service Panel</span>
-                              <span className="text-sm leading-none transition-transform group-hover:translate-x-1">→</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -2813,6 +3037,18 @@ function AdminPage() {
           onClose={() => setQuotationModalOpen(false)}
         />
       )}
+
+      {/* Backup Folder Modal */}
+      <BackupFolderModal
+        isOpen={backupFolderModalOpen}
+        onClose={() => setBackupFolderModalOpen(false)}
+        onSelectCategory={(cat) => setActiveService(cat)}
+        onOpenFareEditor={() => setFareEditorModalOpen(true)}
+        vehiclesCount={vehiclesList.length || 8}
+        packagesCount={packagesList.length || 17}
+        flightBookingsCount={bookingStats.flightBookings || 6}
+        busBookingsCount={bookingStats.busBookings || 7}
+      />
     </SiteLayout>
   );
 }
