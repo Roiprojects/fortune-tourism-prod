@@ -1465,21 +1465,15 @@ Helpline: +91 9740463404 | travel@fortunetourism.co.in`;
 
                 {/* Top Letterhead Header: Logo & Company Name */}
                 <div className="border-b-2 border-[#063f2d] pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
-                  <div className="flex items-center gap-3.5">
-                    {/* Crest Circular Logo */}
-                    <div className="w-14 h-14 rounded-full border-2 border-[#063f2d] bg-white flex items-center justify-center shrink-0 shadow-sm">
-                      <span className="font-serif font-black text-2xl text-[#063f2d] tracking-tighter">
-                        FT
-                      </span>
-                    </div>
-                    <div>
-                      <h1 className="font-serif font-black text-xl sm:text-2xl text-[#063f2d] tracking-wide leading-tight">
-                        FORTUNE Tourism
-                      </h1>
-                      <p className="font-serif italic text-xs sm:text-sm text-slate-600 font-semibold tracking-wide mt-0.5">
-                        Meets all your Travel Need
-                      </p>
-                    </div>
+                  <div className="flex flex-col items-start gap-1">
+                    <img
+                      src="/images/packages/fortune-tourism-full-logo.png"
+                      alt="FORTUNE Tourism"
+                      className="h-12 sm:h-14 w-auto object-contain"
+                    />
+                    <p className="font-serif italic text-xs sm:text-sm text-slate-600 font-semibold tracking-wide pl-1">
+                      Meets all your Travel Need
+                    </p>
                   </div>
 
                   <div className="text-right text-xs space-y-1 sm:self-center">
