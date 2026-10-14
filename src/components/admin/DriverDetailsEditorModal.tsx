@@ -1299,7 +1299,7 @@ export function DriverDetailsEditorModal({
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. 9740463404"
+                    placeholder="e.g. 9740463404 / 9964600247"
                     value={editingRecord.driverPhone}
                     onChange={(e) =>
                       setEditingRecord({
@@ -1436,7 +1436,7 @@ export function DriverDetailsEditorModal({
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. 9733941119"
+                    placeholder="e.g. 9964600247 / 9740463404"
                     value={editingRecord.paxPhone}
                     onChange={(e) =>
                       setEditingRecord({

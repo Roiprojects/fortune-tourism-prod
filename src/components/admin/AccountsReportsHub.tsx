@@ -3787,7 +3787,7 @@ export function AccountsReportsHub({
                     type="text"
                     value={dailyFormData.ph_no}
                     onChange={(e) => setDailyFormData({ ...dailyFormData, ph_no: e.target.value })}
-                    placeholder="e.g. 9800312531"
+                    placeholder="e.g. 9964600247 / 9740463404"
                     className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-400 outline-none font-mono text-slate-800"
                   />
                 </div>
@@ -4002,7 +4002,7 @@ export function AccountsReportsHub({
                     type="text"
                     value={txnFormData.phone}
                     onChange={(e) => setTxnFormData({ ...txnFormData, phone: e.target.value })}
-                    placeholder="Mobile Number"
+                    placeholder="e.g. 9964600247 / 9740463404"
                     className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-400 outline-none font-mono text-slate-800"
                   />
                 </div>

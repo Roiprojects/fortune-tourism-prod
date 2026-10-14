@@ -691,13 +691,16 @@ function TaxiBookingFormView({ payload, selection, onBack, onClose }: TaxiBookin
                     setMobile(e.target.value);
                     if (errors.mobile) setErrors((prev) => ({ ...prev, mobile: undefined }));
                   }}
-                  placeholder="10-digit mobile number"
+                  placeholder="e.g. 9964600247 / 9740463404"
                   className={`${inputBase} ${
                     errors.mobile
                       ? "border-red-500 ring-2 ring-red-100"
                       : "border-slate-300 focus:border-lime-500"
                   }`}
                 />
+                <span className="block text-[10px] text-slate-400 mt-1">
+                  e.g. 9964600247, 9740463404
+                </span>
                 {errors.mobile && (
                   <span className="block text-[10px] font-medium text-red-500 mt-1">
                     {errors.mobile}

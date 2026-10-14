@@ -489,13 +489,13 @@ export function AdminTourBookingFlow({
                 <input
                   type="tel"
                   maxLength={15}
-                  placeholder="Enter passenger mobile number (e.g. 9845003000 / 9876543210)"
+                  placeholder="Enter passenger mobile number (e.g. 9964600247 / 9740463404)"
                   value={tourFormData.phone || ""}
                   onChange={(e) => onTourChange("phone", e.target.value)}
                   className="w-full bg-[#0b1329]/90 border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-bold text-white outline-none placeholder:text-slate-500 [color-scheme:dark]"
                 />
                 <p className="text-[10px] text-slate-400 mt-1">
-                  This phone number will be recorded on the official ticket voucher and used for SMS / WhatsApp dispatch.
+                  This phone number will be recorded on the official ticket voucher (e.g. 9964600247 / 9740463404) and used for SMS / WhatsApp dispatch.
                 </p>
               </div>
 
@@ -791,7 +791,7 @@ export function AdminTourBookingFlow({
                         <input
                           type="tel"
                           value={tourFormData.phone || ""}
-                          placeholder="Enter Phone No."
+                          placeholder="e.g. 9964600247 / 9740463404"
                           onChange={(e) => onTourChange("phone", e.target.value)}
                           className="w-full bg-transparent border-b border-dashed border-slate-400 focus:border-[#00c58e] outline-none font-bold text-slate-900"
                         />

@@ -1531,11 +1531,14 @@ export function AdminHotelBookingFlow({
               </label>
               <input
                 type="tel"
-                placeholder="e.g. 9845012345"
+                placeholder="e.g. 9964600247 / 9740463404"
                 value={guestPhone}
                 onChange={(e) => setGuestPhone(e.target.value)}
                 className="w-full bg-[#111c3a] border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-[#00c58e] outline-none font-semibold"
               />
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                e.g. 9964600247, 9740463404
+              </p>
             </div>
 
             {/* Email (Optional) */}

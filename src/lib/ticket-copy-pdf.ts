@@ -81,7 +81,7 @@ export function downloadTicketCopyPDF(data: TicketCopyData) {
           { content: "Passenger Name:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
           { content: (data.passengerName || "FORTUNE GROUP").toUpperCase(), styles: { fontStyle: "bold" } },
           { content: "Passenger Phone No.:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
-          { content: data.passengerPhone || "9845003000", styles: { fontStyle: "bold" } },
+          { content: data.passengerPhone || "9964600247", styles: { fontStyle: "bold" } },
           { content: "Tour Type", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
           { content: (data.tourType || "LOCAL TRIP").toUpperCase(), styles: { fontStyle: "bold" } },
         ],

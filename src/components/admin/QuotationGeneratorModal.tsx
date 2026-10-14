@@ -212,7 +212,7 @@ function createDefaultQuotation(): QuotationData {
 
     clientName: "Valued Customer / Corporate Client",
     clientContactPerson: "General Manager / Travel Coordinator",
-    clientPhone: "9845003000",
+    clientPhone: "9964600247",
     clientEmail: "client@example.com",
     clientAddress: "Electronic City, Hosur Road, Bengaluru, Karnataka 560100",
     clientGst: "",
@@ -1056,7 +1056,7 @@ Helpline: +91 9740463404 | travel@fortunetourism.co.in`;
                         type="tel"
                         value={quotation.clientPhone}
                         onChange={(e) => setQuotation({ ...quotation, clientPhone: e.target.value })}
-                        placeholder="e.g. 9845003000"
+                        placeholder="e.g. 9964600247 / 9740463404"
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
                       />
                     </div>

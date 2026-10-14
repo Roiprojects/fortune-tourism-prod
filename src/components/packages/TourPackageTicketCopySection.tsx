@@ -33,7 +33,7 @@ export function TourPackageTicketCopySection() {
   // Ticket Copy form state matching attached format
   const [travellingType, setTravellingType] = useState("CAR");
   const [passengerName, setPassengerName] = useState("FORTUNE GROUP");
-  const [passengerPhoneNo, setPassengerPhoneNo] = useState("9845003000");
+  const [passengerPhoneNo, setPassengerPhoneNo] = useState("9964600247");
   const [tourType, setTourType] = useState("LOCAL TRIP");
   const [ticketNumber, setTicketNumber] = useState("FT3423CZ");
   const [pnrNumber, setPnrNumber] = useState("FC17G3423");

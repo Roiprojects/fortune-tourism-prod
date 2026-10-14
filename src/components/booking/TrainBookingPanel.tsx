@@ -275,13 +275,16 @@ export function TrainBookingPanel() {
                   setMobile(e.target.value);
                   if (errors.mobile) setErrors((prev) => ({ ...prev, mobile: undefined }));
                 }}
-                placeholder="Mobile number"
+                placeholder="e.g. 9964600247 / 9740463404"
                 className={`w-full py-3 px-4 rounded-2xl border text-sm font-semibold text-slate-900 bg-white focus:outline-none placeholder:text-slate-400 ${
                   errors.mobile
                     ? "border-red-500 ring-2 ring-red-100"
                     : "border-slate-300 focus:border-amber-500"
                 }`}
               />
+              <span className="block text-[10px] text-slate-400 mt-1">
+                e.g. 9964600247, 9740463404
+              </span>
               {errors.mobile && (
                 <span className="block text-[10px] font-medium text-red-500 mt-1">
                   {errors.mobile}

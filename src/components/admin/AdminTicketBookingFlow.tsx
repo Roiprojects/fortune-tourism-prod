@@ -806,7 +806,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                       <input
                         type="tel"
                         maxLength={15}
-                        placeholder="Enter passenger mobile number (e.g. 9845003000 / 9876543210)"
+                        placeholder="Enter passenger mobile number (e.g. 9964600247 / 9740463404)"
                         value={trainData.phone}
                         onChange={(e) =>
                           setTrainData((prev) => ({ ...prev, phone: e.target.value }))
@@ -814,7 +814,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                         className="w-full bg-[#0b1329]/90 border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-bold text-white outline-none placeholder:text-slate-500 [color-scheme:dark]"
                       />
                       <p className="text-[10px] text-slate-400 mt-1">
-                        This phone number will be recorded on the official ticket voucher and used for SMS / WhatsApp dispatch.
+                        This phone number will be recorded on the official ticket voucher (e.g. 9964600247 / 9740463404) and used for SMS / WhatsApp dispatch.
                       </p>
                     </div>
 
@@ -1142,7 +1142,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                               setOtherFormData((prev: any) => ({ ...prev, phone: val }));
                             }
                           }}
-                          placeholder="Enter phone no."
+                          placeholder="e.g. 9964600247 / 9740463404"
                           className="w-full bg-transparent border-b border-dashed border-slate-400 hover:border-slate-800 focus:border-emerald-600 focus:bg-emerald-50/40 px-1 py-0.5 text-xs font-bold text-slate-900 outline-none transition"
                           title="Click to edit passenger phone number on ticket copy"
                         />

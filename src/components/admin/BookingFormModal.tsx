@@ -519,7 +519,7 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
                 className={inputCls}
                 value={form.passenger_phone}
                 onChange={(e) => set("passenger_phone", e.target.value)}
-                placeholder="+91..."
+                placeholder="e.g. 9964600247 / 9740463404"
               />
             </Field>
             <Field label="Email">
@@ -656,7 +656,7 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
                   className={inputCls}
                   value={form.driver_phone}
                   onChange={(e) => set("driver_phone", e.target.value)}
-                  placeholder="10-digit mobile number"
+                  placeholder="e.g. 9740463404 / 9964600247"
                 />
               </Field>
               <Field label="Taxi Number">

@@ -76,9 +76,9 @@ export function BookingFormFields({ bookingType, formData, onChange, errors }: B
                 onChange={(e) =>
                   onChange("phone", e.target.value.replace(/\D/g, "").slice(0, 10))
                 }
-                placeholder="97404 63404"
+                placeholder="9964600247 / 9740463404"
                 className={`${inputClass("phone")} pl-12`}
-                maxLength={10}
+                maxLength={15}
               />
             </div>
             {renderError("phone")}

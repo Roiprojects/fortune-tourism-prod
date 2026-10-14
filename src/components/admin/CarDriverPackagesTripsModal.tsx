@@ -1103,7 +1103,7 @@ export function CarDriverPackagesTripsModal({
                   <label className="block font-bold text-slate-700 mb-1">DRIVER PHONE NO</label>
                   <input
                     type="text"
-                    placeholder="e.g. 9740463404"
+                    placeholder="e.g. 9740463404 / 9964600247"
                     value={editingRecord.drPhNo}
                     onChange={(e) =>
                       updateEditingField("drPhNo", e.target.value)
@@ -1115,7 +1115,7 @@ export function CarDriverPackagesTripsModal({
                   <label className="block font-bold text-slate-700 mb-1">PH / GPAY NO</label>
                   <input
                     type="text"
-                    placeholder="e.g. 9740463404"
+                    placeholder="e.g. 9740463404 / 9964600247"
                     value={editingRecord.phGpayNo}
                     onChange={(e) =>
                       updateEditingField("phGpayNo", e.target.value)
@@ -1192,7 +1192,7 @@ export function CarDriverPackagesTripsModal({
                   <label className="block font-bold text-slate-700 mb-1">PAX PHONE NUMBER</label>
                   <input
                     type="text"
-                    placeholder="e.g. 9876543210"
+                    placeholder="e.g. 9964600247 / 9740463404"
                     value={editingRecord.phNo}
                     onChange={(e) =>
                       updateEditingField("phNo", e.target.value)

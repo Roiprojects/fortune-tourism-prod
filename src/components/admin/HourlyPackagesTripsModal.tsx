@@ -911,7 +911,7 @@ export function HourlyPackagesTripsModal({
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. 8638983526"
+                    placeholder="e.g. 9964600247 / 9740463404"
                     value={editingRecord.phNumber}
                     onChange={(e) =>
                       setEditingRecord({ ...editingRecord, phNumber: e.target.value })
@@ -991,7 +991,7 @@ export function HourlyPackagesTripsModal({
                   <label className="block font-bold text-slate-700 mb-1">DR PH NO</label>
                   <input
                     type="text"
-                    placeholder="e.g. 9740463404"
+                    placeholder="e.g. 9740463404 / 9964600247"
                     value={editingRecord.drPhNo}
                     onChange={(e) =>
                       setEditingRecord({ ...editingRecord, drPhNo: e.target.value })

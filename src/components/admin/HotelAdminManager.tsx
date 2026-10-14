@@ -509,7 +509,7 @@ export function HotelAdminManager({ onOpenBookingFlow }: HotelAdminManagerProps 
                     required
                     value={newBooking.guestPhone}
                     onChange={(e) => setNewBooking({ ...newBooking, guestPhone: e.target.value })}
-                    placeholder="+91 98450 00000"
+                    placeholder="e.g. 9964600247 / 9740463404"
                     className="w-full border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:ring-2 focus:ring-amber-500 outline-none"
                   />
                 </div>

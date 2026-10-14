@@ -407,7 +407,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
       pnrNumber,
       bookingDate: bookingDateTime,
       passengerName: passengerName || "GUEST",
-      passengerPhone: passengerPhone || "9845003000",
+      passengerPhone: passengerPhone || "9964600247",
       tourType: tourTypeDisplay,
       fromLocation: fromLocationDisplay,
       toLocation: toLocationDisplay,
@@ -1065,12 +1065,15 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                   </label>
                   <input
                     type="tel"
-                    placeholder="10-digit mobile number"
-                    maxLength={10}
+                    placeholder="e.g. 9964600247 / 9740463404"
+                    maxLength={15}
                     value={passengerPhone}
                     onChange={(e) => setPassengerPhone(e.target.value)}
                     className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 rounded-xl px-4 py-2.5 text-sm font-semibold text-white placeholder:text-slate-500 outline-none transition-all"
                   />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    e.g. 9964600247, 9740463404
+                  </p>
                 </div>
               </div>
             </div>
@@ -1395,7 +1398,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
 
                 <a
                   href={buildWhatsAppUrl(
-                    `Hello Fortune Tourism! New offline cab reservation booked.\n\n*Ticket No:* ${ticketNumber}\n*PNR:* ${pnrNumber}\n*Passenger:* ${passengerName || "GUEST"}\n*Phone:* ${passengerPhone || "9845003000"}\n*From:* ${fromLocationDisplay}\n*To:* ${toLocationDisplay}\n*Date:* ${departureDateFormatted}\n*Vehicle:* ${vehicleDisplay}\n*Fare:* ₹${calculatedFare}`
+                    `Hello Fortune Tourism! New offline cab reservation booked.\n\n*Ticket No:* ${ticketNumber}\n*PNR:* ${pnrNumber}\n*Passenger:* ${passengerName || "GUEST"}\n*Phone:* ${passengerPhone || "9964600247"}\n*From:* ${fromLocationDisplay}\n*To:* ${toLocationDisplay}\n*Date:* ${departureDateFormatted}\n*Vehicle:* ${vehicleDisplay}\n*Fare:* ₹${calculatedFare}`
                   )}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -1474,7 +1477,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                         Passenger Phone No.:
                       </td>
                       <td className="p-2.5 font-bold text-slate-900">
-                        {passengerPhone || "9845003000"}
+                        {passengerPhone || "9964600247"}
                       </td>
                       <td className="p-2.5 font-bold text-slate-900 bg-slate-50 w-28 whitespace-nowrap">
                         Tour Type

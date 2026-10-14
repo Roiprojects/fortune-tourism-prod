@@ -959,7 +959,7 @@ export function ClientStatementsManager() {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. +91 9740463404"
+                    placeholder="e.g. 9964600247 / 9740463404"
                     value={newStmt.phone}
                     onChange={(e) =>
                       setNewStmt({ ...newStmt, phone: e.target.value })
