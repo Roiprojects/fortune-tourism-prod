@@ -26,6 +26,7 @@ import { DriverDetailsEditorModal } from "@/components/admin/DriverDetailsEditor
 import { CarDriverPackagesTripsModal } from "@/components/admin/CarDriverPackagesTripsModal";
 import { HourlyPackagesTripsModal } from "@/components/admin/HourlyPackagesTripsModal";
 import { ExpenseReportModal } from "@/components/admin/ExpenseReportModal";
+import { QuotationGeneratorModal } from "@/components/admin/QuotationGeneratorModal";
 import logoAsset from "@/assets/fortune-tourism-logo.png";
 import fullLogoAsset from "@/assets/fortune-tourism-full-logo.png";
 import keralaHeroImg from "@/assets/kerala-hero.jpg";
@@ -183,6 +184,8 @@ import {
   Palmtree,
   UserCheck,
   Compass,
+  FileText,
+  Printer,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
@@ -354,6 +357,7 @@ function AdminPage() {
   const [carPackagesTripsModalOpen, setCarPackagesTripsModalOpen] = useState(false);
   const [hourlyPackagesTripsModalOpen, setHourlyPackagesTripsModalOpen] = useState(false);
   const [expenseReportModalOpen, setExpenseReportModalOpen] = useState(false);
+  const [quotationModalOpen, setQuotationModalOpen] = useState(false);
   const [offlineBookingSource, setOfflineBookingSource] = useState<any>({});
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
 
@@ -381,6 +385,7 @@ function AdminPage() {
         setCarPackagesTripsModalOpen(false);
         setHourlyPackagesTripsModalOpen(false);
         setExpenseReportModalOpen(false);
+        setQuotationModalOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -1596,6 +1601,24 @@ function AdminPage() {
                       </span>
                     </button>
 
+                    {/* Official Quotation Generator (Letterhead A4) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        setQuotationModalOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50 transition text-left cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <FileText className="w-4 h-4 text-emerald-700 shrink-0 group-hover:scale-110 transition-transform" />
+                        <span>Quotation Generator</span>
+                      </div>
+                      <span className="text-[10px] bg-emerald-100 text-[#063f2d] font-extrabold px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                        <Printer className="w-2.5 h-2.5" /> Letterhead A4
+                      </span>
+                    </button>
+
                     {/* Expense Report */}
                     <button
                       type="button"
@@ -2780,6 +2803,14 @@ function AdminPage() {
         <HourlyPackagesTripsModal
           isOpen={hourlyPackagesTripsModalOpen}
           onClose={() => setHourlyPackagesTripsModalOpen(false)}
+        />
+      )}
+
+      {/* Official Letterhead Quotation Generator Modal */}
+      {quotationModalOpen && (
+        <QuotationGeneratorModal
+          isOpen={quotationModalOpen}
+          onClose={() => setQuotationModalOpen(false)}
         />
       )}
     </SiteLayout>

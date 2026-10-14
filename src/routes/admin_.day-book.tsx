@@ -19,8 +19,11 @@ import {
   ChevronRight,
   ShieldCheck,
   UserCheck,
+  FileText,
+  Printer,
 } from "lucide-react";
 import { DriverDetailsEditorModal } from "@/components/admin/DriverDetailsEditorModal";
+import { QuotationGeneratorModal } from "@/components/admin/QuotationGeneratorModal";
 import { DayBookHub } from "@/components/admin/DayBookHub";
 import logoAsset from "@/assets/fortune-tourism-logo.png";
 import fullLogoAsset from "@/assets/fortune-tourism-full-logo.png";
@@ -138,6 +141,7 @@ function AdminDayBookPage() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const [driverDetailsModalOpen, setDriverDetailsModalOpen] = useState(false);
+  const [quotationModalOpen, setQuotationModalOpen] = useState(false);
 
   // Login states
   const [loginEmail, setLoginEmail] = useState("adminfortunetourism@gmail.com");
@@ -176,6 +180,7 @@ function AdminDayBookPage() {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setAccountMenuOpen(false);
+        setQuotationModalOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -587,6 +592,24 @@ function AdminDayBookPage() {
                       <span>Category Dashboard</span>
                     </a>
 
+                    {/* Official Quotation Generator (Letterhead A4) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        setQuotationModalOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50 transition text-left cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <FileText className="w-4 h-4 text-emerald-700 shrink-0 group-hover:scale-110 transition-transform" />
+                        <span>Quotation Generator</span>
+                      </div>
+                      <span className="text-[10px] bg-emerald-100 text-[#063f2d] font-extrabold px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                        <Printer className="w-2.5 h-2.5" /> Letterhead A4
+                      </span>
+                    </button>
+
                     <div className="my-1 border-t border-slate-100" />
 
                     <button
@@ -626,6 +649,14 @@ function AdminDayBookPage() {
         <DriverDetailsEditorModal
           isOpen={driverDetailsModalOpen}
           onClose={() => setDriverDetailsModalOpen(false)}
+        />
+      )}
+
+      {/* Official Letterhead Quotation Generator Modal */}
+      {quotationModalOpen && (
+        <QuotationGeneratorModal
+          isOpen={quotationModalOpen}
+          onClose={() => setQuotationModalOpen(false)}
         />
       )}
     </div>
