@@ -1737,20 +1737,24 @@ export function AdminHotelBookingFlow({
 
               <div className="flex flex-col sm:flex-row items-center gap-6">
                 {/* QR Code */}
-                <div className="bg-white p-3 rounded-2xl shadow-xl shrink-0 text-center">
-                  <div className="w-36 h-36 rounded-xl overflow-hidden">
-                    <img src={upiQrUrl} alt="UPI QR Code" className="w-full h-full" />
+                <div className="bg-white p-3 rounded-2xl shadow-xl shrink-0 text-center border-2 border-purple-300">
+                  <div className="w-40 overflow-hidden rounded-xl bg-slate-50 border border-slate-200">
+                    <img src="/images/phonepe-qr.jpg" alt="PhonePe QR Code - ZAMEER S" className="w-full h-auto object-contain" />
                   </div>
-                  <div className="text-[10px] font-black text-slate-900 mt-1">
-                    Scan · Pay ₹{effectiveAdvance}
+                  <div className="text-[10px] font-black text-purple-900 mt-1">
+                    PhonePe · ZAMEER S
                   </div>
                 </div>
 
                 <div className="flex-1 space-y-3 w-full">
                   <div className="bg-[#0B132B] border border-white/15 rounded-xl p-3 flex items-center justify-between shadow-xs">
                     <div>
-                      <div className="text-[10px] text-slate-400 font-bold uppercase">Official UPI ID</div>
-                      <div className="font-black text-white text-sm">fortunetourism@okaxis</div>
+                      <div className="text-[10px] text-purple-300 font-bold uppercase tracking-wider">Beneficiary / Merchant</div>
+                      <div className="font-black text-white text-base flex items-center gap-2">
+                        ZAMEER S
+                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/30">Verified</span>
+                      </div>
+                      <div className="text-xs text-slate-400 font-mono mt-0.5">fortunetourism@okaxis</div>
                     </div>
                     <button
                       type="button"

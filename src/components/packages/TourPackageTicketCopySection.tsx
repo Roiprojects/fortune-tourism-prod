@@ -441,17 +441,48 @@ export function TourPackageTicketCopySection() {
               </table>
             </div>
 
-            {/* Terms And Conditions */}
-            <div className="border border-slate-900 rounded-xl p-3 space-y-1">
-              <p className="font-extrabold text-xs text-slate-900 uppercase tracking-wider">
-                Terms And Conditions
-              </p>
-              <p className="text-[10px] text-slate-700 leading-relaxed">
-                1. This ticket is valid for particular journey, which service is Issued.
-              </p>
-              <p className="text-[10px] text-slate-700 leading-relaxed">
-                2. Subject To Bangalore Juridictions Only.
-              </p>
+            {/* Terms And Conditions + PhonePe QR Card */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-stretch">
+              <div className="sm:col-span-8 border border-slate-900 rounded-xl p-3 space-y-1 bg-slate-50/50 flex flex-col justify-between">
+                <div>
+                  <p className="font-extrabold text-xs text-slate-900 uppercase tracking-wider mb-1">
+                    Terms And Conditions
+                  </p>
+                  <p className="text-[10px] text-slate-700 leading-relaxed">
+                    1. This ticket is valid for particular journey, which service is Issued.
+                  </p>
+                  <p className="text-[10px] text-slate-700 leading-relaxed">
+                    2. Balance fare can be paid directly to Driver ZAMEER S via PhonePe / Cash upon boarding.
+                  </p>
+                  <p className="text-[10px] text-slate-700 leading-relaxed">
+                    3. Subject To Bangalore Jurisdictions Only.
+                  </p>
+                </div>
+                <div className="text-[9.5px] font-bold text-slate-500 pt-1 border-t border-slate-200">
+                  Driver: ZAMEER · Phone: 9740463404 · Taxi No: KA 51 AA 598
+                </div>
+              </div>
+
+              {/* PhonePe QR Badge */}
+              <div className="sm:col-span-4 border-2 border-purple-200 bg-purple-50/70 rounded-xl p-2.5 flex flex-col items-center justify-center text-center shadow-xs">
+                <div className="text-[10px] font-black uppercase text-purple-950 tracking-wider flex items-center gap-1">
+                  <span className="w-3.5 h-3.5 rounded-full bg-[#5f259f] text-white flex items-center justify-center text-[8px] font-bold">पे</span>
+                  PhonePe Accepted Here
+                </div>
+                <div className="w-20 my-1 bg-white p-1 rounded-lg border border-purple-200 shadow-xs">
+                  <img
+                    src="/images/phonepe-qr.jpg"
+                    alt="PhonePe Payment QR - ZAMEER S"
+                    className="w-full h-auto object-contain rounded"
+                  />
+                </div>
+                <div className="text-[9.5px] font-extrabold text-slate-900">
+                  Account: ZAMEER S
+                </div>
+                <div className="text-[8.5px] text-purple-700 font-bold">
+                  Scan to Pay / Settle Fare
+                </div>
+              </div>
             </div>
 
             <div className="text-[10px] text-slate-500 text-center font-medium border-t pt-2">

@@ -26,6 +26,8 @@ import {
   TrainFront,
   Plane,
   Bus,
+  Maximize2,
+  QrCode,
 } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { generateTicketNumber, generatePNR } from "@/lib/booking-utils";
@@ -301,6 +303,7 @@ function BookingPage() {
   // Payment state
   const [advanceOption, setAdvanceOption] = useState<number>(100);
   const [utrRef, setUtrRef] = useState("");
+  const [showQrModal, setShowQrModal] = useState<boolean>(false);
 
   const [ticketNumber, setTicketNumber] = useState(() => generateTicketNumber());
   const [pnrNumber, setPnrNumber] = useState(() => generatePNR());
@@ -2017,57 +2020,87 @@ function BookingPage() {
 
                 {/* UPI QR if ₹100 Advance is selected */}
                 {advanceOption === 100 && (
-                  <div className="bg-[#111c3a]/90 border border-white/15 rounded-2xl p-5 space-y-4">
-                    <div className="flex items-center gap-2">
-                      <Zap className="w-4 h-4 text-[#00c58e]" />
-                      <h3 className="font-extrabold text-white text-sm">
-                        Pay ₹100 Token Advance via UPI
-                      </h3>
+                  <div className="bg-[#111c3a]/95 border border-purple-500/30 rounded-2xl p-5 space-y-4 shadow-xl shadow-purple-950/20">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-[#5f259f] text-white flex items-center justify-center font-bold text-sm shadow">
+                          पे
+                        </div>
+                        <div>
+                          <h3 className="font-extrabold text-white text-sm">
+                            Scan &amp; Pay via PhonePe / Any UPI App
+                          </h3>
+                          <p className="text-[11px] text-purple-200">
+                            Pay ₹100 Token Advance to confirm and instantly generate your journey ticket copy
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-950/70 border border-emerald-500/30 px-2.5 py-1 rounded-full">
+                        Official Payment QR
+                      </span>
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-center gap-5">
-                      <div className="bg-white p-3 rounded-2xl shadow-md border border-white/20 shrink-0 text-center">
-                        <div className="w-32 h-32 flex items-center justify-center mx-auto">
+                      {/* PhonePe QR Card */}
+                      <div className="bg-white p-3 rounded-2xl shadow-2xl border-2 border-purple-300 shrink-0 text-center group relative">
+                        <div
+                          className="w-44 sm:w-48 overflow-hidden rounded-xl bg-slate-50 border border-slate-200 cursor-pointer"
+                          onClick={() => setShowQrModal(true)}
+                          title="Click to enlarge QR code"
+                        >
                           <img
-                            src="https://api.qrserver.com/v1/create-qr-code/?data=upi://pay?pa=fortunetourism@okaxis%26pn=Fortune%20Tourism%26am=100%26tn=Token%20Advance&size=128x128&format=png"
-                            alt="UPI QR Code"
-                            className="w-full h-full"
+                            src="/images/phonepe-qr.jpg"
+                            alt="PhonePe Payment QR Code - ZAMEER S"
+                            className="w-full h-auto object-contain transition-transform duration-300 group-hover:scale-105"
                           />
                         </div>
-                        <div className="text-center text-[10px] font-bold text-slate-800 mt-1">Scan · Pay ₹100</div>
+                        <button
+                          type="button"
+                          onClick={() => setShowQrModal(true)}
+                          className="mt-2 inline-flex items-center gap-1 text-[11px] font-extrabold text-[#5f259f] hover:text-purple-900 transition-colors cursor-pointer"
+                        >
+                          <Maximize2 className="w-3 h-3" /> Tap to Enlarge QR
+                        </button>
                       </div>
 
                       <div className="flex-1 space-y-3 w-full">
                         <div className="bg-[#0B132B] border border-white/15 rounded-xl p-3 flex items-center justify-between shadow-xs">
                           <div>
-                            <div className="text-[10px] text-slate-400 font-bold uppercase">UPI ID</div>
-                            <div className="font-black text-white text-sm">fortunetourism@okaxis</div>
+                            <div className="text-[10px] text-purple-300 font-bold uppercase tracking-wider">Beneficiary / Merchant</div>
+                            <div className="font-black text-white text-base flex items-center gap-2">
+                              ZAMEER S
+                              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/30">Verified</span>
+                            </div>
+                            <div className="text-xs text-slate-400 font-mono mt-0.5">fortunetourism@okaxis</div>
                           </div>
                           <button
                             type="button"
                             onClick={copyUPI}
-                            className="flex items-center gap-1.5 text-xs font-bold text-emerald-300 bg-emerald-950/70 px-3 py-1.5 rounded-lg border border-emerald-500/40 hover:bg-emerald-900 transition-colors"
+                            className="flex items-center gap-1.5 text-xs font-bold text-emerald-300 bg-emerald-950/70 px-3 py-1.5 rounded-lg border border-emerald-500/40 hover:bg-emerald-900 transition-colors cursor-pointer"
                           >
                             {upiCopied ? <Check className="w-3.5 h-3.5 text-[#00c58e]" /> : <Copy className="w-3.5 h-3.5" />}
                             {upiCopied ? "Copied!" : "Copy"}
                           </button>
                         </div>
 
-                        <div className="flex flex-wrap gap-2">
-                          {[
-                            { name: "GPay", link: "tez://upi/pay?pa=fortunetourism@okaxis&pn=Fortune+Tourism&am=100&tn=Token+Advance" },
-                            { name: "PhonePe", link: "phonepe://pay?pa=fortunetourism@okaxis&pn=Fortune+Tourism&am=100" },
-                            { name: "Paytm", link: "paytmmp://upi/pay?pa=fortunetourism@okaxis&pn=Fortune+Tourism&am=100" },
-                            { name: "Any UPI App", link: "upi://pay?pa=fortunetourism@okaxis&pn=Fortune%20Tourism&am=100&tn=Token%20Advance" },
-                          ].map((app) => (
-                            <a
-                              key={app.name}
-                              href={app.link}
-                              className="text-xs font-bold text-slate-200 bg-[#16244a] border border-white/15 px-3 py-1.5 rounded-lg hover:border-[#00c58e] hover:text-white transition-all shadow-xs"
-                            >
-                              {app.name}
-                            </a>
-                          ))}
+                        <div className="space-y-1.5">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fast Pay With UPI App</div>
+                          <div className="flex flex-wrap gap-2">
+                            {[
+                              { name: "PhonePe", link: "phonepe://pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=100&cu=INR", color: "bg-[#5f259f] text-white hover:bg-purple-800 border-purple-400/30" },
+                              { name: "Google Pay", link: "tez://upi/pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=100&cu=INR", color: "bg-blue-600 text-white hover:bg-blue-700 border-blue-400/30" },
+                              { name: "Paytm", link: "paytmmp://upi/pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=100&cu=INR", color: "bg-sky-600 text-white hover:bg-sky-700 border-sky-400/30" },
+                              { name: "Any UPI App", link: "upi://pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=100&cu=INR&tn=Token%20Advance%20Fortune%20Tourism", color: "bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-400/30" },
+                            ].map((app) => (
+                              <a
+                                key={app.name}
+                                href={app.link}
+                                className={`text-xs font-black px-3.5 py-1.5 rounded-lg border transition-all shadow-xs ${app.color}`}
+                              >
+                                {app.name}
+                              </a>
+                            ))}
+                          </div>
                         </div>
 
                         <div>
@@ -2076,7 +2109,7 @@ function BookingPage() {
                           </label>
                           <input
                             type="text"
-                            placeholder="e.g. 423589124012"
+                            placeholder="Enter 12-digit UTR No. e.g. 423589124012"
                             value={utrRef}
                             onChange={(e) => setUtrRef(e.target.value)}
                             className="w-full bg-[#0B132B] border border-white/15 focus:border-[#00c58e] rounded-xl px-3.5 py-2 text-xs text-white placeholder:text-slate-500 outline-none"
@@ -2385,14 +2418,49 @@ function BookingPage() {
                   </table>
                 </div>
 
-                {/* Terms and conditions footnote */}
-                <div className="border border-slate-300 rounded-xl p-3 text-[11px] text-slate-600 space-y-1">
-                  <div className="font-bold text-slate-900 uppercase text-[10px] tracking-wider">
-                    Terms & Instructions
+                {/* Official PhonePe QR & Verification Bar + Terms & Conditions */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch pt-2">
+                  <div className="md:col-span-8 border border-slate-300 rounded-xl p-3.5 text-[11px] text-slate-700 space-y-1.5 bg-slate-50/50 flex flex-col justify-between">
+                    <div>
+                      <div className="font-extrabold text-slate-900 uppercase text-[10px] tracking-wider mb-1 flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Terms &amp; Journey Instructions
+                      </div>
+                      <div className="space-y-0.5 text-slate-600 text-[10.5px]">
+                        <div>1. Please carry this official Ticket Copy / SMS during your journey.</div>
+                        <div>2. Driver &amp; vehicle assignment details will be shared prior to departure.</div>
+                        <div>3. Balance fare (if any) can be settled directly with the driver via PhonePe / Cash upon boarding.</div>
+                        <div>4. 24/7 Helpline &amp; Support: <strong>+91 9740463404</strong> | Fortune Tourism Bangalore.</div>
+                      </div>
+                    </div>
+                    <div className="text-[10px] font-bold text-slate-500 border-t border-slate-200 pt-1.5">
+                      Fortune Tourism · Narayana Hospital Health City, Bommasandra, Bangalore - 560099
+                    </div>
                   </div>
-                  <div>1. Please carry this ticket copy / SMS during your journey.</div>
-                  <div>2. Driver & vehicle assignment details will be shared prior to departure.</div>
-                  <div>3. 24/7 Helpline & Support: +91 9740463404 | Fortune Tourism Bangalore.</div>
+
+                  {/* Payment & Verification QR Code Badge */}
+                  <div className="md:col-span-4 border-2 border-purple-200 bg-purple-50/60 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-xs">
+                    <div className="text-[10px] font-black uppercase text-purple-950 tracking-wider flex items-center gap-1">
+                      <span className="w-3.5 h-3.5 rounded-full bg-[#5f259f] text-white flex items-center justify-center text-[8px] font-bold">पे</span>
+                      PhonePe Accepted Here
+                    </div>
+                    <div
+                      className="w-24 sm:w-28 my-1.5 bg-white p-1 rounded-lg border border-purple-200 shadow-xs cursor-pointer group"
+                      onClick={() => setShowQrModal(true)}
+                      title="Tap to enlarge QR"
+                    >
+                      <img
+                        src="/images/phonepe-qr.jpg"
+                        alt="Official PhonePe QR Code - ZAMEER S"
+                        className="w-full h-auto object-contain rounded transition-transform group-hover:scale-105"
+                      />
+                    </div>
+                    <div className="text-[10px] font-extrabold text-slate-900">
+                      Merchant: ZAMEER S
+                    </div>
+                    <div className="text-[9px] text-purple-700 font-bold">
+                      Scan to Pay / Verify Ticket
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -2435,6 +2503,70 @@ function BookingPage() {
 
         </div>
       </div>
+
+      {/* PhonePe Full QR Code Modal */}
+      {showQrModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setShowQrModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl p-5 max-w-sm w-full shadow-2xl space-y-3.5 text-center relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="w-7 h-7 rounded-lg bg-[#5f259f] text-white flex items-center justify-center font-bold text-xs shadow-xs">पे</span>
+                <div className="text-left">
+                  <div className="font-extrabold text-slate-900 text-sm leading-tight">PhonePe Accepted Here</div>
+                  <div className="text-[10px] text-purple-700 font-bold">Scan &amp; Pay Using PhonePe App</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQrModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center text-sm font-black transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="overflow-hidden rounded-2xl border-2 border-purple-200 bg-slate-50 shadow-inner">
+              <img
+                src="/images/phonepe-qr.jpg"
+                alt="PhonePe Payment QR Code - ZAMEER S"
+                className="w-full h-auto max-h-[65vh] object-contain mx-auto"
+              />
+            </div>
+
+            <div className="bg-purple-50 rounded-xl p-2.5 border border-purple-200/80 space-y-1">
+              <div className="text-xs font-black text-purple-950 uppercase tracking-wide">
+                Account: ZAMEER S
+              </div>
+              <div className="text-[11px] text-slate-600">
+                Official Payment QR Code for Fortune Tourism &amp; Travels
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={copyUPI}
+                className="flex-1 py-2 rounded-xl text-xs font-black bg-slate-900 hover:bg-slate-800 text-white transition-all cursor-pointer"
+              >
+                {upiCopied ? "✓ UPI Copied" : "Copy UPI ID"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowQrModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </SiteLayout>
   );
 }
