@@ -559,7 +559,7 @@ export function QuotationGeneratorModal({ isOpen, onClose }: QuotationGeneratorM
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
       doc.setTextColor(6, 63, 45);
-      doc.text("FORTUNE Tourism (I) Pvt. Ltd.", 14, 18);
+      doc.text("FORTUNE Tourism", 14, 18);
 
       doc.setFont("helvetica", "italic");
       doc.setFontSize(9);
@@ -715,7 +715,7 @@ export function QuotationGeneratorModal({ isOpen, onClose }: QuotationGeneratorM
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7.5);
       doc.setTextColor(30, 30, 30);
-      doc.text("For FORTUNE Tourism (I) Pvt. Ltd.", pageWidth - 20, pageHeight - 24, { align: "right" });
+      doc.text("For FORTUNE Tourism", pageWidth - 20, pageHeight - 24, { align: "right" });
       doc.setFont("helvetica", "italic");
       doc.setFontSize(7);
       doc.setTextColor(100, 100, 100);
@@ -752,7 +752,7 @@ export function QuotationGeneratorModal({ isOpen, onClose }: QuotationGeneratorM
   };
 
   const handleShareWhatsApp = () => {
-    const text = `*FORTUNE Tourism (I) Pvt. Ltd.*
+    const text = `*FORTUNE Tourism*
 *OFFICIAL TRAVEL QUOTATION*
 ------------------------------------
 *Quotation No:* ${quotation.quotationNumber}
@@ -1418,7 +1418,7 @@ Helpline: +91 9740463404 | travel@fortunetourism.co.in`;
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                   <span className="text-xs font-extrabold text-slate-900">
-                    Official Letterhead Mode (Exact match for Fortune Tourism (I) Pvt. Ltd.)
+                    Official Letterhead Mode (Fortune Tourism)
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1474,7 +1474,7 @@ Helpline: +91 9740463404 | travel@fortunetourism.co.in`;
                     </div>
                     <div>
                       <h1 className="font-serif font-black text-xl sm:text-2xl text-[#063f2d] tracking-wide leading-tight">
-                        FORTUNE Tourism <span className="text-sm font-sans font-bold text-slate-700">(I) Pvt. Ltd.</span>
+                        FORTUNE Tourism
                       </h1>
                       <p className="font-serif italic text-xs sm:text-sm text-slate-600 font-semibold tracking-wide mt-0.5">
                         Meets all your Travel Need
@@ -1664,7 +1664,7 @@ Helpline: +91 9740463404 | travel@fortunetourism.co.in`;
 
                   <div className="text-right space-y-1">
                     <div className="text-[11px] font-black text-[#063f2d]">
-                      For FORTUNE Tourism (I) Pvt. Ltd.
+                      For FORTUNE Tourism
                     </div>
                     <div className="h-10 flex items-center justify-end">
                       <div className="text-slate-400 italic text-[11px] border-b border-slate-400 w-40 text-center pb-0.5">
