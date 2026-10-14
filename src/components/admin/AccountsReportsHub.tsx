@@ -24,6 +24,11 @@ import {
   CheckCircle2,
   XCircle,
   ChevronRight,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
+  Calendar,
+  Sparkles,
   FileSpreadsheet,
   Plus,
   Pencil,
@@ -49,9 +54,9 @@ export type AccountReportKey =
 export interface DailyReportRecord {
   id: string | number;
   sl?: number;
-  date: string; // DATE (e.g. 01/09/2026)
-  trav_on: string; // TRAV ON (e.g. 01/09/2026)
-  pnr?: string; // PNR Number (e.g. FT-839201)
+  date: string; // DATE (e.g. 01/09/2026 or 14/10/2026)
+  trav_on: string; // TRAV ON
+  pnr?: string; // PNR Number
   trav_by: string; // TRAV BY (e.g. CAR, BUS, FLIGHT, TRAIN, HOTEL)
   pax: string; // PAX (Passenger name)
   ph_no: string; // PH NO (Phone number)
@@ -66,76 +71,195 @@ export interface DailyReportRecord {
   raw_date?: string;
 }
 
-export const INITIAL_DAILY_REPORTS: DailyReportRecord[] = [
-  {
-    id: "DR-1",
-    sl: 1,
-    date: "01/09/2026",
-    trav_on: "01/09/2026",
-    trav_by: "CAR",
-    pax: "MOSTAQUE",
-    ph_no: "9800312531",
-    from: "KIA",
-    to: "BOMMASANDRA DROP",
-    pickup: "T2 G 10",
-    booking: 1500,
-    off_adv: 0,
-    due: 1500,
-    status: "Pending",
-    raw_date: "2026-09-01",
-  },
-  {
-    id: "DR-2",
-    sl: 2,
-    date: "01/09/2026",
-    trav_on: "02/09/2026",
-    trav_by: "CAR",
-    pax: "DEBENDRA KR ROUT",
-    ph_no: "9845471540",
-    from: "JIGANI + J D MARA",
-    to: "KIA DROP",
-    pickup: "JIGANI",
-    booking: 1500,
-    off_adv: 500,
-    due: 1000,
-    status: "Pending",
-    raw_date: "2026-09-01",
-  },
-  {
-    id: "DR-3",
-    sl: 3,
-    date: "02/09/2026",
-    trav_on: "02/09/2026",
-    trav_by: "CAR",
-    pax: "PRADIP KR MITRA",
-    ph_no: "9431087563",
-    from: "BOMMASANDRA",
-    to: "BSS",
-    pickup: "OFFICE",
-    booking: 2500,
-    off_adv: 0,
-    due: 0,
-    status: "Paid",
-    raw_date: "2026-09-02",
-  },
-  {
-    id: "DR-4",
-    sl: 4,
-    date: "02/09/2026",
-    trav_on: "02/09/2026",
-    trav_by: "CAR",
-    pax: "DEBENDRA KR ROUT",
-    ph_no: "9845471540",
-    from: "KIA",
-    to: "JIGANI DROP",
-    pickup: "T2 G 10",
-    booking: 1500,
-    off_adv: 0,
-    due: 0,
-    status: "Paid",
-    raw_date: "2026-09-02",
-  },
-];
+export function generateInitialDailyReports(): DailyReportRecord[] {
+  const now = new Date();
+  const formatDDMMYYYY = (d: Date) => {
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  };
+  const formatYYYYMMDD = (d: Date) => {
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const todayStr = formatDDMMYYYY(now);
+  const todayRaw = formatYYYYMMDD(now);
+  const yestDate = new Date(now);
+  yestDate.setDate(yestDate.getDate() - 1);
+  const yestStr = formatDDMMYYYY(yestDate);
+  const yestRaw = formatYYYYMMDD(yestDate);
+
+  return [
+    {
+      id: "DR-TD-1",
+      sl: 1,
+      date: todayStr,
+      trav_on: todayStr,
+      pnr: "FT-AIR-901",
+      trav_by: "CAR",
+      pax: "MOSTAQUE AHMED",
+      ph_no: "9800312531",
+      from: "KIA AIRPORT",
+      to: "BOMMASANDRA INDUSTRIAL",
+      pickup: "TERMINAL 2 PILLAR 10",
+      booking: 2200,
+      off_adv: 500,
+      due: 1700,
+      status: "Pending",
+      raw_date: todayRaw,
+    },
+    {
+      id: "DR-TD-2",
+      sl: 2,
+      date: todayStr,
+      trav_on: todayStr,
+      pnr: "6E-5481",
+      trav_by: "FLIGHT",
+      pax: "DEBENDRA KR ROUT",
+      ph_no: "9845471540",
+      from: "BENGALURU (BLR)",
+      to: "MUMBAI (BOM)",
+      pickup: "KIADB T1",
+      booking: 5800,
+      off_adv: 5800,
+      due: 0,
+      status: "Paid",
+      raw_date: todayRaw,
+    },
+    {
+      id: "DR-TD-3",
+      sl: 3,
+      date: todayStr,
+      trav_on: todayStr,
+      pnr: "KA-51-E-9020",
+      trav_by: "CAR",
+      pax: "PRADIP KR MITRA",
+      ph_no: "9431087563",
+      from: "BOMMASANDRA",
+      to: "ELECTRONIC CITY GATE 4",
+      pickup: "HEAD OFFICE",
+      booking: 1400,
+      off_adv: 0,
+      due: 1400,
+      status: "Pending",
+      raw_date: todayRaw,
+    },
+    {
+      id: "DR-YD-1",
+      sl: 4,
+      date: yestStr,
+      trav_on: yestStr,
+      pnr: "KSRTC-9281",
+      trav_by: "BUS",
+      pax: "KAVITHA REDDY",
+      ph_no: "9900155667",
+      from: "MAJESTIC",
+      to: "HYDERABAD MGBS",
+      pickup: "COUNTER 4",
+      booking: 1850,
+      off_adv: 1850,
+      due: 0,
+      status: "Paid",
+      raw_date: yestRaw,
+    },
+    {
+      id: "DR-YD-2",
+      sl: 5,
+      date: yestStr,
+      trav_on: yestStr,
+      pnr: "FT-TRIP-702",
+      trav_by: "TOUR",
+      pax: "RAJESH SHARMA",
+      ph_no: "9886033445",
+      from: "BENGALURU",
+      to: "MYSORE PALACE & COORG",
+      pickup: "INDIRANAGAR",
+      booking: 16500,
+      off_adv: 5000,
+      due: 11500,
+      status: "Pending",
+      raw_date: yestRaw,
+    },
+    {
+      id: "DR-1",
+      sl: 6,
+      date: "01/09/2026",
+      trav_on: "01/09/2026",
+      pnr: "FT-839201",
+      trav_by: "CAR",
+      pax: "MOSTAQUE",
+      ph_no: "9800312531",
+      from: "KIA",
+      to: "BOMMASANDRA DROP",
+      pickup: "T2 G 10",
+      booking: 1500,
+      off_adv: 0,
+      due: 1500,
+      status: "Pending",
+      raw_date: "2026-09-01",
+    },
+    {
+      id: "DR-2",
+      sl: 7,
+      date: "01/09/2026",
+      trav_on: "02/09/2026",
+      pnr: "FT-839202",
+      trav_by: "CAR",
+      pax: "DEBENDRA KR ROUT",
+      ph_no: "9845471540",
+      from: "JIGANI + J D MARA",
+      to: "KIA DROP",
+      pickup: "JIGANI",
+      booking: 1500,
+      off_adv: 500,
+      due: 1000,
+      status: "Pending",
+      raw_date: "2026-09-01",
+    },
+    {
+      id: "DR-3",
+      sl: 8,
+      date: "02/09/2026",
+      trav_on: "02/09/2026",
+      pnr: "FT-839203",
+      trav_by: "CAR",
+      pax: "PRADIP KR MITRA",
+      ph_no: "9431087563",
+      from: "BOMMASANDRA",
+      to: "BSS",
+      pickup: "OFFICE",
+      booking: 2500,
+      off_adv: 0,
+      due: 0,
+      status: "Paid",
+      raw_date: "2026-09-02",
+    },
+    {
+      id: "DR-4",
+      sl: 9,
+      date: "02/09/2026",
+      trav_on: "02/09/2026",
+      pnr: "FT-839204",
+      trav_by: "CAR",
+      pax: "DEBENDRA KR ROUT",
+      ph_no: "9845471540",
+      from: "KIA",
+      to: "JIGANI DROP",
+      pickup: "T2 G 10",
+      booking: 1500,
+      off_adv: 0,
+      due: 0,
+      status: "Paid",
+      raw_date: "2026-09-02",
+    },
+  ];
+}
+
+export const INITIAL_DAILY_REPORTS: DailyReportRecord[] = generateInitialDailyReports();
 
 export interface TransactionRecord {
   id: string;
@@ -421,6 +545,373 @@ function parseToComparableDate(val?: string | null): string {
   return "";
 }
 
+export function getLocalDateString(d: Date = new Date()): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+export function shiftDateByDays(dateStr: string, offsetDays: number): string {
+  if (!dateStr) return getLocalDateString();
+  const parts = dateStr.split("-").map(Number);
+  if (parts.length !== 3) return getLocalDateString();
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
+  d.setDate(d.getDate() + offsetDays);
+  return getLocalDateString(d);
+}
+
+export function formatComparableToDisplay(dateStr?: string): string {
+  if (!dateStr) return "";
+  const parts = dateStr.split("-");
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dateStr;
+}
+
+interface DayFilterToolbarProps {
+  dayFilterMode: "today" | "yesterday" | "single_day" | "range" | "all";
+  selectedDay: string;
+  onSelectMode: (mode: "today" | "yesterday" | "single_day" | "range" | "all") => void;
+  onPrevDay: () => void;
+  onNextDay: () => void;
+  onChangeSelectedDay: (day: string) => void;
+  activeRecordCount: number;
+  latestDateWithRecords?: string;
+  onJumpToLatestDate: (date: string) => void;
+  onShowAllDays: () => void;
+}
+
+function DayFilterToolbar({
+  dayFilterMode,
+  selectedDay,
+  onSelectMode,
+  onPrevDay,
+  onNextDay,
+  onChangeSelectedDay,
+  activeRecordCount,
+  latestDateWithRecords,
+  onJumpToLatestDate,
+  onShowAllDays,
+}: DayFilterToolbarProps) {
+  const todayIso = getLocalDateString();
+  const yesterdayIso = shiftDateByDays(todayIso, -1);
+
+  return (
+    <div className="bg-gradient-to-r from-slate-50 via-white to-slate-50 border-b border-slate-200 p-3 sm:p-4 space-y-2.5">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        {/* Left: Quick Day Selector Controls */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 mr-1 flex items-center gap-1">
+            <Calendar className="w-3.5 h-3.5 text-amber-500" />
+            Day Filter:
+          </span>
+
+          {/* Today Button */}
+          <button
+            type="button"
+            onClick={() => onSelectMode("today")}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+              dayFilterMode === "today"
+                ? "bg-emerald-600 text-white shadow-xs border border-emerald-700 ring-2 ring-emerald-500/20"
+                : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-100"
+            }`}
+            title="Show today's entries only (whole day details)"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Today (Whole Day)</span>
+          </button>
+
+          {/* Yesterday Button */}
+          <button
+            type="button"
+            onClick={() => onSelectMode("yesterday")}
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              dayFilterMode === "yesterday"
+                ? "bg-indigo-600 text-white shadow-xs border border-indigo-700 ring-2 ring-indigo-500/20"
+                : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-100"
+            }`}
+            title="Show yesterday's entries"
+          >
+            <span>Yesterday</span>
+          </button>
+
+          {/* Step Day Stepper: Prev Day | Date Picker | Next Day */}
+          <div className="inline-flex items-center bg-white border border-slate-300 rounded-xl overflow-hidden shadow-2xs">
+            <button
+              type="button"
+              onClick={onPrevDay}
+              className="px-2.5 py-1.5 text-slate-700 hover:text-slate-900 hover:bg-slate-100 text-xs font-black transition border-r border-slate-200 flex items-center gap-0.5 cursor-pointer"
+              title="Filter by Previous Day"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Prev Day</span>
+            </button>
+
+            <div className="relative flex items-center px-2 py-1 bg-amber-50/40">
+              <input
+                type="date"
+                value={selectedDay}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    onChangeSelectedDay(e.target.value);
+                  }
+                }}
+                className="text-xs font-bold text-slate-900 bg-transparent outline-none cursor-pointer"
+                title="Pick a Specific Day"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={onNextDay}
+              className="px-2.5 py-1.5 text-slate-700 hover:text-slate-900 hover:bg-slate-100 text-xs font-black transition border-l border-slate-200 flex items-center gap-0.5 cursor-pointer"
+              title="Filter by Next Day"
+            >
+              <span className="hidden sm:inline">Next Day</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Date Range Button */}
+          <button
+            type="button"
+            onClick={() => onSelectMode("range")}
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              dayFilterMode === "range"
+                ? "bg-amber-500 text-slate-950 font-black shadow-xs border border-amber-600 ring-2 ring-amber-400/20"
+                : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-100"
+            }`}
+            title="Filter by Custom Date Range"
+          >
+            <span>Date Range</span>
+          </button>
+
+          {/* All Days Button */}
+          <button
+            type="button"
+            onClick={() => onSelectMode("all")}
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              dayFilterMode === "all"
+                ? "bg-slate-900 text-white shadow-xs border border-slate-950 ring-2 ring-slate-800/20"
+                : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-100"
+            }`}
+            title="Show All Dates / Historical Entries"
+          >
+            <span>All Days</span>
+          </button>
+        </div>
+
+        {/* Right: Active Filter Indicator Badge */}
+        <div className="flex items-center gap-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>
+              {dayFilterMode === "today" && `Today (${formatComparableToDisplay(todayIso)}) · Whole Day Details`}
+              {dayFilterMode === "yesterday" && `Yesterday (${formatComparableToDisplay(yesterdayIso)})`}
+              {dayFilterMode === "single_day" && `Day: ${formatComparableToDisplay(selectedDay)}`}
+              {dayFilterMode === "range" && "Custom Date Range"}
+              {dayFilterMode === "all" && "All Days (Unrestricted)"}
+            </span>
+            <span className="text-slate-400">|</span>
+            <span className="font-black text-slate-900">
+              {activeRecordCount} {activeRecordCount === 1 ? "entry" : "entries"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Helpful banner if 0 entries found for the selected day */}
+      {activeRecordCount === 0 && (dayFilterMode === "today" || dayFilterMode === "single_day" || dayFilterMode === "yesterday") && (
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 bg-amber-50 border border-amber-200/90 rounded-xl text-xs text-amber-900 animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              No entries recorded for{" "}
+              <strong>
+                {dayFilterMode === "today"
+                  ? `Today (${formatComparableToDisplay(todayIso)})`
+                  : dayFilterMode === "yesterday"
+                  ? `Yesterday (${formatComparableToDisplay(yesterdayIso)})`
+                  : formatComparableToDisplay(selectedDay)}
+              </strong>{" "}
+              yet.
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {latestDateWithRecords && latestDateWithRecords !== (dayFilterMode === "today" ? todayIso : selectedDay) && (
+              <button
+                type="button"
+                onClick={() => onJumpToLatestDate(latestDateWithRecords)}
+                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-black rounded-lg transition shadow-2xs cursor-pointer"
+              >
+                Jump to Latest Day with Entries ({formatComparableToDisplay(latestDateWithRecords)})
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onShowAllDays}
+              className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-800 font-bold border border-slate-300 rounded-lg transition cursor-pointer"
+            >
+              View All Days
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface PaginationControlsProps {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  startIndex: number;
+  endIndex: number;
+  pageSize: number | "ALL";
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number | "ALL") => void;
+}
+
+function PaginationControls({
+  currentPage,
+  totalPages,
+  totalItems,
+  startIndex,
+  endIndex,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+}: PaginationControlsProps) {
+  const pageNumbers: (number | "...")[] = useMemo(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (currentPage <= 4) {
+      return [1, 2, 3, 4, 5, "...", totalPages];
+    }
+    if (currentPage >= totalPages - 3) {
+      return [1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
+  }, [totalPages, currentPage]);
+
+  return (
+    <div className="bg-slate-50 border-t border-slate-300 px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+      {/* Left: Showing X to Y of Z entries + Rows per page */}
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-slate-600 font-medium">
+          Showing <strong className="text-slate-900 font-black">{totalItems === 0 ? 0 : startIndex + 1}</strong> to{" "}
+          <strong className="text-slate-900 font-black">{endIndex}</strong> of{" "}
+          <strong className="text-slate-900 font-black">{totalItems}</strong> entries
+        </span>
+
+        <div className="flex items-center gap-1.5 pl-2 border-l border-slate-300">
+          <label htmlFor="report-page-size" className="text-slate-500 font-semibold text-[11px] whitespace-nowrap">
+            Rows per page:
+          </label>
+          <select
+            id="report-page-size"
+            value={pageSize}
+            onChange={(e) => {
+              const val = e.target.value === "ALL" ? "ALL" : Number(e.target.value);
+              onPageSizeChange(val);
+            }}
+            className="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer shadow-2xs"
+          >
+            <option value={10}>10</option>
+            <option value={15}>15</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+            <option value="ALL">All</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Right: Page navigation buttons */}
+      {pageSize !== "ALL" && totalPages > 1 && (
+        <div className="flex items-center gap-1 self-center md:self-auto">
+          {/* First page */}
+          <button
+            type="button"
+            onClick={() => onPageChange(1)}
+            disabled={currentPage <= 1}
+            className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer"
+            title="First Page"
+          >
+            <ChevronsLeft className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Previous page */}
+          <button
+            type="button"
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage <= 1}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none font-bold text-xs transition cursor-pointer"
+            title="Previous Page"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Prev</span>
+          </button>
+
+          {/* Page numbers */}
+          <div className="flex items-center gap-1 px-1">
+            {pageNumbers.map((p, i) => {
+              if (p === "...") {
+                return (
+                  <span key={`ellipsis-${i}`} className="px-1.5 text-slate-400 font-bold select-none">
+                    …
+                  </span>
+                );
+              }
+              const isCurrent = p === currentPage;
+              return (
+                <button
+                  key={`page-${p}`}
+                  type="button"
+                  onClick={() => onPageChange(p as number)}
+                  className={`min-w-7 h-7 px-2 rounded-lg text-xs font-black transition cursor-pointer ${
+                    isCurrent
+                      ? "bg-[#107c41] text-white shadow-xs border border-[#0d6535]"
+                      : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 hover:text-slate-900"
+                  }`}
+                >
+                  {p}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Next page */}
+          <button
+            type="button"
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage >= totalPages}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none font-bold text-xs transition cursor-pointer"
+            title="Next Page"
+          >
+            <span className="hidden sm:inline">Next</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Last page */}
+          <button
+            type="button"
+            onClick={() => onPageChange(totalPages)}
+            disabled={currentPage >= totalPages}
+            className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer"
+            title="Last Page"
+          >
+            <ChevronsRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AccountsReportsHub({
   initialReport = "reports",
   onSelectReport,
@@ -504,6 +995,45 @@ export function AccountsReportsHub({
 
   const [loading, setLoading] = useState(false);
 
+  // Day Filter Mode: "today" | "yesterday" | "single_day" | "range" | "all"
+  // Default is "today" so 1st page immediately displays whole day details of today!
+  const [dayFilterMode, setDayFilterMode] = useState<"today" | "yesterday" | "single_day" | "range" | "all">("today");
+  const [selectedDay, setSelectedDay] = useState<string>(() => getLocalDateString());
+
+  // Pagination states
+  const [pageSize, setPageSize] = useState<number | "ALL">(15);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  const resetPage = () => setCurrentPage(1);
+
+  const handleSelectDayFilter = (mode: "today" | "yesterday" | "single_day" | "range" | "all", customDay?: string) => {
+    setDayFilterMode(mode);
+    if (customDay) {
+      setSelectedDay(customDay);
+    } else if (mode === "today") {
+      setSelectedDay(getLocalDateString());
+    } else if (mode === "yesterday") {
+      setSelectedDay(shiftDateByDays(getLocalDateString(), -1));
+    }
+    resetPage();
+  };
+
+  const handlePrevDay = () => {
+    const base = selectedDay || getLocalDateString();
+    const prev = shiftDateByDays(base, -1);
+    setSelectedDay(prev);
+    setDayFilterMode("single_day");
+    resetPage();
+  };
+
+  const handleNextDay = () => {
+    const base = selectedDay || getLocalDateString();
+    const next = shiftDateByDays(base, 1);
+    setSelectedDay(next);
+    setDayFilterMode("single_day");
+    resetPage();
+  };
+
   // Daily Reports Header Filter States (From Date, To Date, All Booking Types, Search Query)
   const [dailyFromDate, setDailyFromDate] = useState("");
   const [dailyToDate, setDailyToDate] = useState("");
@@ -531,6 +1061,7 @@ export function AccountsReportsHub({
     setAppliedDailyToDate(dailyToDate);
     setAppliedDailyBookingType(dailyBookingType);
     setAppliedDailySearchQuery(dailySearchQuery);
+    resetPage();
 
     setSearchFeedback("Search applied");
     setTimeout(() => setSearchFeedback(null), 2500);
@@ -546,6 +1077,7 @@ export function AccountsReportsHub({
     setAppliedDailyBookingType("ALL");
     setAppliedDailySearchQuery("");
     setDateError(null);
+    resetPage();
     setSearchFeedback("Filters reset");
     setTimeout(() => setSearchFeedback(null), 2000);
   };
@@ -1118,6 +1650,7 @@ export function AccountsReportsHub({
     setAppliedEndDate(endDate);
     setAppliedCategoryFilter(categoryFilter);
     setAppliedSearchQuery(searchQuery);
+    resetPage();
 
     setSearchFeedback("Search applied");
     setTimeout(() => setSearchFeedback(null), 2500);
@@ -1135,6 +1668,7 @@ export function AccountsReportsHub({
     setAppliedCategoryFilter("ALL");
     setAppliedSearchQuery("");
     setDateError(null);
+    resetPage();
     setSearchFeedback("Filters reset");
     setTimeout(() => setSearchFeedback(null), 2000);
   };
@@ -1168,6 +1702,7 @@ export function AccountsReportsHub({
       return;
     }
     setActiveReport(key);
+    resetPage();
     if (onSelectReport) {
       onSelectReport(key);
     }
@@ -1457,7 +1992,7 @@ export function AccountsReportsHub({
     fetchLiveTransactions();
   }, []);
 
-  // Filter Daily Reports (Filtered using Header Controls: DATE range, Booking Type, and Search Query)
+  // Filter Daily Reports (Filtered using Day Filter, DATE range, Booking Type, and Search Query)
   const filteredDailyRecords = useMemo(() => {
     const deletedInDaily = new Set([
       ...(deletedByReport["daily"] || []),
@@ -1466,17 +2001,28 @@ export function AccountsReportsHub({
         : []),
     ]);
 
+    const todayComparable = getLocalDateString();
+    const yesterdayComparable = shiftDateByDays(todayComparable, -1);
+
     return dailyRecords.filter((r) => {
       // Exclude if deleted specifically in Daily Reports
       if (deletedInDaily.has(String(r.id))) return false;
 
-      // 1. Filter against the report's DATE field (not TRAV ON)
+      // 1. Day / Date Filter against the report's DATE field (not TRAV ON)
       const recDate = parseToComparableDate(r.date) || parseToComparableDate(r.raw_date);
-      if (appliedDailyFromDate) {
-        if (!recDate || recDate < appliedDailyFromDate) return false;
-      }
-      if (appliedDailyToDate) {
-        if (!recDate || recDate > appliedDailyToDate) return false;
+
+      if (dayFilterMode === "today") {
+        if (recDate !== todayComparable) return false;
+      } else if (dayFilterMode === "yesterday") {
+        if (recDate !== yesterdayComparable) return false;
+      } else if (dayFilterMode === "single_day") {
+        if (selectedDay && recDate !== selectedDay) return false;
+      } else if (dayFilterMode === "range") {
+        if (appliedDailyFromDate && (!recDate || recDate < appliedDailyFromDate)) return false;
+        if (appliedDailyToDate && (!recDate || recDate > appliedDailyToDate)) return false;
+      } else if (dayFilterMode === "all") {
+        if (appliedDailyFromDate && (!recDate || recDate < appliedDailyFromDate)) return false;
+        if (appliedDailyToDate && (!recDate || recDate > appliedDailyToDate)) return false;
       }
 
       // 2. Booking Type Filter
@@ -1526,7 +2072,16 @@ export function AccountsReportsHub({
 
       return true;
     });
-  }, [dailyRecords, appliedDailyFromDate, appliedDailyToDate, appliedDailyBookingType, appliedDailySearchQuery]);
+  }, [
+    dailyRecords,
+    dayFilterMode,
+    selectedDay,
+    appliedDailyFromDate,
+    appliedDailyToDate,
+    appliedDailyBookingType,
+    appliedDailySearchQuery,
+    deletedByReport,
+  ]);
 
   // Dynamic Totals for Daily Reports
   const dailyTotals = useMemo(() => {
@@ -1909,10 +2464,33 @@ export function AccountsReportsHub({
   // Filter transactions (for other reports)
   const filteredTransactions = useMemo(() => {
     const deletedInActiveReport = new Set(deletedByReport[activeReport] || []);
+    const todayComparable = getLocalDateString();
+    const yesterdayComparable = shiftDateByDays(todayComparable, -1);
 
     return transactions.filter((t) => {
       // 0. Exclude records deleted specifically in THIS report
       if (deletedInActiveReport.has(String(t.id))) return false;
+
+      // 1. Day / Date Filter against the transaction's date
+      const txnDate = parseToComparableDate(t.date);
+
+      if (dayFilterMode === "today") {
+        if (txnDate !== todayComparable) return false;
+      } else if (dayFilterMode === "yesterday") {
+        if (txnDate !== yesterdayComparable) return false;
+      } else if (dayFilterMode === "single_day") {
+        if (selectedDay && txnDate !== selectedDay) return false;
+      } else if (dayFilterMode === "range") {
+        const fromD = appliedStartDate || startDate;
+        const toD = appliedEndDate || endDate;
+        if (fromD && (!txnDate || txnDate < fromD)) return false;
+        if (toD && (!txnDate || txnDate > toD)) return false;
+      } else if (dayFilterMode === "all") {
+        const fromD = appliedStartDate || startDate;
+        const toD = appliedEndDate || endDate;
+        if (fromD && (!txnDate || txnDate < fromD)) return false;
+        if (toD && (!txnDate || txnDate > toD)) return false;
+      }
 
       // Search
       const q = (appliedSearchQuery || searchQuery).toLowerCase().trim();
@@ -1958,24 +2536,12 @@ export function AccountsReportsHub({
         if (t.status !== "PAID") return false;
       }
 
-      // Date range filter
-      const fromD = appliedStartDate || startDate;
-      const toD = appliedEndDate || endDate;
-      if (fromD) {
-        const sTime = new Date(fromD).setHours(0, 0, 0, 0);
-        const tTime = new Date(t.date).getTime();
-        if (tTime < sTime) return false;
-      }
-      if (toD) {
-        const eTime = new Date(toD).setHours(23, 59, 59, 999);
-        const tTime = new Date(t.date).getTime();
-        if (tTime > eTime) return false;
-      }
-
       return true;
     });
   }, [
     transactions,
+    dayFilterMode,
+    selectedDay,
     searchQuery,
     appliedSearchQuery,
     categoryFilter,
@@ -1987,6 +2553,7 @@ export function AccountsReportsHub({
     appliedStartDate,
     endDate,
     appliedEndDate,
+    deletedByReport,
   ]);
 
   // Aggregate Metrics
@@ -2025,6 +2592,72 @@ export function AccountsReportsHub({
       count: filteredTransactions.length,
     };
   }, [filteredTransactions]);
+
+  // Find latest date with entries in daily records
+  const latestDailyDate = useMemo(() => {
+    let latest = "";
+    dailyRecords.forEach((r) => {
+      const d = parseToComparableDate(r.date) || parseToComparableDate(r.raw_date);
+      if (d && (!latest || d > latest)) latest = d;
+    });
+    return latest;
+  }, [dailyRecords]);
+
+  // Find latest date with entries in transactions
+  const latestTxnDate = useMemo(() => {
+    let latest = "";
+    transactions.forEach((t) => {
+      const d = parseToComparableDate(t.date);
+      if (d && (!latest || d > latest)) latest = d;
+    });
+    return latest;
+  }, [transactions]);
+
+  const latestActiveDate = activeReport === "daily" ? latestDailyDate : latestTxnDate;
+
+  // Pagination calculations for Daily Reports
+  const totalDailyPages = pageSize === "ALL" ? 1 : Math.max(1, Math.ceil(filteredDailyRecords.length / pageSize));
+  const safeDailyPage = Math.min(Math.max(1, currentPage), totalDailyPages);
+  const dailyStartIndex = pageSize === "ALL" ? 0 : (safeDailyPage - 1) * pageSize;
+  const dailyEndIndex = pageSize === "ALL" ? filteredDailyRecords.length : Math.min(dailyStartIndex + pageSize, filteredDailyRecords.length);
+  const displayedDailyRecords = useMemo(() => {
+    return filteredDailyRecords.slice(dailyStartIndex, dailyEndIndex);
+  }, [filteredDailyRecords, dailyStartIndex, dailyEndIndex]);
+
+  // Page subtotals for Daily Reports
+  const pageDailyTotals = useMemo(() => {
+    let booking = 0;
+    let offAdv = 0;
+    let due = 0;
+    displayedDailyRecords.forEach((r) => {
+      booking += Number(r.booking || 0);
+      offAdv += Number(r.off_adv || 0);
+      due += Number(r.due || 0);
+    });
+    return { booking, offAdv, due };
+  }, [displayedDailyRecords]);
+
+  // Pagination calculations for Transactions
+  const totalTxnPages = pageSize === "ALL" ? 1 : Math.max(1, Math.ceil(filteredTransactions.length / pageSize));
+  const safeTxnPage = Math.min(Math.max(1, currentPage), totalTxnPages);
+  const txnStartIndex = pageSize === "ALL" ? 0 : (safeTxnPage - 1) * pageSize;
+  const txnEndIndex = pageSize === "ALL" ? filteredTransactions.length : Math.min(txnStartIndex + pageSize, filteredTransactions.length);
+  const displayedTransactions = useMemo(() => {
+    return filteredTransactions.slice(txnStartIndex, txnEndIndex);
+  }, [filteredTransactions, txnStartIndex, txnEndIndex]);
+
+  // Page subtotals for Transactions
+  const pageTxnTotals = useMemo(() => {
+    let income = 0;
+    let expense = 0;
+    let balance = 0;
+    displayedTransactions.forEach((t) => {
+      income += Number(t.income || 0);
+      expense += Number(t.expense || 0);
+      balance += Number(t.balance || 0);
+    });
+    return { income, expense, balance };
+  }, [displayedTransactions]);
 
   // Export to CSV / Excel
   const handleExportCSV = () => {
@@ -2126,6 +2759,31 @@ export function AccountsReportsHub({
               <span>Print / PDF</span>
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Horizontal Report Navigation Tab Bar */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-2 shadow-xs">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+          {REPORT_DEFINITIONS.map((r) => {
+            const Icon = r.icon;
+            const isActive = activeReport === r.key;
+            return (
+              <button
+                key={r.key}
+                type="button"
+                onClick={() => handleReportChange(r.key)}
+                className={`shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  isActive
+                    ? "bg-[#0b1329] text-amber-400 font-extrabold shadow-sm border border-amber-400/40"
+                    : "text-slate-600 hover:text-slate-950 hover:bg-slate-100"
+                }`}
+              >
+                <Icon className={`w-4 h-4 ${isActive ? "text-amber-400" : r.color}`} />
+                <span>{r.shortTitle}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -2257,6 +2915,31 @@ export function AccountsReportsHub({
 
       {/* Transaction Records Table / Daily Reports Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        {/* Tier 1: Day Filter Toolbar (Today, Yesterday, Step with Prev/Next, Date Range, All Days) */}
+        <DayFilterToolbar
+          dayFilterMode={dayFilterMode}
+          selectedDay={selectedDay}
+          onSelectMode={handleSelectDayFilter}
+          onPrevDay={handlePrevDay}
+          onNextDay={handleNextDay}
+          onChangeSelectedDay={(day) => {
+            setSelectedDay(day);
+            setDayFilterMode("single_day");
+            resetPage();
+          }}
+          activeRecordCount={activeReport === "daily" ? filteredDailyRecords.length : filteredTransactions.length}
+          latestDateWithRecords={latestActiveDate}
+          onJumpToLatestDate={(date) => {
+            setSelectedDay(date);
+            setDayFilterMode("single_day");
+            resetPage();
+          }}
+          onShowAllDays={() => {
+            setDayFilterMode("all");
+            resetPage();
+          }}
+        />
+
         {activeReport === "daily" ? (
           <div className="p-4 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
             {/* Left: Heading with orange icon & record count badge */}
@@ -2596,11 +3279,11 @@ export function AccountsReportsHub({
                       </td>
                     </tr>
                   ) : (
-                    filteredDailyRecords.map((r, idx) => (
+                    displayedDailyRecords.map((r, idx) => (
                       <tr key={r.id} className="bg-white even:bg-[#f7faf8] hover:bg-[#ebf5ec] transition-colors">
-                        {/* 1. SL */}
+                        {/* 1. SL (Continuous across pages) */}
                         <td className="py-2 px-3 text-center font-bold text-slate-700 whitespace-nowrap border border-slate-300 bg-slate-50/70">
-                          {idx + 1}
+                          {dailyStartIndex + idx + 1}
                         </td>
 
                         {/* 2. DATE */}
@@ -2702,10 +3385,30 @@ export function AccountsReportsHub({
                 </tbody>
                 {filteredDailyRecords.length > 0 && (
                   <tfoot className="bg-[#eef7ee] text-slate-900 font-black border-t-2 border-slate-400 border-b-4 border-double border-slate-500">
+                    {/* Page Subtotal Row if paginated */}
+                    {totalDailyPages > 1 && pageSize !== "ALL" && (
+                      <tr className="bg-slate-50 border-b border-slate-300 text-slate-700">
+                        <td colSpan={9} className="py-2 px-3 border border-slate-300 text-right font-extrabold text-xs uppercase tracking-wider text-slate-600 bg-slate-100/70">
+                          Page {safeDailyPage} Subtotal ({displayedDailyRecords.length} items)
+                        </td>
+                        <td className="py-2 px-3 border border-slate-300 bg-slate-100/70"></td>
+                        <td className="py-2 px-3 text-right font-bold text-emerald-700 whitespace-nowrap text-xs border border-slate-300 bg-emerald-50/40">
+                          ₹{pageDailyTotals.booking.toLocaleString("en-IN")}
+                        </td>
+                        <td className="py-2 px-3 text-right font-bold text-blue-700 whitespace-nowrap text-xs border border-slate-300 bg-blue-50/40">
+                          ₹{pageDailyTotals.offAdv.toLocaleString("en-IN")}
+                        </td>
+                        <td className="py-2 px-3 text-right font-bold text-rose-600 whitespace-nowrap text-xs border border-slate-300 bg-rose-50/40">
+                          ₹{pageDailyTotals.due.toLocaleString("en-IN")}
+                        </td>
+                        <td className="py-2 px-3 border border-slate-300 bg-slate-100/70"></td>
+                      </tr>
+                    )}
+                    {/* Grand Total Row */}
                     <tr>
                       <td colSpan={9} className="py-2.5 px-3 border border-slate-300 bg-slate-100/70"></td>
                       <td className="py-2.5 px-3 text-right font-black text-slate-900 whitespace-nowrap text-xs uppercase tracking-wider border border-slate-300 bg-[#d9ebd9]">
-                        Total Cash
+                        Total Cash ({filteredDailyRecords.length})
                       </td>
                       <td className="py-2.5 px-3 text-right font-black text-emerald-800 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
                         ₹{dailyTotals.booking.toLocaleString("en-IN")}
@@ -2722,6 +3425,21 @@ export function AccountsReportsHub({
                 )}
               </table>
 
+              {/* Interactive Pagination Controls */}
+              <PaginationControls
+                currentPage={safeDailyPage}
+                totalPages={totalDailyPages}
+                totalItems={filteredDailyRecords.length}
+                startIndex={dailyStartIndex}
+                endIndex={dailyEndIndex}
+                pageSize={pageSize}
+                onPageChange={(p) => setCurrentPage(p)}
+                onPageSizeChange={(s) => {
+                  setPageSize(s);
+                  setCurrentPage(1);
+                }}
+              />
+
               {/* Excel-style Sheet Tab Bar */}
               <div className="bg-[#f3f4f6] border-t border-slate-300 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 select-none">
                 <div className="flex items-center gap-1.5">
@@ -2731,7 +3449,8 @@ export function AccountsReportsHub({
                   </div>
                 </div>
                 <div className="flex items-center gap-4 text-[11px] font-semibold text-slate-500">
-                  <span>Rows: <strong className="text-slate-800">{filteredDailyRecords.length}</strong></span>
+                  <span>Page: <strong className="text-slate-800">{safeDailyPage} of {totalDailyPages}</strong></span>
+                  <span>Viewing: <strong className="text-slate-800">{displayedDailyRecords.length}</strong> of <strong className="text-slate-800">{filteredDailyRecords.length}</strong></span>
                   <span>Total Booking: <strong className="text-emerald-700">₹{dailyTotals.booking.toLocaleString("en-IN")}</strong></span>
                   <span>Total Due: <strong className="text-rose-700">₹{dailyTotals.due.toLocaleString("en-IN")}</strong></span>
                 </div>
@@ -2766,15 +3485,15 @@ export function AccountsReportsHub({
                       </td>
                     </tr>
                   ) : (
-                    filteredTransactions.map((t, idx) => {
+                    displayedTransactions.map((t, idx) => {
                       return (
                         <tr
                           key={t.id}
                           className="odd:bg-white even:bg-[#f9fafb] hover:bg-[#e8f5e9] transition-colors border-b border-slate-300"
                         >
-                          {/* SL */}
+                          {/* SL (Continuous across pages) */}
                           <td className="py-2 px-3 text-center whitespace-nowrap font-bold text-slate-600 border border-slate-300 bg-slate-50/60">
-                            {idx + 1}
+                            {txnStartIndex + idx + 1}
                           </td>
 
                           {/* Date */}
@@ -2814,10 +3533,10 @@ export function AccountsReportsHub({
                             <span
                               className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
                                 t.payment_method === "CASH"
-                                  ? "bg-amber-100 text-amber-900"
-                                  : t.payment_method === "UPI"
-                                  ? "bg-indigo-100 text-indigo-900"
-                                  : "bg-cyan-100 text-cyan-900"
+                                ? "bg-amber-100 text-amber-900"
+                                : t.payment_method === "UPI"
+                                ? "bg-indigo-100 text-indigo-900"
+                                : "bg-cyan-100 text-cyan-900"
                               }`}
                             >
                               {t.payment_method}
@@ -2884,9 +3603,28 @@ export function AccountsReportsHub({
                 </tbody>
                 {filteredTransactions.length > 0 && (
                   <tfoot className="bg-[#eef7ee] text-slate-900 font-black border-t-2 border-slate-400 border-b-4 border-double border-slate-500">
+                    {/* Page Subtotal Row if paginated */}
+                    {totalTxnPages > 1 && pageSize !== "ALL" && (
+                      <tr className="bg-slate-50 border-b border-slate-300 text-slate-700">
+                        <td colSpan={8} className="py-2 px-3 border border-slate-300 text-right font-extrabold text-xs uppercase tracking-wider text-slate-600 bg-slate-100/70">
+                          Page {safeTxnPage} Subtotal ({displayedTransactions.length} items)
+                        </td>
+                        <td className="py-2 px-3 text-right font-bold text-emerald-700 whitespace-nowrap text-xs border border-slate-300 bg-emerald-50/40">
+                          ₹{pageTxnTotals.income.toLocaleString("en-IN")}
+                        </td>
+                        <td className="py-2 px-3 text-right font-bold text-rose-600 whitespace-nowrap text-xs border border-slate-300 bg-rose-50/40">
+                          ₹{pageTxnTotals.expense.toLocaleString("en-IN")}
+                        </td>
+                        <td className="py-2 px-3 text-right font-bold text-slate-900 whitespace-nowrap text-xs border border-slate-300 bg-slate-50/50">
+                          ₹{pageTxnTotals.balance.toLocaleString("en-IN")}
+                        </td>
+                        <td className="py-2 px-3 border border-slate-300 bg-slate-100/70"></td>
+                      </tr>
+                    )}
+                    {/* Grand Total Row */}
                     <tr>
                       <td colSpan={8} className="py-2.5 px-3 text-right font-black text-slate-900 whitespace-nowrap text-xs uppercase tracking-wider border border-slate-300 bg-[#d9ebd9]">
-                        Total Summary
+                        Total Summary ({filteredTransactions.length})
                       </td>
                       <td className="py-2.5 px-3 text-right font-black text-emerald-800 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
                         ₹{metrics.totalIncome.toLocaleString("en-IN")}
@@ -2903,6 +3641,21 @@ export function AccountsReportsHub({
                 )}
               </table>
 
+              {/* Interactive Pagination Controls */}
+              <PaginationControls
+                currentPage={safeTxnPage}
+                totalPages={totalTxnPages}
+                totalItems={filteredTransactions.length}
+                startIndex={txnStartIndex}
+                endIndex={txnEndIndex}
+                pageSize={pageSize}
+                onPageChange={(p) => setCurrentPage(p)}
+                onPageSizeChange={(s) => {
+                  setPageSize(s);
+                  setCurrentPage(1);
+                }}
+              />
+
               {/* Excel-style Sheet Tab Bar */}
               <div className="bg-[#f3f4f6] border-t border-slate-300 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 select-none">
                 <div className="flex items-center gap-1.5">
@@ -2912,7 +3665,8 @@ export function AccountsReportsHub({
                   </div>
                 </div>
                 <div className="flex items-center gap-4 text-[11px] font-semibold text-slate-500">
-                  <span>Rows: <strong className="text-slate-800">{filteredTransactions.length}</strong></span>
+                  <span>Page: <strong className="text-slate-800">{safeTxnPage} of {totalTxnPages}</strong></span>
+                  <span>Viewing: <strong className="text-slate-800">{displayedTransactions.length}</strong> of <strong className="text-slate-800">{filteredTransactions.length}</strong></span>
                   <span>Total Income: <strong className="text-emerald-700">₹{metrics.totalIncome.toLocaleString("en-IN")}</strong></span>
                   <span>Total Expense: <strong className="text-rose-700">₹{metrics.totalExpenses.toLocaleString("en-IN")}</strong></span>
                   <span>Net Balance: <strong className="text-blue-700">₹{metrics.netBalance.toLocaleString("en-IN")}</strong></span>
