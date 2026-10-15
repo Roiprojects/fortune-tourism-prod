@@ -2104,7 +2104,6 @@ export function AccountsReportsHub({
         else if (isAdvPaid) status = "PAID"; // The collected advance is recorded as cash inflow/income
 
         let method: TransactionRecord["payment_method"] = "UPI";
-        const pMode = String(b.payment_mode || b.payment_method || "UPI").toUpperCase();
         if (pMode.includes("CASH")) method = "CASH";
         else if (pMode.includes("CARD")) method = "CARD";
         else if (pMode.includes("NET") || pMode.includes("BANK")) method = "NETBANKING";
