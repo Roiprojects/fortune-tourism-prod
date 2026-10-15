@@ -1,6 +1,14 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+export interface TicketPassenger {
+  name: string;
+  age?: number | string;
+  gender?: string;
+  berth_preference?: string;
+  seat_berth?: string;
+}
+
 export interface TicketCopyData {
   ticketNumber: string;
   pnrNumber: string;
@@ -22,6 +30,7 @@ export interface TicketCopyData {
   baseFare?: number | string;
   driverAllowance?: number | string;
   paymentStatus?: string;
+  passengers?: TicketPassenger[];
 }
 
 export function downloadTicketCopyPDF(data: TicketCopyData) {
@@ -160,7 +169,47 @@ export function downloadTicketCopyPDF(data: TicketCopyData) {
       ],
     });
 
-    const finalY = (doc as any).lastAutoTable?.finalY || 100;
+    let currentY = (doc as any).lastAutoTable?.finalY || 100;
+
+    // Multi-Passenger Manifest Table if passengers exist
+    if (Array.isArray(data.passengers) && data.passengers.length > 0) {
+      const passengerRows = data.passengers.map((p, idx) => [
+        { content: String(idx + 1), styles: { halign: "center" as const, fontStyle: "bold" as const, fillColor: [248, 248, 248] as [number, number, number] } },
+        { content: (p.name || "PASSENGER").toUpperCase(), styles: { fontStyle: "bold" as const } },
+        { content: p.age ? `${p.age} Yrs` : "—", styles: { halign: "center" as const } },
+        { content: (p.gender || "—").toUpperCase(), styles: { halign: "center" as const } },
+        { content: (p.berth_preference || p.seat_berth || "CONFIRMED").toUpperCase(), styles: { halign: "center" as const, fontStyle: "bold" as const } },
+        { content: "CONFIRMED", styles: { halign: "center" as const, fontStyle: "bold" as const, textColor: [14, 107, 80] as [number, number, number] } },
+      ]);
+
+      autoTable(doc, {
+        startY: currentY + 3,
+        margin: { left: 16, right: 16 },
+        theme: "grid",
+        styles: {
+          fontSize: 7.5,
+          cellPadding: 2.2,
+          textColor: [20, 20, 20],
+          lineColor: [20, 20, 20],
+          lineWidth: 0.35,
+        },
+        head: [
+          [
+            { content: "#", styles: { halign: "center", fontStyle: "bold", fillColor: [15, 23, 42], textColor: [255, 255, 255] } },
+            { content: `PASSENGER MANIFEST (${data.passengers.length} ${data.passengers.length === 1 ? "PASSENGER" : "PASSENGERS"})`, styles: { fontStyle: "bold", fillColor: [15, 23, 42], textColor: [255, 255, 255] } },
+            { content: "AGE", styles: { halign: "center", fontStyle: "bold", fillColor: [15, 23, 42], textColor: [255, 255, 255] } },
+            { content: "GENDER", styles: { halign: "center", fontStyle: "bold", fillColor: [15, 23, 42], textColor: [255, 255, 255] } },
+            { content: "SEAT / BERTH", styles: { halign: "center", fontStyle: "bold", fillColor: [15, 23, 42], textColor: [255, 255, 255] } },
+            { content: "STATUS", styles: { halign: "center", fontStyle: "bold", fillColor: [15, 23, 42], textColor: [255, 255, 255] } },
+          ],
+        ],
+        body: passengerRows,
+      });
+
+      currentY = (doc as any).lastAutoTable?.finalY || currentY;
+    }
+
+    const finalY = currentY;
 
     // Terms & Conditions (Left Column)
     doc.setFont("helvetica", "bold");

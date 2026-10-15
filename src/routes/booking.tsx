@@ -527,6 +527,13 @@ function BookingPage() {
     return (passengerName || "GUEST").toUpperCase();
   }, [otherFormData, passengerName]);
 
+  const bookingPassengersList = useMemo(() => {
+    if (Array.isArray(otherFormData?.passengers)) {
+      return otherFormData.passengers.filter((p: any) => p && p.name && p.name.trim());
+    }
+    return [];
+  }, [otherFormData?.passengers]);
+
   const tourTypeDisplay = useMemo(() => {
     if (serviceType === "TRAIN") return `TRAIN (${otherFormData.travel_class || "3A"})`;
     if (serviceType === "BUS") return `BUS (${otherFormData.bus_type || "AC SLEEPER"})`;
@@ -737,6 +744,7 @@ function BookingPage() {
         date: otherFormData.date || today,
         time: otherFormData.time || "07:00",
         passengers: String(pCount),
+        passengers_list: otherFormData.passengers || [],
         boarding_point: otherFormData.boarding_point || "",
         boarding_address: otherFormData.boarding_address || "",
         notes: [
@@ -998,8 +1006,9 @@ function BookingPage() {
       ticketNumber,
       pnrNumber,
       bookingDate: bookingDateTime,
-      passengerName: passengerName || "GUEST",
-      passengerPhone: passengerPhone || "9964600247",
+      passengerName: primaryPassengerName || "GUEST",
+      passengerPhone: otherFormData.phone || passengerPhone || "9964600247",
+      passengers: bookingPassengersList.length > 0 ? bookingPassengersList : undefined,
       tourType: tourTypeDisplay,
       fromLocation: fromLocationDisplay,
       toLocation: cabTripType === "ROUND TRIP" ? `${toLocationDisplay} (ROUND TRIP)` : toLocationDisplay,
@@ -2892,7 +2901,7 @@ function BookingPage() {
                           Passenger Phone No.:
                         </td>
                         <td className="p-2.5 font-bold text-slate-900">
-                          {passengerPhone || "9964600247"}
+                          {otherFormData.phone || passengerPhone || "9964600247"}
                         </td>
                         <td className="p-2.5 font-bold text-slate-900 bg-slate-50 w-28 whitespace-nowrap">
                           Tour Type
@@ -3021,6 +3030,58 @@ function BookingPage() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Multi-Passenger Manifest & Berth Allocation Table */}
+                {bookingPassengersList && bookingPassengersList.length > 0 && (
+                  <div className="border border-slate-900 rounded-lg overflow-hidden bg-white shadow-xs">
+                    <div className="bg-[#0B132B] text-white px-3 py-1.5 flex items-center justify-between border-b border-slate-900">
+                      <span className="font-extrabold uppercase text-[11px] tracking-wider flex items-center gap-1.5">
+                        <Users className="w-4 h-4 text-amber-400" />
+                        Passenger Manifest &amp; Berth Allocation ({bookingPassengersList.length} {bookingPassengersList.length === 1 ? "Passenger" : "Passengers"})
+                      </span>
+                      <span className="text-emerald-400 font-extrabold text-[10px] hidden sm:inline">
+                        Official Passenger Travel Record
+                      </span>
+                    </div>
+                    <table className="w-full text-xs text-left border-collapse font-sans">
+                      <thead className="bg-slate-100 text-[10px] font-extrabold uppercase text-slate-800 border-b border-slate-900">
+                        <tr className="divide-x divide-slate-900">
+                          <th className="p-2 w-10 text-center">#</th>
+                          <th className="p-2">Passenger Full Name</th>
+                          <th className="p-2 w-20 text-center">Age</th>
+                          <th className="p-2 w-24 text-center">Gender</th>
+                          <th className="p-2 w-44 text-center">Seat / Berth Preference</th>
+                          <th className="p-2 w-28 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-300">
+                        {bookingPassengersList.map((p: any, idx: number) => (
+                          <tr key={idx} className="divide-x divide-slate-900 hover:bg-slate-50">
+                            <td className="p-2 text-center font-bold text-slate-600 bg-slate-50">{idx + 1}</td>
+                            <td className="p-2 font-black text-slate-900 uppercase">
+                              {p.name}
+                              {idx === 0 && (
+                                <span className="ml-1.5 text-[9px] font-bold bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded border border-amber-300">
+                                  Primary
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-2 text-center font-bold text-slate-700">{p.age ? `${p.age} Yrs` : "—"}</td>
+                            <td className="p-2 text-center font-bold text-slate-700">{p.gender || "—"}</td>
+                            <td className="p-2 text-center font-mono font-bold text-slate-800">
+                              {p.berth_preference || p.seat_berth || p.seat || "Confirmed"}
+                            </td>
+                            <td className="p-2 text-center">
+                              <span className="bg-emerald-100 text-emerald-800 font-black text-[10px] px-2 py-0.5 rounded-full border border-emerald-300">
+                                CONFIRMED
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
 
                 {/* Official PhonePe QR & Verification Bar + Terms & Conditions */}
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch pt-2">

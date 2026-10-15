@@ -153,12 +153,30 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
     return `${day}-${month}-${year} ${hours}:${minutes}`;
   }, []);
 
+  const activePassengersList = useMemo(() => {
+    if (serviceType === "TRAIN") {
+      return passengers.filter((p) => p.name && p.name.trim());
+    }
+    if (Array.isArray(otherFormData.passengers) && otherFormData.passengers.length > 0) {
+      return otherFormData.passengers.filter((p: any) => p?.name && p.name.trim());
+    }
+    return [];
+  }, [serviceType, passengers, otherFormData.passengers]);
+
   const primaryPassengerName = useMemo(() => {
     if (serviceType === "TRAIN") {
-      return passengers[0]?.name?.trim() || "GUEST";
+      const valid = passengers.filter((p) => p.name && p.name.trim());
+      const firstName = valid[0]?.name?.trim() || "GUEST";
+      return valid.length > 1
+        ? `${firstName.toUpperCase()} (+${valid.length - 1} OTHERS)`
+        : firstName.toUpperCase();
     }
-    return otherFormData.passengers?.[0]?.name?.trim() || otherFormData.name || "GUEST";
-  }, [serviceType, passengers, otherFormData]);
+    const valid = otherFormData.passengers?.filter((p: any) => p?.name && p.name.trim()) || [];
+    const firstName = valid[0]?.name?.trim() || otherFormData.name || "GUEST";
+    return valid.length > 1
+      ? `${firstName.toUpperCase()} (+${valid.length - 1} OTHERS)`
+      : firstName.toUpperCase();
+  }, [serviceType, passengers, otherFormData.passengers, otherFormData.name]);
 
   const primaryPhone = useMemo(() => {
     if (serviceType === "TRAIN") {
@@ -429,6 +447,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
         date: trainData.date || today,
         time: trainData.time || "07:00",
         passengers: String(passengers.length),
+        passengers_list: passengers,
         boarding_point: trainData.boarding_point.trim(),
         boarding_address: trainData.boarding_address.trim(),
         notes: [
@@ -514,6 +533,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
         date: otherFormData.date || today,
         time: otherFormData.time || "07:00",
         passengers: String(pCount),
+        passengers_list: otherFormData.passengers || [],
         boarding_point: otherFormData.boarding_point || "",
         boarding_address: otherFormData.boarding_address || "",
         notes: [
@@ -585,6 +605,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
       boardingAddress: boardingAddressDisplay,
       fareAmount: ticketFareAmount,
       serviceType,
+      passengers: activePassengersList,
     });
     toast.success("Ticket PDF downloaded successfully!");
   };
@@ -2020,6 +2041,58 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                   </tbody>
                 </table>
               </div>
+
+              {/* Multi-Passenger Manifest & Berth Allocation Table */}
+              {activePassengersList.length > 0 && (
+                <div className="border-x-2 border-b-2 border-slate-900 bg-white">
+                  <div className="bg-[#0b1329] text-white px-3 py-1.5 flex items-center justify-between text-xs font-black uppercase tracking-wider">
+                    <span className="flex items-center gap-1.5">
+                      <Users className="w-4 h-4 text-amber-400" />
+                      Passenger Manifest &amp; Berth Allocation ({activePassengersList.length} {activePassengersList.length === 1 ? "Passenger" : "Passengers"})
+                    </span>
+                    <span className="text-emerald-400 font-extrabold text-[10px] hidden sm:inline">
+                      Official Passenger Travel Record
+                    </span>
+                  </div>
+                  <table className="w-full text-xs text-left border-collapse font-sans">
+                    <thead className="bg-slate-100 text-[10px] font-extrabold uppercase text-slate-800 border-b border-slate-900">
+                      <tr className="divide-x divide-slate-900">
+                        <th className="p-2 w-10 text-center">#</th>
+                        <th className="p-2">Passenger Full Name</th>
+                        <th className="p-2 w-20 text-center">Age</th>
+                        <th className="p-2 w-24 text-center">Gender</th>
+                        <th className="p-2 w-44 text-center">Seat / Berth Preference</th>
+                        <th className="p-2 w-28 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-300">
+                      {activePassengersList.map((p: any, idx: number) => (
+                        <tr key={idx} className="divide-x divide-slate-900 hover:bg-slate-50">
+                          <td className="p-2 text-center font-bold text-slate-600 bg-slate-50">{idx + 1}</td>
+                          <td className="p-2 font-black text-slate-900 uppercase">
+                            {p.name}
+                            {idx === 0 && (
+                              <span className="ml-1.5 text-[9px] font-bold bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded border border-amber-300">
+                                Primary
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-2 text-center font-bold text-slate-700">{p.age ? `${p.age} Yrs` : "—"}</td>
+                          <td className="p-2 text-center font-bold text-slate-700">{p.gender || "—"}</td>
+                          <td className="p-2 text-center font-mono font-bold text-slate-800">
+                            {p.berth_preference || p.seat_berth || p.seat || "Confirmed"}
+                          </td>
+                          <td className="p-2 text-center">
+                            <span className="bg-emerald-100 text-emerald-800 font-black text-[10px] px-2 py-0.5 rounded-full border border-emerald-300">
+                              CONFIRMED
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
 
               {/* Terms and conditions */}
               <div className="border border-slate-300 rounded-xl p-3 text-[11px] text-slate-600 space-y-1">

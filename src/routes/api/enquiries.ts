@@ -333,6 +333,30 @@ export const Route = createFileRoute("/api/enquiries")({
 
           const booking = bookingRes.rows[0];
 
+          // Multi-passenger records (train/bus/flight)
+          const pList = Array.isArray(body.passengers_list)
+            ? body.passengers_list
+            : Array.isArray(body.passengers)
+            ? body.passengers
+            : [];
+          if (pList.length > 0) {
+            for (const p of pList) {
+              if (!p?.name) continue;
+              await query(
+                `INSERT INTO booking_passengers (booking_id, name, age, gender, seat_berth, ticket_number)
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                [
+                  booking.id,
+                  p.name,
+                  p.age ? parseInt(String(p.age), 10) || null : null,
+                  p.gender || null,
+                  p.berth_preference || p.seat_berth || p.seat || null,
+                  ticketNum || null,
+                ]
+              ).catch((e) => console.error("Error inserting booking passenger:", e));
+            }
+          }
+
           if (isFullySettled || isAdvanceReceived) {
             const paidAmt = isFullySettled ? fareVal : advancePaid;
             const payId = `PAY-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
