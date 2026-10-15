@@ -1444,17 +1444,6 @@ function AdminPage() {
                 <span>Hourly Tours</span>
               </button>
 
-              {/* Report Folder Direct Header Button */}
-              <button
-                type="button"
-                onClick={() => setReportFolderModalOpen(true)}
-                className="hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs shrink-0"
-                title="Report Folder - All 8 Specialized Accounting Reports"
-              >
-                <FolderKanban className="w-4 h-4 text-amber-600" />
-                <span>Report Folder</span>
-                <span className="bg-amber-200/90 text-amber-950 text-[10px] font-black px-1.5 py-0.2 rounded-md">8</span>
-              </button>
 
               {/* Ticket & PNR Search Direct Header Button */}
               <button
