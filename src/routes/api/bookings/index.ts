@@ -232,7 +232,6 @@ export const Route = createFileRoute("/api/bookings/")({
              directly supplied total_amount (legacy callers / simple entries). */
           const m = (v: unknown) => toMoney(v) ?? 0;
           const hasComponents = [
-            base_amount,
             driver_allowance,
             toll_amount,
             parking_amount,
@@ -243,7 +242,7 @@ export const Route = createFileRoute("/api/bookings/")({
             discount_amount,
             tax_amount,
             gst_amount,
-          ].some((v) => v !== undefined && v !== null && v !== "");
+          ].some((v) => Number(v) > 0) || Number(base_amount) > 0;
 
           let total: number;
           if (hasComponents) {
@@ -260,7 +259,13 @@ export const Route = createFileRoute("/api/bookings/")({
               m(gst_amount) -
               m(discount_amount);
           } else {
-            total = m(body.total_amount);
+            total = m(body.total_amount) || m(body.ticket_amount) || m(body.fare) || m(body.amount) || 0;
+          }
+          if (total <= 0) {
+            total = m(body.ticket_amount) || m(body.total_amount) || m(body.fare) || m(body.amount) || m(base_amount) || 0;
+          }
+          if (total > 0 && (!base_amount || Number(base_amount) === 0)) {
+            base_amount = total;
           }
           if (!Number.isFinite(total) || total < 0) {
             return new Response(

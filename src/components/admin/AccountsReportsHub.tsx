@@ -279,6 +279,48 @@ export interface TransactionRecord {
   customer_name?: string;
   phone?: string;
   notes?: string;
+  supplier?: string;
+}
+
+export function extractSupplier(particulars?: string, category?: string, notes?: string, supplier?: string): string {
+  if (supplier && supplier.trim()) return supplier.trim();
+  const text = `${particulars || ""} ${notes || ""}`;
+
+  // Airlines
+  if (/indigo/i.test(text)) return "IndiGo Airlines";
+  if (/air india express/i.test(text)) return "Air India Express";
+  if (/air india/i.test(text)) return "Air India";
+  if (/spicejet/i.test(text)) return "SpiceJet";
+  if (/vistara/i.test(text)) return "Vistara Airlines";
+  if (/akasa/i.test(text)) return "Akasa Air";
+
+  // Bus Operators
+  if (/ksrtc/i.test(text)) return "KSRTC (Karnataka RTC)";
+  if (/srs/i.test(text)) return "SRS Travels";
+  if (/vrl/i.test(text)) return "VRL Travels";
+  if (/orange/i.test(text)) return "Orange Tours & Travels";
+  if (/sharma/i.test(text)) return "Sharma Transports";
+  if (/national/i.test(text)) return "National Travels";
+  if (/jabbar/i.test(text)) return "Jabbar Travels";
+  if (/kallada/i.test(text)) return "Kallada Travels";
+
+  // Trains
+  if (/irctc|train|railway|rajdhani|shatabdi|vande/i.test(text) || category === "TRAIN") return "IRCTC / Indian Railways";
+
+  // Hotels
+  if (/taj|marriott|hilton|hyatt|radisson|lemon tree|oyo/i.test(text)) {
+    const m = text.match(/(taj|marriott|hilton|hyatt|radisson|lemon tree|oyo\w*)\s*[\w\s]*/i);
+    if (m) return m[0].trim();
+  }
+
+  // Cabs & Tour
+  if (category === "CAR") return "Fortune Fleet Logistics Partner";
+  if (category === "TOUR") return "Fortune Tourism Destination Partner";
+  if (category === "FLIGHT") return "Airlines Direct Booking Partner";
+  if (category === "BUS") return "Private Bus Operator Partner";
+  if (category === "HOTEL") return "Hospitality Partner";
+
+  return "Fortune Operations Vendor";
 }
 
 interface AccountsReportsHubProps {
@@ -1176,7 +1218,7 @@ export function AccountsReportsHub({
         "Transaction ID",
         "Date",
         "Reference No",
-        "Particulars",
+        "Supplier / Vendor",
         "Party / Client",
         "Phone",
         "Credit / Advance (₹)",
@@ -1190,7 +1232,7 @@ export function AccountsReportsHub({
         t.id,
         `"${new Date(t.date).toLocaleDateString("en-IN")}"`,
         `"${t.ref_number}"`,
-        `"${(t.particulars || "").replace(/"/g, '""')}"`,
+        `"${(t.supplier || extractSupplier(t.particulars, t.category, t.notes)).replace(/"/g, '""')}"`,
         `"${(t.customer_name || "").replace(/"/g, '""')}"`,
         `"${t.phone || ""}"`,
         t.income,
@@ -1221,33 +1263,42 @@ export function AccountsReportsHub({
         "Voucher No",
         "Payment Mode",
         "Amount Received (₹)",
-        "Payout Expense (₹)",
+        "Pending Payment (₹)",
+        "Status",
         "Customer Name",
         "Phone",
         "Particulars",
-        "Status",
         "Notes",
       ];
-      rows = filteredTransactions.map((t) => [
-        t.id,
-        `"${new Date(t.date).toLocaleDateString("en-IN")}"`,
-        `"${t.ref_number}"`,
-        t.payment_method,
-        t.income,
-        t.expense,
-        `"${(t.customer_name || "").replace(/"/g, '""')}"`,
-        `"${t.phone || ""}"`,
-        `"${(t.particulars || "").replace(/"/g, '""')}"`,
-        t.status,
-        `"${(t.notes || "").replace(/"/g, '""')}"`,
-      ]);
+      rows = filteredTransactions.map((t) => {
+        const isPaid = t.status === "PAID";
+        const advMatch = t.notes?.match(/Advance Paid:\s*₹?(\d+)/i);
+        const remMatch = t.notes?.match(/Remaining Due:\s*₹?(\d+)/i);
+        const adv = advMatch ? Number(advMatch[1]) : 0;
+        const received = isPaid ? t.income : (adv > 0 ? adv : 0);
+        const pending = remMatch ? Number(remMatch[1]) : (!isPaid ? t.income : 0);
+
+        return [
+          t.id,
+          `"${new Date(t.date).toLocaleDateString("en-IN")}"`,
+          `"${t.ref_number}"`,
+          t.payment_method,
+          received,
+          pending,
+          t.status,
+          `"${(t.customer_name || "").replace(/"/g, '""')}"`,
+          `"${t.phone || ""}"`,
+          `"${(t.particulars || "").replace(/"/g, '""')}"`,
+          `"${(t.notes || "").replace(/"/g, '""')}"`,
+        ];
+      });
       rows.push([
         "",
         "",
         `"TOTALS"`,
         "",
         metrics.totalIncome,
-        metrics.totalExpenses,
+        metrics.totalPending,
         "",
         "",
         "",
@@ -1261,10 +1312,10 @@ export function AccountsReportsHub({
         "Particulars",
         "Voucher Ref",
         "Payment Channel",
+        "Status",
         "Physical Cash Inflow (₹)",
         "Online / Bank Inflow (₹)",
-        "Operating Outflow (₹)",
-        "Net Cash Movement (₹)",
+        "Total Inflow (₹)",
         "Customer",
         "Notes",
       ];
@@ -1276,10 +1327,10 @@ export function AccountsReportsHub({
           `"${(t.particulars || "").replace(/"/g, '""')}"`,
           `"${t.ref_number}"`,
           t.payment_method,
+          t.status,
           isCash ? t.income : 0,
           !isCash ? t.income : 0,
-          t.expense,
-          t.balance,
+          t.income,
           `"${(t.customer_name || "").replace(/"/g, '""')}"`,
           `"${(t.notes || "").replace(/"/g, '""')}"`,
         ];
@@ -1287,13 +1338,13 @@ export function AccountsReportsHub({
       rows.push([
         "",
         "",
-        `"TOTAL CASH FLOW"`,
+        `"TOTAL INFLOW"`,
+        "",
         "",
         "",
         metrics.totalCash,
         metrics.totalOnline,
-        metrics.totalExpenses,
-        metrics.netBalance,
+        metrics.totalIncome,
         "",
         "",
       ]);
@@ -1306,7 +1357,6 @@ export function AccountsReportsHub({
         "Phone Number",
         "Service Sector",
         "Particulars",
-        "Total Billed (₹)",
         "Outstanding Due (₹)",
         "Recovery Status",
         "Notes",
@@ -1320,7 +1370,6 @@ export function AccountsReportsHub({
         t.category,
         `"${(t.particulars || "").replace(/"/g, '""')}"`,
         t.income,
-        t.income,
         "PENDING RECOVERY",
         `"${(t.notes || "").replace(/"/g, '""')}"`,
       ]);
@@ -1332,9 +1381,8 @@ export function AccountsReportsHub({
         "",
         "",
         "",
-        metrics.totalIncome,
-        metrics.totalIncome,
-        "",
+        metrics.totalPending || metrics.totalIncome,
+        "PENDING RECOVERY",
         "",
       ]);
     } else if (reportKey === "profit_loss") {
@@ -1805,7 +1853,9 @@ export function AccountsReportsHub({
             }
 
             const rawBookingAmt = Number(r.booking_amount || r.total_amount || 0);
-            const bkgTotal = matchingBkg ? Number(matchingBkg.total_amount || matchingBkg.fare || 0) : 0;
+            const bkgTotal = matchingBkg
+              ? Number(matchingBkg.total_amount || matchingBkg.fare || matchingBkg.ticket_amount || matchingBkg.base_amount || 0)
+              : 0;
             const finalBookingAmt = rawBookingAmt > 0 ? rawBookingAmt : bkgTotal;
 
             const rawAdvAmt = Number(r.office_advance || 0);
@@ -1861,7 +1911,12 @@ export function AccountsReportsHub({
             travBy = `HOURLY (${hrsNum} HRS)`;
           }
 
-          const totalAmt = Number(b.total_amount || b.fare || 0);
+          let rawBkgTotal = Number(b.total_amount || b.fare || b.ticket_amount || b.base_amount || 0);
+          if (rawBkgTotal <= 0 && b.notes) {
+            const m = b.notes.match(/(?:Total Fare|Fare|Amount|Due|Price):\s*₹?(\d+(?:\.\d+)?)/i);
+            if (m && m[1]) rawBkgTotal = Number(m[1]);
+          }
+          const totalAmt = rawBkgTotal;
           const advAmt = Number(b.paid_total ?? b.advance_amount ?? 0);
           const remAmt = Number(
             b.remaining_amount !== undefined ? b.remaining_amount : Math.max(0, totalAmt - advAmt)
@@ -2014,7 +2069,12 @@ export function AccountsReportsHub({
 
       // Map every booking into TransactionRecord so Master Report, P&L, Dues, and Payments display all bookings
       const bookingTxns: TransactionRecord[] = bList.map((b: any) => {
-        const total = Number(b.total_amount || b.fare || 0);
+        let rawTotal = Number(b.total_amount || b.fare || b.ticket_amount || b.base_amount || b.amount || 0);
+        if (rawTotal <= 0 && b.notes) {
+          const m = b.notes.match(/(?:Total Fare|Fare|Amount|Due|Price):\s*₹?(\d+(?:\.\d+)?)/i);
+          if (m && m[1]) rawTotal = Number(m[1]);
+        }
+        const total = rawTotal;
         const adv = Number(b.paid_total ?? b.advance_amount ?? 0);
         const rem = Number(
           b.remaining_amount !== undefined ? b.remaining_amount : Math.max(0, total - adv)
@@ -2061,7 +2121,7 @@ export function AccountsReportsHub({
 
         const fromTo = b.from_location && b.to_location ? ` (${b.from_location} → ${b.to_location})` : "";
         const pnrSnippet = b.pnr_number ? ` [PNR: ${b.pnr_number}]` : "";
-        const actualIncome = isPaid ? total : adv > 0 ? adv : (rem > 0 ? total : total);
+        const supplierName = b.bus_operator || b.airline || b.driver_name || extractSupplier(particularHeader, cat, b.notes);
 
         return {
           id: `BKG-TXN-${b.id}`,
@@ -2077,6 +2137,7 @@ export function AccountsReportsHub({
           customer_name: b.passenger_name || "Direct Customer",
           phone: b.passenger_phone || "",
           notes: isPaid ? "100% Fully Settled" : isAdvPaid ? `Advance Paid: ₹${adv} | Remaining Due: ₹${rem}` : `Pay on Boarding: Due ₹${total}`,
+          supplier: supplierName,
         };
       });
 
@@ -2645,6 +2706,8 @@ export function AccountsReportsHub({
         if (t.status !== "PENDING") return false;
       } else if (activeReport === "final") {
         if (t.status !== "PAID") return false;
+      } else if (activeReport === "profit_loss") {
+        if (t.status !== "PAID") return false;
       }
 
       return true;
@@ -2676,16 +2739,23 @@ export function AccountsReportsHub({
     let totalCash = 0;
 
     filteredTransactions.forEach((t) => {
+      const inc = Number(t.income || 0);
+      const exp = Number(t.expense || 0);
       if (t.status === "PAID") {
-        totalIncome += t.income;
-        totalExpenses += t.expense;
+        totalIncome += inc;
+        totalExpenses += exp;
         if (t.payment_method === "CASH") {
-          totalCash += t.income;
+          totalCash += inc;
         } else {
-          totalOnline += t.income;
+          totalOnline += inc;
         }
       } else if (t.status === "PENDING") {
-        totalPending += t.income;
+        totalPending += inc;
+      } else {
+        const advMatch = t.notes?.match(/Advance Paid:\s*₹?(\d+)/i);
+        const remMatch = t.notes?.match(/Remaining Due:\s*₹?(\d+)/i);
+        if (advMatch) totalIncome += Number(advMatch[1]);
+        if (remMatch) totalPending += Number(remMatch[1]);
       }
     });
 
@@ -2762,12 +2832,48 @@ export function AccountsReportsHub({
     let income = 0;
     let expense = 0;
     let balance = 0;
+    let cashInflow = 0;
+    let onlineInflow = 0;
+    let received = 0;
+    let pending = 0;
+
     displayedTransactions.forEach((t) => {
-      income += Number(t.income || 0);
-      expense += Number(t.expense || 0);
-      balance += Number(t.balance || 0);
+      const inc = Number(t.income || 0);
+      const exp = Number(t.expense || 0);
+      const bal = Number(t.balance || 0);
+      income += inc;
+      expense += exp;
+      balance += bal;
+
+      if (t.payment_method === "CASH") {
+        cashInflow += inc;
+      } else {
+        onlineInflow += inc;
+      }
+
+      if (t.status === "PAID") {
+        received += inc;
+      } else if (t.status === "PENDING") {
+        pending += inc;
+      } else {
+        const advMatch = t.notes?.match(/Advance Paid:\s*₹?(\d+)/i);
+        const remMatch = t.notes?.match(/Remaining Due:\s*₹?(\d+)/i);
+        const adv = advMatch ? Number(advMatch[1]) : 0;
+        const rem = remMatch ? Number(remMatch[1]) : 0;
+        received += adv;
+        pending += rem > 0 ? rem : inc;
+      }
     });
-    return { income, expense, balance };
+    return {
+      income,
+      expense,
+      balance,
+      cashInflow,
+      onlineInflow,
+      totalInflow: cashInflow + onlineInflow,
+      received,
+      pending,
+    };
   }, [displayedTransactions]);
 
   // Export to CSV / Excel
@@ -3522,17 +3628,17 @@ export function AccountsReportsHub({
                           ₹{Number(r.booking).toLocaleString("en-IN")}
                         </td>
 
-                        {/* 12. OFF ADV */}
-                        <td className="py-2 px-3 text-right whitespace-nowrap font-bold text-blue-700 border border-slate-300 bg-blue-50/20">
+                        {/* 12. OFF ADV (Received amount in green and bold) */}
+                        <td className="py-2 px-3 text-right whitespace-nowrap font-black text-emerald-600 border border-slate-300 bg-emerald-50/20">
                           ₹{Number(r.off_adv).toLocaleString("en-IN")}
                         </td>
 
-                        {/* 13. DUE */}
-                        <td className="py-2 px-3 text-right whitespace-nowrap font-black border border-slate-300 bg-rose-50/20">
+                        {/* 13. DUE (Due amount in red colour) */}
+                        <td className="py-2 px-3 text-right whitespace-nowrap font-bold border border-slate-300 bg-rose-50/20">
                           <div className="flex flex-col items-end">
                             <span
                               className={
-                                Number(r.due) > 0 ? "text-rose-600 font-black" : "text-emerald-700 font-extrabold"
+                                Number(r.due) > 0 ? "text-rose-600 font-bold" : "text-emerald-600 font-black"
                               }
                             >
                               ₹{Number(r.due).toLocaleString("en-IN")}
@@ -3543,8 +3649,8 @@ export function AccountsReportsHub({
                                   r.status === "Paid"
                                     ? "bg-emerald-100 text-emerald-800 border-emerald-300"
                                     : r.status === "Advance Paid"
-                                    ? "bg-amber-100 text-amber-800 border-amber-300"
-                                    : "bg-rose-100 text-rose-800 border-rose-300"
+                                    ? "bg-amber-100 text-amber-800 border-amber-300 font-bold"
+                                    : "bg-rose-100 text-rose-800 border-rose-300 font-bold"
                                 }`}
                               >
                                 {r.status}
@@ -3647,33 +3753,101 @@ export function AccountsReportsHub({
                   <span>Page: <strong className="text-slate-800">{safeDailyPage} of {totalDailyPages}</strong></span>
                   <span>Viewing: <strong className="text-slate-800">{displayedDailyRecords.length}</strong> of <strong className="text-slate-800">{filteredDailyRecords.length}</strong></span>
                   <span>Total Booking: <strong className="text-emerald-700">₹{dailyTotals.booking.toLocaleString("en-IN")}</strong></span>
-                  <span>Total Due: <strong className="text-rose-700">₹{dailyTotals.due.toLocaleString("en-IN")}</strong></span>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="min-w-full inline-block align-middle">
-              <table className="w-full text-left text-xs border-collapse border border-slate-300 font-sans">
+                  <span>Total Due: <strong className="text-rose-700">₹{dailyTotals.due.toLocaleString("en-IN")}</st              <table className="w-full text-left text-xs border-collapse border border-slate-300 font-sans">
                 <thead>
-                  <tr className="bg-[#107c41] text-white font-black uppercase tracking-wider text-[11px]">
-                    <th className="py-2.5 px-3 text-center w-12 border border-[#0d6535] whitespace-nowrap">SL</th>
-                    <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">DATE</th>
-                    <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535]">PARTICULARS</th>
-                    <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">VOUCHER / REF</th>
-                    <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">SECTOR</th>
-                    <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535]">CUSTOMER</th>
-                    <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">METHOD</th>
-                    <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">STATUS</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">INCOME</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">EXPENSE</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">BALANCE</th>
-                    <th className="py-2.5 px-3 text-center whitespace-nowrap w-20 border border-[#0d6535]">ACTION</th>
-                  </tr>
+                  {activeReport === "dues" ? (
+                    <tr className="bg-[#107c41] text-white font-black uppercase tracking-wider text-[11px]">
+                      <th className="py-2.5 px-3 text-center w-12 border border-[#0d6535] whitespace-nowrap">SL</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">DATE</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535]">PARTICULARS</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">VOUCHER / REF</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">SECTOR</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535]">CUSTOMER</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">METHOD</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">STATUS</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535] bg-rose-700/70">DUE AMOUNT (₹)</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap w-20 border border-[#0d6535]">ACTION</th>
+                    </tr>
+                  ) : activeReport === "cash_flow" ? (
+                    <tr className="bg-[#107c41] text-white font-black uppercase tracking-wider text-[11px]">
+                      <th className="py-2.5 px-3 text-center w-12 border border-[#0d6535] whitespace-nowrap">SL</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">DATE</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535]">PARTICULARS</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">VOUCHER / REF</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">SECTOR</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535]">CUSTOMER</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">CHANNEL</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">STATUS</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">CASH INFLOW (₹)</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">ONLINE INFLOW (₹)</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">TOTAL INFLOW (₹)</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap w-20 border border-[#0d6535]">ACTION</th>
+                    </tr>
+                  ) : activeReport === "payment" ? (
+                    <tr className="bg-[#107c41] text-white font-black uppercase tracking-wider text-[11px]">
+                      <th className="py-2.5 px-3 text-center w-12 border border-[#0d6535] whitespace-nowrap">SL</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">DATE</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535]">PARTICULARS</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">VOUCHER / REF</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">SECTOR</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535]">CUSTOMER</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">METHOD</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">STATUS</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">AMOUNT RECEIVED (₹)</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535] bg-rose-700/70">PENDING PAYMENT (₹)</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap w-20 border border-[#0d6535]">ACTION</th>
+                    </tr>
+                  ) : activeReport === "credit_debit" ? (
+                    <tr className="bg-[#107c41] text-white font-black uppercase tracking-wider text-[11px]">
+                      <th className="py-2.5 px-3 text-center w-12 border border-[#0d6535] whitespace-nowrap">SL</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">DATE</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535] bg-[#0c592f]">SUPPLIER / VENDOR</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">VOUCHER / REF</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">SECTOR</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535]">PARTY / CLIENT</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">METHOD</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">STATUS</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">CREDIT / ADVANCE (₹)</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">DEBIT / PAYOUT (₹)</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">NET BALANCE (₹)</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap w-20 border border-[#0d6535]">ACTION</th>
+                    </tr>
+                  ) : activeReport === "profit_loss" ? (
+                    <tr className="bg-[#107c41] text-white font-black uppercase tracking-wider text-[11px]">
+                      <th className="py-2.5 px-3 text-center w-12 border border-[#0d6535] whitespace-nowrap">SL</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">DATE</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535]">SERVICE PARTICULARS</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">VOUCHER / REF</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">SECTOR</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535]">CLIENT</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">METHOD</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">AUDIT STATUS</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">REVENUE (₹)</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">DIRECT EXPENSE (₹)</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">NET PROFIT (₹)</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap w-20 border border-[#0d6535]">ACTION</th>
+                    </tr>
+                  ) : (
+                    <tr className="bg-[#107c41] text-white font-black uppercase tracking-wider text-[11px]">
+                      <th className="py-2.5 px-3 text-center w-12 border border-[#0d6535] whitespace-nowrap">SL</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">DATE</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535]">PARTICULARS</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">VOUCHER / REF</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">SECTOR</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535]">CUSTOMER</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">METHOD</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">STATUS</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">INCOME</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">EXPENSE</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">BALANCE</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap w-20 border border-[#0d6535]">ACTION</th>
+                    </tr>
+                  )}
                 </thead>
                 <tbody className="divide-y divide-slate-200 font-sans">
                   {filteredTransactions.length === 0 ? (
                     <tr>
-                      <td colSpan={12} className="py-12 text-center text-slate-400 bg-white">
+                      <td colSpan={activeReport === "dues" ? 10 : activeReport === "payment" ? 11 : 12} className="py-12 text-center text-slate-400 bg-white">
                         <AlertCircle className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                         <p className="font-bold text-sm text-slate-600">No transaction records match the selected filters.</p>
                         <p className="text-xs text-slate-400 mt-1">Try clearing your search query or selecting another date range.</p>
@@ -3681,6 +3855,17 @@ export function AccountsReportsHub({
                     </tr>
                   ) : (
                     displayedTransactions.map((t, idx) => {
+                      const isCash = t.payment_method === "CASH";
+                      const isPaid = t.status === "PAID";
+                      const isPending = t.status === "PENDING";
+                      const advMatch = t.notes?.match(/Advance Paid:\s*₹?(\d+)/i);
+                      const remMatch = t.notes?.match(/Remaining Due:\s*₹?(\d+)/i);
+                      const adv = advMatch ? Number(advMatch[1]) : 0;
+                      const rem = remMatch ? Number(remMatch[1]) : (isPending ? t.income : 0);
+                      const receivedAmount = isPaid ? t.income : (adv > 0 ? adv : 0);
+                      const pendingAmount = isPaid ? 0 : (rem > 0 ? rem : t.income);
+                      const supplierVendor = t.supplier || extractSupplier(t.particulars, t.category, t.notes);
+
                       return (
                         <tr
                           key={t.id}
@@ -3700,10 +3885,20 @@ export function AccountsReportsHub({
                             })}
                           </td>
 
-                          {/* Particulars */}
-                          <td className="py-2 px-3 font-semibold text-slate-900 border border-slate-300 max-w-xs truncate">
-                            {t.particulars}
-                          </td>
+                          {/* Particulars OR Supplier/Vendor (for credit_debit) */}
+                          {activeReport === "credit_debit" ? (
+                            <td className="py-2 px-3 font-bold text-purple-950 border border-slate-300 max-w-xs truncate bg-purple-50/10">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-purple-500 inline-block" />
+                                <span className="font-bold text-slate-900">{supplierVendor}</span>
+                              </div>
+                              <div className="text-[10px] text-slate-500 font-normal truncate">{t.particulars}</div>
+                            </td>
+                          ) : (
+                            <td className="py-2 px-3 font-semibold text-slate-900 border border-slate-300 max-w-xs truncate">
+                              {t.particulars}
+                            </td>
+                          )}
 
                           {/* Voucher / Ref */}
                           <td className="py-2 px-3 text-center whitespace-nowrap font-mono text-slate-700 font-bold border border-slate-300 bg-slate-50/40">
@@ -3738,37 +3933,92 @@ export function AccountsReportsHub({
                             </span>
                           </td>
 
-                          {/* Status */}
+                          {/* Status (Paid in bold green, Pending in red) */}
                           <td className="py-2 px-3 text-center whitespace-nowrap border border-slate-300">
                             <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black ${
-                                t.status === "PAID"
-                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                                  : t.status === "PENDING"
-                                  ? "bg-amber-100 text-amber-800 border border-amber-300"
-                                  : "bg-red-100 text-red-800 border border-red-300"
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] ${
+                                isPaid
+                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300 font-black"
+                                  : isPending
+                                  ? "bg-rose-100 text-rose-800 border border-rose-300 font-bold"
+                                  : "bg-red-100 text-red-800 border border-red-300 font-bold"
                               }`}
                             >
-                              {t.status === "PAID" && <CheckCircle2 className="w-3 h-3" />}
-                              {t.status === "PENDING" && <Clock className="w-3 h-3" />}
+                              {isPaid && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
+                              {isPending && <Clock className="w-3 h-3 text-rose-600" />}
                               {t.status}
                             </span>
                           </td>
 
-                          {/* Income */}
-                          <td className="py-2 px-3 text-right whitespace-nowrap font-bold text-emerald-700 border border-slate-300 bg-emerald-50/20">
-                            {t.income > 0 ? `₹${Number(t.income).toLocaleString("en-IN")}` : "—"}
-                          </td>
-
-                          {/* Expense */}
-                          <td className="py-2 px-3 text-right whitespace-nowrap font-bold text-rose-600 border border-slate-300 bg-rose-50/20">
-                            {t.expense > 0 ? `₹${Number(t.expense).toLocaleString("en-IN")}` : "—"}
-                          </td>
-
-                          {/* Balance */}
-                          <td className="py-2 px-3 text-right whitespace-nowrap font-black text-slate-900 border border-slate-300 bg-slate-50/30">
-                            ₹{Number(t.balance).toLocaleString("en-IN")}
-                          </td>
+                          {/* Dynamic Financial Columns based on Report */}
+                          {activeReport === "dues" ? (
+                            /* Dues Report: Only Outstanding Due in red font (NO income column) */
+                            <td className="py-2 px-3 text-right whitespace-nowrap font-bold text-rose-600 border border-slate-300 bg-rose-50/20">
+                              ₹{Number(t.income).toLocaleString("en-IN")}
+                            </td>
+                          ) : activeReport === "cash_flow" ? (
+                            /* Cash Flow Report: Only Inflow columns (NO expense, NO balance) */
+                            <>
+                              <td className="py-2 px-3 text-right whitespace-nowrap font-black text-emerald-600 border border-slate-300 bg-emerald-50/20">
+                                {isCash ? `₹${Number(t.income).toLocaleString("en-IN")}` : "—"}
+                              </td>
+                              <td className="py-2 px-3 text-right whitespace-nowrap font-black text-emerald-600 border border-slate-300 bg-emerald-50/20">
+                                {!isCash ? `₹${Number(t.income).toLocaleString("en-IN")}` : "—"}
+                              </td>
+                              <td className="py-2 px-3 text-right whitespace-nowrap font-black text-emerald-700 border border-slate-300 bg-emerald-50/30">
+                                ₹{Number(t.income).toLocaleString("en-IN")}
+                              </td>
+                            </>
+                          ) : activeReport === "payment" ? (
+                            /* Payment Report: Amount Received (bold green) + Dedicated Pending Payment (red) */
+                            <>
+                              <td className="py-2 px-3 text-right whitespace-nowrap font-black text-emerald-600 border border-slate-300 bg-emerald-50/20">
+                                {receivedAmount > 0 ? `₹${Number(receivedAmount).toLocaleString("en-IN")}` : "₹0"}
+                              </td>
+                              <td className="py-2 px-3 text-right whitespace-nowrap font-bold text-rose-600 border border-slate-300 bg-rose-50/20">
+                                {pendingAmount > 0 ? `₹${Number(pendingAmount).toLocaleString("en-IN")}` : "—"}
+                              </td>
+                            </>
+                          ) : activeReport === "credit_debit" ? (
+                            /* Credit & Debit Report: Credit (bold green), Debit (red), Net Balance */
+                            <>
+                              <td className="py-2 px-3 text-right whitespace-nowrap font-black text-emerald-600 border border-slate-300 bg-emerald-50/20">
+                                {t.income > 0 ? `₹${Number(t.income).toLocaleString("en-IN")}` : "—"}
+                              </td>
+                              <td className="py-2 px-3 text-right whitespace-nowrap font-bold text-rose-600 border border-slate-300 bg-rose-50/20">
+                                {t.expense > 0 ? `₹${Number(t.expense).toLocaleString("en-IN")}` : "—"}
+                              </td>
+                              <td className="py-2 px-3 text-right whitespace-nowrap font-black text-slate-900 border border-slate-300 bg-slate-50/30">
+                                ₹{Number(t.balance).toLocaleString("en-IN")}
+                              </td>
+                            </>
+                          ) : activeReport === "profit_loss" ? (
+                            /* Profit & Loss: Revenue (bold green), Expense (red), Net Profit */
+                            <>
+                              <td className="py-2 px-3 text-right whitespace-nowrap font-black text-emerald-600 border border-slate-300 bg-emerald-50/20">
+                                {t.income > 0 ? `₹${Number(t.income).toLocaleString("en-IN")}` : "—"}
+                              </td>
+                              <td className="py-2 px-3 text-right whitespace-nowrap font-bold text-rose-600 border border-slate-300 bg-rose-50/20">
+                                {t.expense > 0 ? `₹${Number(t.expense).toLocaleString("en-IN")}` : "—"}
+                              </td>
+                              <td className="py-2 px-3 text-right whitespace-nowrap font-black text-emerald-700 border border-slate-300 bg-emerald-50/30">
+                                ₹{Number(t.income - t.expense).toLocaleString("en-IN")}
+                              </td>
+                            </>
+                          ) : (
+                            /* Default / Other Reports: Income (bold green), Expense (red), Balance */
+                            <>
+                              <td className="py-2 px-3 text-right whitespace-nowrap font-black text-emerald-600 border border-slate-300 bg-emerald-50/20">
+                                {t.income > 0 ? `₹${Number(t.income).toLocaleString("en-IN")}` : "—"}
+                              </td>
+                              <td className="py-2 px-3 text-right whitespace-nowrap font-bold text-rose-600 border border-slate-300 bg-rose-50/20">
+                                {t.expense > 0 ? `₹${Number(t.expense).toLocaleString("en-IN")}` : "—"}
+                              </td>
+                              <td className="py-2 px-3 text-right whitespace-nowrap font-black text-slate-900 border border-slate-300 bg-slate-50/30">
+                                ₹{Number(t.balance).toLocaleString("en-IN")}
+                              </td>
+                            </>
+                          )}
 
                           {/* Action */}
                           <td className="py-2 px-3 text-center whitespace-nowrap border border-slate-300 bg-slate-50/40">
@@ -3804,15 +4054,56 @@ export function AccountsReportsHub({
                         <td colSpan={8} className="py-2 px-3 border border-slate-300 text-right font-extrabold text-xs uppercase tracking-wider text-slate-600 bg-slate-100/70">
                           Page {safeTxnPage} Subtotal ({displayedTransactions.length} items)
                         </td>
-                        <td className="py-2 px-3 text-right font-bold text-emerald-700 whitespace-nowrap text-xs border border-slate-300 bg-emerald-50/40">
-                          ₹{pageTxnTotals.income.toLocaleString("en-IN")}
-                        </td>
-                        <td className="py-2 px-3 text-right font-bold text-rose-600 whitespace-nowrap text-xs border border-slate-300 bg-rose-50/40">
-                          ₹{pageTxnTotals.expense.toLocaleString("en-IN")}
-                        </td>
-                        <td className="py-2 px-3 text-right font-bold text-slate-900 whitespace-nowrap text-xs border border-slate-300 bg-slate-50/50">
-                          ₹{pageTxnTotals.balance.toLocaleString("en-IN")}
-                        </td>
+                        {activeReport === "dues" ? (
+                          <td className="py-2 px-3 text-right font-bold text-rose-600 whitespace-nowrap text-xs border border-slate-300 bg-rose-50/40">
+                            ₹{pageTxnTotals.pending.toLocaleString("en-IN")}
+                          </td>
+                        ) : activeReport === "cash_flow" ? (
+                          <>
+                            <td className="py-2 px-3 text-right font-black text-emerald-700 whitespace-nowrap text-xs border border-slate-300 bg-emerald-50/40">
+                              ₹{pageTxnTotals.cashInflow.toLocaleString("en-IN")}
+                            </td>
+                            <td className="py-2 px-3 text-right font-black text-emerald-700 whitespace-nowrap text-xs border border-slate-300 bg-emerald-50/40">
+                              ₹{pageTxnTotals.onlineInflow.toLocaleString("en-IN")}
+                            </td>
+                            <td className="py-2 px-3 text-right font-black text-emerald-800 whitespace-nowrap text-xs border border-slate-300 bg-emerald-50/50">
+                              ₹{pageTxnTotals.totalInflow.toLocaleString("en-IN")}
+                            </td>
+                          </>
+                        ) : activeReport === "payment" ? (
+                          <>
+                            <td className="py-2 px-3 text-right font-black text-emerald-700 whitespace-nowrap text-xs border border-slate-300 bg-emerald-50/40">
+                              ₹{pageTxnTotals.received.toLocaleString("en-IN")}
+                            </td>
+                            <td className="py-2 px-3 text-right font-bold text-rose-600 whitespace-nowrap text-xs border border-slate-300 bg-rose-50/40">
+                              ₹{pageTxnTotals.pending.toLocaleString("en-IN")}
+                            </td>
+                          </>
+                        ) : activeReport === "profit_loss" ? (
+                          <>
+                            <td className="py-2 px-3 text-right font-black text-emerald-700 whitespace-nowrap text-xs border border-slate-300 bg-emerald-50/40">
+                              ₹{pageTxnTotals.income.toLocaleString("en-IN")}
+                            </td>
+                            <td className="py-2 px-3 text-right font-bold text-rose-600 whitespace-nowrap text-xs border border-slate-300 bg-rose-50/40">
+                              ₹{pageTxnTotals.expense.toLocaleString("en-IN")}
+                            </td>
+                            <td className="py-2 px-3 text-right font-black text-emerald-800 whitespace-nowrap text-xs border border-slate-300 bg-emerald-50/50">
+                              ₹{(pageTxnTotals.income - pageTxnTotals.expense).toLocaleString("en-IN")}
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="py-2 px-3 text-right font-black text-emerald-700 whitespace-nowrap text-xs border border-slate-300 bg-emerald-50/40">
+                              ₹{pageTxnTotals.income.toLocaleString("en-IN")}
+                            </td>
+                            <td className="py-2 px-3 text-right font-bold text-rose-600 whitespace-nowrap text-xs border border-slate-300 bg-rose-50/40">
+                              ₹{pageTxnTotals.expense.toLocaleString("en-IN")}
+                            </td>
+                            <td className="py-2 px-3 text-right font-black text-slate-900 whitespace-nowrap text-xs border border-slate-300 bg-slate-50/50">
+                              ₹{pageTxnTotals.balance.toLocaleString("en-IN")}
+                            </td>
+                          </>
+                        )}
                         <td className="py-2 px-3 border border-slate-300 bg-slate-100/70"></td>
                       </tr>
                     )}
@@ -3821,15 +4112,56 @@ export function AccountsReportsHub({
                       <td colSpan={8} className="py-2.5 px-3 text-right font-black text-slate-900 whitespace-nowrap text-xs uppercase tracking-wider border border-slate-300 bg-[#d9ebd9]">
                         Total Summary ({filteredTransactions.length})
                       </td>
-                      <td className="py-2.5 px-3 text-right font-black text-emerald-800 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
-                        ₹{metrics.totalIncome.toLocaleString("en-IN")}
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-black text-rose-700 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
-                        ₹{metrics.totalExpenses.toLocaleString("en-IN")}
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-black text-blue-800 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
-                        ₹{metrics.netBalance.toLocaleString("en-IN")}
-                      </td>
+                      {activeReport === "dues" ? (
+                        <td className="py-2.5 px-3 text-right font-black text-rose-700 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
+                          ₹{(metrics.totalPending || metrics.totalIncome).toLocaleString("en-IN")}
+                        </td>
+                      ) : activeReport === "cash_flow" ? (
+                        <>
+                          <td className="py-2.5 px-3 text-right font-black text-emerald-800 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
+                            ₹{metrics.totalCash.toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-black text-emerald-800 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
+                            ₹{metrics.totalOnline.toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-black text-emerald-900 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
+                            ₹{metrics.totalIncome.toLocaleString("en-IN")}
+                          </td>
+                        </>
+                      ) : activeReport === "payment" ? (
+                        <>
+                          <td className="py-2.5 px-3 text-right font-black text-emerald-800 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
+                            ₹{metrics.totalIncome.toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-black text-rose-700 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
+                            ₹{metrics.totalPending.toLocaleString("en-IN")}
+                          </td>
+                        </>
+                      ) : activeReport === "profit_loss" ? (
+                        <>
+                          <td className="py-2.5 px-3 text-right font-black text-emerald-800 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
+                            ₹{metrics.totalIncome.toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-black text-rose-700 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
+                            ₹{metrics.totalExpenses.toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-black text-emerald-900 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
+                            ₹{metrics.netBalance.toLocaleString("en-IN")}
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="py-2.5 px-3 text-right font-black text-emerald-800 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
+                            ₹{metrics.totalIncome.toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-black text-rose-700 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
+                            ₹{metrics.totalExpenses.toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-black text-blue-800 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
+                            ₹{metrics.netBalance.toLocaleString("en-IN")}
+                          </td>
+                        </>
+                      )}
                       <td className="py-2.5 px-3 border border-slate-300 bg-slate-100/70"></td>
                     </tr>
                   </tfoot>

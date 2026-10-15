@@ -254,9 +254,9 @@ export const Route = createFileRoute("/api/enquiries")({
           const bookingStatus = bType === 'TAXI' ? 'PENDING CONFIRMATION' : 'BOOKING REQUESTED';
 
           // Extract fare amount from body or notes
-          let fareVal = Number(body.total_amount || body.fare || body.amount || 0);
+          let fareVal = Number(body.total_amount || body.fare || body.amount || body.ticket_amount || 0);
           if (!fareVal && combinedNotes) {
-            const m = combinedNotes.match(/(?:Total Fare|Fare|Amount|Price):\s*₹?(\d+(?:\.\d+)?)/i);
+            const m = combinedNotes.match(/(?:Total Fare|Fare|Amount|Price|ticket_amount):\s*₹?(\d+(?:\.\d+)?)/i);
             if (m && m[1]) fareVal = Number(m[1]);
           }
 

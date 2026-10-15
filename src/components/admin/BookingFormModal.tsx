@@ -311,6 +311,9 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
     ] as const;
     let t = keys.reduce((s, k) => s + (Number(form[k]) || 0), 0);
     t -= Number(form.discount_amount) || 0;
+    if (t === 0 && Number(form.ticket_amount) > 0) {
+      t = Number(form.ticket_amount);
+    }
     return Math.round(t * 100) / 100;
   }, [form]);
 
@@ -325,6 +328,17 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
     }
     setSaving(true);
     try {
+      const manualTicketAmt = Number(form.ticket_amount) || 0;
+      const finalFareTotal = fareTotal > 0 ? fareTotal : manualTicketAmt;
+      const effectiveBaseAmount =
+        Number(form.base_amount || 0) > 0
+          ? form.base_amount
+          : manualTicketAmt > 0
+          ? String(manualTicketAmt)
+          : finalFareTotal > 0
+          ? String(finalFareTotal)
+          : 0;
+
       const payload: any = {
         category: cat,
         booking_type: cat === "CAR" ? "TAXI" : cat,
@@ -344,7 +358,7 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
         number_of_days: form.number_of_days ? Number(form.number_of_days) : null,
         special_instructions: form.special_instructions || null,
         notes: form.notes || null,
-        base_amount: form.base_amount || 0,
+        base_amount: effectiveBaseAmount,
         driver_allowance: form.driver_allowance || 0,
         toll_amount: form.toll_amount || 0,
         parking_amount: form.parking_amount || 0,
@@ -355,15 +369,18 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
         discount_amount: form.discount_amount || 0,
         tax_amount: form.tax_amount || 0,
         gst_amount: form.gst_amount || 0,
+        total_amount: finalFareTotal,
+        fare: finalFareTotal,
       };
       if (mode === "edit") payload.id = source?.booking?.id;
 
-      /* Only send total when no components were filled (legacy/simple entry) */
+      /* Check if detailed components were filled */
       const hasComponents =
         FARE_FIELDS.some((f) => Number(form[f.key]) > 0) ||
         Number(form.discount_amount) > 0 ||
         Number(form.tax_amount) > 0 ||
-        Number(form.gst_amount) > 0;
+        Number(form.gst_amount) > 0 ||
+        manualTicketAmt > 0;
 
       if (cat === "CAR") {
         Object.assign(payload, {
@@ -410,8 +427,9 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
         payload.passengers = passengers.filter((p) => p.name.trim());
       }
 
-      if (!hasComponents) payload.total_amount = fareTotal;
-      if (!hasComponents && fareTotal <= 0) delete payload.total_amount;
+      if (!payload.total_amount || payload.total_amount <= 0) {
+        payload.total_amount = finalFareTotal;
+      }
 
       if (advanceAmount && Number(advanceAmount) > 0 && mode === "create") {
         payload.advance_payment = {

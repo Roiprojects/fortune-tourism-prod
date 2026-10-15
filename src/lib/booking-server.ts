@@ -137,6 +137,8 @@ export async function recalcBooking(bookingId: number | string): Promise<Payment
   const id = Number(bookingId);
   const res = await query(
     `SELECT b.total_amount,
+            b.ticket_amount,
+            b.base_amount,
             COALESCE((SELECT SUM(p.amount) FROM booking_payments p
                       WHERE p.booking_id = b.id AND p.payment_status = 'Success'
                         AND NOT COALESCE(p.is_deleted, false)), 0) AS paid,
@@ -148,7 +150,7 @@ export async function recalcBooking(bookingId: number | string): Promise<Payment
   if (res.rows.length === 0) throw new Error(`Booking ${id} not found`);
 
   const row = res.rows[0];
-  const total = Math.max(0, Number(row.total_amount) || 0);
+  const total = Math.max(0, Number(row.total_amount || row.ticket_amount || row.base_amount || 0));
   const paid = Math.max(0, Number(row.paid) || 0);
   const refunded = Math.max(0, Number(row.refunded) || 0);
   const netPaid = Math.round((paid - refunded) * 100) / 100;

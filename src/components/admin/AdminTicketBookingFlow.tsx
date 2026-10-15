@@ -444,6 +444,8 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
           .join(" | "),
         total_amount: Number(ticketFareAmount || 0),
         fare: Number(ticketFareAmount || 0),
+        base_amount: Number(ticketFareAmount || 0),
+        ticket_amount: Number(ticketFareAmount || 0),
         advance_amount: effectiveAdvance,
         payment_method: effectiveMethod,
         ticket_number: ticketNumber,
@@ -533,6 +535,8 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
           .join(" | "),
         total_amount: Number(ticketFareAmount || 0),
         fare: Number(ticketFareAmount || 0),
+        base_amount: Number(ticketFareAmount || 0),
+        ticket_amount: Number(ticketFareAmount || 0),
         advance_amount: effectiveAdvance,
         payment_method: effectiveMethod,
         ticket_number: ticketNumber,
@@ -1193,6 +1197,42 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                     )}
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Manual Ticket Fare Amount Override */}
+            <div className="bg-[#111c3a]/90 border border-amber-400/40 rounded-2xl p-4 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Banknote className="w-4 h-4 text-amber-400" /> Ticket Fare / Manual Mode Amount (₹)
+                  </span>
+                  <span className="bg-amber-400/20 text-amber-300 border border-amber-400/40 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    Editable Manual Amount
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300">
+                  Enter or adjust the custom ticket amount. This exact amount reflects immediately on journey tickets, payment vouchers, and accounting reports.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-white font-black text-base">₹</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={serviceType === "TRAIN" ? (trainData.fare_amount || "") : (otherFormData.fare_amount || "")}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (serviceType === "TRAIN") {
+                      setTrainData((prev) => ({ ...prev, fare_amount: val }));
+                    } else {
+                      setOtherFormData((prev: any) => ({ ...prev, fare_amount: val }));
+                    }
+                  }}
+                  placeholder={String(ticketFareAmount)}
+                  className="w-36 bg-[#0B132B] border border-amber-400/60 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30 text-white font-black text-base px-3 py-1.5 rounded-xl outline-none"
+                />
               </div>
             </div>
 

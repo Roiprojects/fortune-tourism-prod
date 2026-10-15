@@ -134,18 +134,22 @@ export function downloadTicketCopyPDF(data: TicketCopyData) {
           {
             content: data.returnDate
               ? data.returnDate
-              : data.fareAmount
+              : Number(data.fareAmount || 0) > 0
               ? `INR ${Number(data.fareAmount).toLocaleString("en-IN")}`
-              : "INR 2,499",
+              : data.fareAmount
+              ? `INR ${data.fareAmount}`
+              : "INR 0",
             styles: { fontStyle: "bold", textColor: data.returnDate ? [10, 10, 10] : [14, 107, 80] },
           },
         ],
         [
           { content: "Total Fare Amount:", styles: { fontStyle: "bold", fillColor: [230, 245, 235] } },
           {
-            content: data.fareAmount
+            content: Number(data.fareAmount || 0) > 0
               ? `INR ${Number(data.fareAmount).toLocaleString("en-IN")}`
-              : "INR 2,499",
+              : data.fareAmount
+              ? `INR ${data.fareAmount}`
+              : "INR 0",
             styles: { fontStyle: "bold", fontSize: 9.5, textColor: [14, 107, 80] },
           },
           { content: "Payment Status:", styles: { fontStyle: "bold", fillColor: [230, 245, 235] } },
