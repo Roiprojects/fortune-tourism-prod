@@ -9,6 +9,7 @@ import {
   generateBookingNumber,
   bookingTypeFromCategory,
   categoryFromBookingType,
+  recalcBooking,
 } from "@/lib/booking-server";
 import {
   generateTicketNumber,
@@ -262,6 +263,14 @@ export const Route = createFileRoute("/api/enquiries")({
 
           // Handle Token Advance or Full Payment (Manual or Automatic)
           let advancePaid = Number(body.advance_amount ?? 0);
+          const isManualPay = String(body.payment_method || "").toUpperCase().includes("MANUAL") ||
+            String(body.payment_method || "").toUpperCase() === "CASH" ||
+            body.payment_choice === "full";
+
+          if (isManualPay && advancePaid <= 0 && fareVal > 0) {
+            advancePaid = fareVal;
+          }
+
           if (advancePaid <= 0 && combinedNotes) {
             if (
               combinedNotes.includes("100% Full Payment") ||
@@ -277,7 +286,8 @@ export const Route = createFileRoute("/api/enquiries")({
           const isFullySettled =
             (fareVal > 0 && advancePaid >= fareVal) ||
             body.payment_status === "Fully Paid" ||
-            body.payment_status === "Paid";
+            body.payment_status === "Paid" ||
+            isManualPay;
           const isAdvanceReceived = !isFullySettled && advancePaid > 0;
 
           const initialPaymentStatus = isFullySettled
@@ -360,7 +370,8 @@ export const Route = createFileRoute("/api/enquiries")({
           if (isFullySettled || isAdvanceReceived) {
             const paidAmt = isFullySettled ? fareVal : advancePaid;
             const payId = `PAY-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-            const payMethod = String(body.payment_method || "UPI").toUpperCase();
+            const rawMethod = String(body.payment_method || "UPI").toUpperCase();
+            const payMethod = rawMethod.startsWith("MANUAL_") ? rawMethod.replace("MANUAL_", "") : rawMethod;
             const payRef = body.payment_ref || body.transaction_id || `PAY-${Date.now().toString().slice(-6)}`;
             const payNotes = isFullySettled ? "100% Full Payment Settled" : `Token Advance ₹${paidAmt} Payment`;
 
@@ -369,18 +380,21 @@ export const Route = createFileRoute("/api/enquiries")({
                 booking_id, payment_id, amount, payment_method, payment_status, reference_number, notes, paid_at
               ) VALUES ($1, $2, $3, $4, 'Success', $5, $6, NOW())`,
               [booking.id, payId, paidAmt, payMethod, payRef, payNotes]
-            );
+            ).catch((e) => console.error("Error inserting auto-payment:", e));
 
             await query(
               `UPDATE bookings SET
                 advance_amount = $2,
                 amount_paid = $2,
+                balance_amount = GREATEST(0, total_amount - $2),
                 payment_status = $3,
                 booking_status = $4,
                 updated_at = NOW()
               WHERE id = $1`,
               [booking.id, paidAmt, isFullySettled ? "Fully Paid" : "Advance Paid", isFullySettled ? "CONFIRMED" : "ADVANCE RECEIVED"]
-            );
+            ).catch(() => {});
+
+            await recalcBooking(booking.id).catch(() => {});
 
             await logActivity({
               booking_id: booking.id,
@@ -591,12 +605,18 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
   try {
     const serialNo = `DB-${Date.now().toString().slice(-6)}`;
     const pnrVal = payload.pnr_number || (combinedNotes.match(/PNR:\s*([A-Z0-9-]+)/i)?.[1]) || null;
-    let fareVal = Number(payload.total_amount || payload.fare || payload.amount || 0);
+    let fareVal = Number(payload.total_amount || payload.fare || payload.amount || payload.ticket_amount || payload.base_amount || 0);
     if (!fareVal && combinedNotes) {
-      const m = combinedNotes.match(/(?:Total Fare|Fare|Amount|Price):\s*₹?(\d+(?:\.\d+)?)/i);
+      const m = combinedNotes.match(/(?:Total Fare|Fare|Amount|Price|ticket_amount):\s*₹?(\d+(?:\.\d+)?)/i);
       if (m && m[1]) fareVal = Number(m[1]);
     }
     let advanceVal = Number(payload.advance_amount ?? 0);
+    const isManual = String(payload.payment_method || "").toUpperCase().includes("MANUAL") ||
+      String(payload.payment_method || "").toUpperCase() === "CASH" ||
+      payload.payment_choice === "full";
+    if (isManual && advanceVal <= 0 && fareVal > 0) {
+      advanceVal = fareVal;
+    }
     if (advanceVal <= 0 && combinedNotes) {
       if (
         combinedNotes.includes("100% Full Payment") ||
@@ -611,7 +631,8 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
     const isFullSettled =
       (fareVal > 0 && advanceVal >= fareVal) ||
       payload.payment_status === "Fully Paid" ||
-      payload.payment_status === "Paid";
+      payload.payment_status === "Paid" ||
+      isManual;
     const dueVal = isFullSettled ? 0 : Math.max(0, fareVal - advanceVal);
     const dayBookStatus = isFullSettled ? "Paid" : advanceVal > 0 ? "Advance Paid" : "Pending";
     const officeAdvanceVal = isFullSettled ? fareVal : advanceVal;

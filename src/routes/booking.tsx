@@ -784,6 +784,9 @@ function BookingPage() {
 
       setStep(5);
       window.scrollTo({ top: 80, behavior: "smooth" });
+      try {
+        window.dispatchEvent(new Event("fortune_booking_created"));
+      } catch {}
       toast.success("Booking submitted! Official Ticket Copy generated.");
     } catch (err: any) {
       toast.error(err.message || "An error occurred while confirming booking.");
@@ -2228,6 +2231,38 @@ function BookingPage() {
                 </div>
               </div>
 
+              {/* Manual Ticket Fare Amount Override */}
+              <div className="bg-[#111c3a]/90 border border-amber-400/40 rounded-2xl p-4 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Banknote className="w-4 h-4 text-amber-400" /> Ticket Fare / Manual Mode Amount (₹)
+                    </span>
+                    <span className="bg-amber-400/20 text-amber-300 border border-amber-400/40 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      Editable Manual Amount
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300">
+                    Enter or adjust the custom ticket amount. This exact amount reflects immediately on journey tickets, payment vouchers, and accounting reports.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-black text-base">₹</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={otherFormData.fare_amount || ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setOtherFormData((prev: any) => ({ ...prev, fare_amount: val }));
+                    }}
+                    placeholder={String(displayTotalFare)}
+                    className="w-36 bg-[#0B132B] border border-amber-400/60 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30 text-white font-black text-base px-3 py-1.5 rounded-xl outline-none"
+                  />
+                </div>
+              </div>
+
               {/* Payment Options */}
               <div className="space-y-4">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-300 block">
@@ -3001,7 +3036,22 @@ function BookingPage() {
                           {cabTripType === "ROUND TRIP" ? (
                             <span className="text-emerald-800 font-black">{cabReturnDateFormatted}</span>
                           ) : (
-                            <span className="text-emerald-700">₹{Number(displayTotalFare || 0).toLocaleString("en-IN")}</span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-emerald-700 font-black">₹</span>
+                              <input
+                                type="number"
+                                min={0}
+                                value={otherFormData.fare_amount || displayTotalFare}
+                                onChange={(e) => {
+                                  setOtherFormData((prev: any) => ({ ...prev, fare_amount: e.target.value }));
+                                  try {
+                                    window.dispatchEvent(new Event("fortune_booking_created"));
+                                  } catch {}
+                                }}
+                                className="w-28 bg-transparent border-b border-dashed border-slate-400 hover:border-slate-800 focus:border-emerald-600 focus:bg-emerald-50/40 px-1 py-0.5 text-xs sm:text-sm font-black text-emerald-800 outline-none transition"
+                                title="Click to edit journey fare amount on ticket copy"
+                              />
+                            </div>
                           )}
                         </td>
                       </tr>

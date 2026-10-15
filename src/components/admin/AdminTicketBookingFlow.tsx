@@ -466,7 +466,12 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
         base_amount: Number(ticketFareAmount || 0),
         ticket_amount: Number(ticketFareAmount || 0),
         advance_amount: effectiveAdvance,
+        payment_choice: paymentChoice,
         payment_method: effectiveMethod,
+        payment_status: paymentChoice === "full" ? "Fully Paid" : paymentChoice === "token_100" ? "Advance Paid" : "Pending",
+        payment_ref: manualReceiptNo || utrRef || null,
+        transaction_id: manualReceiptNo || utrRef || null,
+        collected_by: collectedBy || "Admin Counter",
         ticket_number: ticketNumber,
         pnr_number: pnrNumber,
         client_token: `FT-ADMIN-TRAIN-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -485,6 +490,9 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
 
       setStep("CONFIRMED");
       toast.success("Train ticket booking confirmed! Official ticket copy generated.");
+      try {
+        window.dispatchEvent(new Event("fortune_booking_created"));
+      } catch {}
       if (onBookingCompleted) {
         onBookingCompleted();
       }
@@ -558,7 +566,12 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
         base_amount: Number(ticketFareAmount || 0),
         ticket_amount: Number(ticketFareAmount || 0),
         advance_amount: effectiveAdvance,
+        payment_choice: paymentChoice,
         payment_method: effectiveMethod,
+        payment_status: paymentChoice === "full" ? "Fully Paid" : paymentChoice === "token_100" ? "Advance Paid" : "Pending",
+        payment_ref: manualReceiptNo || utrRef || null,
+        transaction_id: manualReceiptNo || utrRef || null,
+        collected_by: collectedBy || "Admin Counter",
         ticket_number: ticketNumber,
         pnr_number: pnrNumber,
         client_token: `FT-ADMIN-TKT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -577,6 +590,9 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
 
       setStep("CONFIRMED");
       toast.success("Booking submitted! Official Ticket Copy generated.");
+      try {
+        window.dispatchEvent(new Event("fortune_booking_created"));
+      } catch {}
       if (onBookingCompleted) {
         onBookingCompleted();
       }
@@ -605,6 +621,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
       boardingAddress: boardingAddressDisplay,
       fareAmount: ticketFareAmount,
       serviceType,
+      paymentStatus: paymentStatusText,
       passengers: activePassengersList,
     });
     toast.success("Ticket PDF downloaded successfully!");
@@ -2012,8 +2029,28 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                       <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
                         Fare Amount:
                       </td>
-                      <td className="p-2.5 font-black text-emerald-700 uppercase">
-                        ₹{ticketFareAmount.toLocaleString("en-IN")}
+                      <td className="p-1.5 font-black text-emerald-700 uppercase">
+                        <div className="flex items-center gap-1">
+                          <span className="text-emerald-700 font-black">₹</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={serviceType === "TRAIN" ? (trainData.fare_amount || ticketFareAmount) : (otherFormData.fare_amount || ticketFareAmount)}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (serviceType === "TRAIN") {
+                                setTrainData((prev) => ({ ...prev, fare_amount: val }));
+                              } else {
+                                setOtherFormData((prev: any) => ({ ...prev, fare_amount: val }));
+                              }
+                              try {
+                                window.dispatchEvent(new Event("fortune_booking_created"));
+                              } catch {}
+                            }}
+                            className="w-28 bg-transparent border-b border-dashed border-slate-400 hover:border-slate-800 focus:border-emerald-600 focus:bg-emerald-50/40 px-1 py-0.5 text-xs sm:text-sm font-black text-emerald-800 outline-none transition"
+                            title="Click to edit journey fare amount on ticket copy"
+                          />
+                        </div>
                       </td>
                     </tr>
 

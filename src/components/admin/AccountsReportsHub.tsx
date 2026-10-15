@@ -1922,11 +1922,14 @@ export function AccountsReportsHub({
             b.remaining_amount !== undefined ? b.remaining_amount : Math.max(0, totalAmt - advAmt)
           );
           const rawPayStatus = (b.payment_status || "").toUpperCase();
+          const pMode = String(b.payment_mode || b.payment_method || "").toUpperCase();
+          const isManualMode = pMode.includes("MANUAL") || pMode.includes("CASH") || (b.notes && (b.notes.includes("100% Full Payment") || b.notes.includes("Full Payment") || b.notes.includes("Manual Channel") || b.notes.includes("ZERO DUE")));
           const isFullyPaid =
             (remAmt === 0 && totalAmt > 0) ||
             rawPayStatus === "PAID" ||
             rawPayStatus === "FULLY PAID" ||
-            rawPayStatus === "SUCCESS";
+            rawPayStatus === "SUCCESS" ||
+            isManualMode;
           const isAdvPaid = !isFullyPaid && (advAmt > 0 || rawPayStatus.includes("ADVANCE"));
 
           liveDaily.push({
@@ -2002,7 +2005,7 @@ export function AccountsReportsHub({
         const seedsToKeep = INITIAL_DAILY_REPORTS.filter(
           (s) => !deletedDailyIds.has(String(s.id)) && !existingKeys.has(`${s.pax.toLowerCase()}_${s.ph_no}`)
         );
-        setDailyRecords([...seedsToKeep, ...filteredLiveDaily]);
+        setDailyRecords([...filteredLiveDaily, ...seedsToKeep]);
       }
 
       // 2. Map Transactions (combines all real bookings & hourly tours!)
@@ -2080,11 +2083,14 @@ export function AccountsReportsHub({
           b.remaining_amount !== undefined ? b.remaining_amount : Math.max(0, total - adv)
         );
         const rawPayStatus = (b.payment_status || "").toUpperCase();
+        const pMode = String(b.payment_mode || b.payment_method || "UPI").toUpperCase();
+        const isManualMode = pMode.includes("MANUAL") || pMode.includes("CASH") || (b.notes && (b.notes.includes("100% Full Payment") || b.notes.includes("Full Payment") || b.notes.includes("Manual Channel") || b.notes.includes("ZERO DUE")));
         const isPaid =
           (rem === 0 && total > 0) ||
           rawPayStatus === "PAID" ||
           rawPayStatus === "FULLY PAID" ||
-          rawPayStatus === "SUCCESS";
+          rawPayStatus === "SUCCESS" ||
+          isManualMode;
         const isAdvPaid = !isPaid && (adv > 0 || rawPayStatus.includes("ADVANCE"));
         const isCancelled = (b.booking_status || "").toUpperCase().includes("CANCEL");
         const isRefunded =
@@ -2159,6 +2165,15 @@ export function AccountsReportsHub({
 
   useEffect(() => {
     fetchLiveTransactions();
+    const handleUpdate = () => {
+      fetchLiveTransactions();
+    };
+    window.addEventListener("fortune_booking_created", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    return () => {
+      window.removeEventListener("fortune_booking_created", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
   }, []);
 
   // Filter Daily Reports (Filtered using Day Filter, DATE range, Booking Type, and Search Query)
