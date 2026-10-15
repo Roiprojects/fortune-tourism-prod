@@ -148,7 +148,7 @@ export const Route = createFileRoute("/api/admin/day-book")({
             `SELECT id, ticket_number, pnr_number, booking_id, booking_number, booking_date,
                     departure_datetime, departure_datetime::text as departure_datetime_str,
                     pickup_time, departure_time, from_location, to_location,
-                    passenger_name, passenger_phone, vehicle_type, driver_name, driver_phone,
+                    passenger_name, passenger_phone, vehicle_type, driver_name, driver_phone, taxi_number,
                     booking_status, notes, created_at
              FROM bookings
              WHERE (booking_status IS NULL OR UPPER(booking_status) NOT IN ('COMPLETED', 'TRIP DONE', 'DONE', 'CANCELLED', 'CLOSED', 'REFUNDED'))
@@ -232,6 +232,7 @@ export const Route = createFileRoute("/api/admin/day-book")({
               vehicle: row.travel_by || linkedBooking?.vehicle_type || "-",
               driver_name: linkedBooking?.driver_name || "-",
               driver_phone: linkedBooking?.driver_phone || "-",
+              taxi_number: linkedBooking?.taxi_number || null,
               ticket_number: ticketNo || linkedBooking?.ticket_number || null,
               pnr_number: linkedBooking?.pnr_number || null,
               notes: row.notes || linkedBooking?.notes || "",
@@ -285,6 +286,7 @@ export const Route = createFileRoute("/api/admin/day-book")({
               vehicle: b.vehicle_type || "-",
               driver_name: b.driver_name || "-",
               driver_phone: b.driver_phone || "-",
+              taxi_number: b.taxi_number || null,
               ticket_number: b.ticket_number || null,
               pnr_number: b.pnr_number || null,
               notes: b.notes || "",
@@ -375,6 +377,71 @@ export const Route = createFileRoute("/api/admin/day-book")({
               JSON.stringify({
                 success: true,
                 message: "Trip marked as done successfully and status persisted to database.",
+              }),
+              { headers: { "Content-Type": "application/json" } },
+            );
+          }
+
+          if (action === "assign_driver" || action === "update_driver") {
+            const {
+              driver_name,
+              driver_phone,
+              taxi_number,
+              vehicle_type,
+            } = body;
+
+            // 1. Update in bookings table
+            if (booking_id || (source === "booking" && id)) {
+              const targetBkgId = booking_id || String(id).replace(/^bkg-/, "");
+              await query(
+                `UPDATE bookings 
+                 SET driver_name = $1, driver_phone = $2, taxi_number = $3, vehicle_type = COALESCE($4, vehicle_type), updated_at = CURRENT_TIMESTAMP 
+                 WHERE id = $5`,
+                [driver_name || null, driver_phone || null, taxi_number || null, vehicle_type || null, targetBkgId],
+              ).catch((e) => console.error("Error updating booking driver:", e));
+            }
+
+            // 2. Update day_book_entries if db_id exists
+            if (db_id || (source === "day_book" && id)) {
+              const targetDbId = db_id || String(id).replace(/^db-/, "");
+              await query(
+                `UPDATE day_book_entries 
+                 SET travel_by = COALESCE($1, travel_by), updated_at = CURRENT_TIMESTAMP 
+                 WHERE id = $2`,
+                [vehicle_type || null, targetDbId],
+              ).catch((e) => console.error("Error updating day_book_entries travel_by:", e));
+            }
+
+            // 3. Keep bookings synchronized by ticket_number or phone
+            if (ticket_number) {
+              await query(
+                `UPDATE bookings 
+                 SET driver_name = $1, driver_phone = $2, taxi_number = $3, vehicle_type = COALESCE($4, vehicle_type), updated_at = CURRENT_TIMESTAMP 
+                 WHERE ticket_number = $5`,
+                [driver_name || null, driver_phone || null, taxi_number || null, vehicle_type || null, ticket_number],
+              ).catch(() => {});
+            }
+
+            if (phone) {
+              const cleanP = phone.replace(/\D/g, "").slice(-10);
+              if (cleanP) {
+                await query(
+                  `UPDATE bookings 
+                   SET driver_name = $1, driver_phone = $2, taxi_number = $3, vehicle_type = COALESCE($4, vehicle_type), updated_at = CURRENT_TIMESTAMP 
+                   WHERE passenger_phone LIKE $5`,
+                  [driver_name || null, driver_phone || null, taxi_number || null, vehicle_type || null, `%${cleanP}%`],
+                ).catch(() => {});
+              }
+            }
+
+            return new Response(
+              JSON.stringify({
+                success: true,
+                message: "Driver details assigned successfully.",
+                driver_name: driver_name || "-",
+                driver_phone: driver_phone || "-",
+                taxi_number: taxi_number || null,
+                vehicle_type: vehicle_type || null,
               }),
               { headers: { "Content-Type": "application/json" } },
             );

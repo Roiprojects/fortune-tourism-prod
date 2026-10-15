@@ -757,14 +757,29 @@ export function DriverDetailsEditorModal({
                     >
                       <div className="flex flex-col items-center justify-center gap-2">
                         <UserCheck className="w-8 h-8 text-slate-400" />
-                        <p className="text-sm">No driver duty records found.</p>
-                        <button
-                          type="button"
-                          onClick={handleAddNewRow}
-                          className="mt-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold shadow-xs hover:bg-emerald-700 cursor-pointer"
-                        >
-                          + Add First Row
-                        </button>
+                        <p className="text-sm">
+                          {searchQuery
+                            ? `No driver duty records found matching "${searchQuery}".`
+                            : "No driver duty records found."}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          {searchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setSearchQuery("")}
+                              className="px-3 py-1.5 rounded-lg bg-slate-200 text-slate-800 text-xs font-bold shadow-xs hover:bg-slate-300 cursor-pointer"
+                            >
+                              ✕ Clear Search &amp; Show All ({records.length})
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={handleAddNewRow}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold shadow-xs hover:bg-emerald-700 cursor-pointer"
+                          >
+                            + Add New Row
+                          </button>
+                        </div>
                       </div>
                     </td>
                   </tr>

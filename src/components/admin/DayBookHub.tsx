@@ -14,6 +14,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { DriverDetailsEditorModal } from "@/components/admin/DriverDetailsEditorModal";
+import { DayBookTripDriverModal } from "@/components/admin/DayBookTripDriverModal";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -47,6 +48,7 @@ export interface DayBookTrip {
   vehicle?: string;
   driver_name?: string;
   driver_phone?: string;
+  taxi_number?: string | null;
   ticket_number?: string | null;
   pnr_number?: string | null;
   notes?: string;
@@ -62,6 +64,15 @@ export function DayBookHub() {
   const [actionLoading, setActionLoading] = useState(false);
   const [driverDetailsModalOpen, setDriverDetailsModalOpen] = useState(false);
   const [driverDetailsSearch, setDriverDetailsSearch] = useState("");
+  const [selectedTripForDriver, setSelectedTripForDriver] = useState<DayBookTrip | null>(null);
+  const [tripDriverModalOpen, setTripDriverModalOpen] = useState(false);
+
+  const handleDriverUpdated = (updatedTrip: DayBookTrip) => {
+    setTrips((prev) =>
+      prev.map((t) => (t.id === updatedTrip.id ? updatedTrip : t))
+    );
+    setSelectedTripForDriver(updatedTrip);
+  };
 
   // Fetch real database records from the Day Book API
   const fetchDayBookTrips = useCallback(async (showToast = false) => {
@@ -408,14 +419,26 @@ export function DayBookHub() {
                         <button
                           type="button"
                           onClick={() => {
-                            setDriverDetailsSearch(trip.passenger_phone || trip.from_location || "");
-                            setDriverDetailsModalOpen(true);
+                            setSelectedTripForDriver(trip);
+                            setTripDriverModalOpen(true);
                           }}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer bg-emerald-50 hover:bg-emerald-100 text-[#063f2d] border border-emerald-200/80 shadow-2xs shrink-0 active:scale-95"
-                          title="Driver Details & Duty Sheet"
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs shrink-0 active:scale-95 border ${
+                            trip.driver_name && trip.driver_name !== "-"
+                              ? "bg-emerald-100/90 hover:bg-emerald-200 text-emerald-950 border-emerald-400 font-extrabold"
+                              : "bg-emerald-50 hover:bg-emerald-100 text-[#063f2d] border-emerald-200/80"
+                          }`}
+                          title={
+                            trip.driver_name && trip.driver_name !== "-"
+                              ? `Assigned: ${trip.driver_name} (${trip.driver_phone || "No phone"}) · ${trip.taxi_number || trip.vehicle || ""}`
+                              : "Assign Driver & Vehicle Details"
+                          }
                         >
                           <UserCheck className="w-3.5 h-3.5 text-emerald-700" />
-                          <span>Driver Details</span>
+                          <span>
+                            {trip.driver_name && trip.driver_name !== "-"
+                              ? trip.driver_name
+                              : "Driver Details"}
+                          </span>
                         </button>
                       </div>
                     </td>
@@ -491,6 +514,20 @@ export function DayBookHub() {
           isOpen={driverDetailsModalOpen}
           initialSearchQuery={driverDetailsSearch}
           onClose={() => setDriverDetailsModalOpen(false)}
+        />
+      )}
+
+      {/* Dedicated Trip Driver Details & Assignment Modal */}
+      {tripDriverModalOpen && selectedTripForDriver && (
+        <DayBookTripDriverModal
+          isOpen={tripDriverModalOpen}
+          trip={selectedTripForDriver}
+          onClose={() => setTripDriverModalOpen(false)}
+          onDriverUpdated={handleDriverUpdated}
+          onOpenFullDutySheet={(query) => {
+            setDriverDetailsSearch(query || "");
+            setDriverDetailsModalOpen(true);
+          }}
         />
       )}
     </div>

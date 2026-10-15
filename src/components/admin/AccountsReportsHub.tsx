@@ -37,6 +37,7 @@ import {
   X,
   Check,
   ChevronDown,
+  FolderKanban,
 } from "lucide-react";
 
 export type AccountReportKey =
@@ -2969,13 +2970,31 @@ export function AccountsReportsHub({
 
       {/* Reports Overview Dashboard Hub (if activeReport === "reports") */}
       {activeReport === "reports" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-black text-slate-900 text-base flex items-center gap-2">
-              <LayoutDashboard className="w-4 h-4 text-amber-500" />
-              <span>All 8 Specialized Accounting Reports</span>
-            </h3>
-            <span className="text-xs text-slate-500 font-bold">Direct Click-Through Access</span>
+        <div className="space-y-4 bg-gradient-to-b from-amber-50/40 to-slate-50/30 p-4 sm:p-6 rounded-3xl border border-amber-200/80 shadow-2xs">
+          <div className="flex items-center justify-between flex-wrap gap-3 pb-2 border-b border-amber-200/60">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#063f2d] to-[#086a46] p-0.5 shadow-xs flex items-center justify-center">
+                <div className="w-full h-full rounded-2xl bg-white flex items-center justify-center text-amber-600">
+                  <FolderKanban className="w-5 h-5 text-amber-600" />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-black text-slate-900 text-base">
+                    Report Folder
+                  </h3>
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                    All 8 Specialized Accounting Reports
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Direct click-through access to audited accounting ledgers, cash flows, and dues reconciliation.
+                </p>
+              </div>
+            </div>
+            <span className="text-xs text-slate-600 font-bold bg-white px-3 py-1 rounded-xl border border-slate-200 shadow-2xs">
+              Direct Click-Through Access
+            </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

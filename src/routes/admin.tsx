@@ -28,6 +28,7 @@ import { HourlyPackagesTripsModal } from "@/components/admin/HourlyPackagesTrips
 import { ExpenseReportModal } from "@/components/admin/ExpenseReportModal";
 import { QuotationGeneratorModal } from "@/components/admin/QuotationGeneratorModal";
 import { BackupFolderModal } from "@/components/admin/BackupFolderModal";
+import { ReportFolderModal } from "@/components/admin/ReportFolderModal";
 import logoAsset from "@/assets/fortune-tourism-logo.png";
 import fullLogoAsset from "@/assets/fortune-tourism-full-logo.png";
 import keralaHeroImg from "@/assets/kerala-hero.jpg";
@@ -189,6 +190,7 @@ import {
   Printer,
   FolderArchive,
   FolderOpen,
+  FolderKanban,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
@@ -348,6 +350,8 @@ function AdminPage() {
 
   // Account Menu dropdown states & handlers
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [reportFolderOpen, setReportFolderOpen] = useState(false);
+  const [reportFolderModalOpen, setReportFolderModalOpen] = useState(false);
   const [financialLedgersOpen, setFinancialLedgersOpen] = useState(false);
   const [backupFolderOpen, setBackupFolderOpen] = useState(false);
   const [backupFolderModalOpen, setBackupFolderModalOpen] = useState(false);
@@ -392,6 +396,7 @@ function AdminPage() {
         setHourlyPackagesTripsModalOpen(false);
         setExpenseReportModalOpen(false);
         setQuotationModalOpen(false);
+        setReportFolderModalOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -1451,6 +1456,18 @@ function AdminPage() {
                 <Clock className="w-4 h-4 text-blue-600" />
                 <span>Hourly Tours</span>
               </button>
+
+              {/* Report Folder Direct Header Button */}
+              <button
+                type="button"
+                onClick={() => setReportFolderModalOpen(true)}
+                className="hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs shrink-0"
+                title="Report Folder - All 8 Specialized Accounting Reports"
+              >
+                <FolderKanban className="w-4 h-4 text-amber-600" />
+                <span>Report Folder</span>
+                <span className="bg-amber-200/90 text-amber-950 text-[10px] font-black px-1.5 py-0.2 rounded-md">8</span>
+              </button>
             </div>
 
             {/* Right: Account with image dropdown */}
@@ -1643,6 +1660,86 @@ function AdminPage() {
                       </span>
                     </button>
 
+                    {/* Report Folder with Dropdown */}
+                    <div className="mt-0.5 space-y-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReportFolderOpen((prev) => !prev);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition text-left cursor-pointer ${
+                          reportFolderOpen || activeService === "accounts"
+                            ? "bg-amber-50 text-amber-950 border border-amber-300 shadow-2xs"
+                            : "text-slate-700 hover:text-amber-900 hover:bg-amber-50/70"
+                        }`}
+                        aria-expanded={reportFolderOpen}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <FolderKanban className="w-4 h-4 text-amber-600 shrink-0" />
+                          <span className="font-extrabold text-slate-900">Report Folder</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-1.5 py-0.5 rounded-md border border-amber-200">
+                            8 Reports
+                          </span>
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                              reportFolderOpen ? "rotate-180 text-amber-900" : ""
+                            }`}
+                          />
+                        </div>
+                      </button>
+
+                      {reportFolderOpen && (
+                        <div className="pl-1 pr-1 py-1 space-y-1 bg-slate-50/90 rounded-xl border border-slate-200/80 max-h-72 overflow-y-auto scrollbar-thin">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReportFolderModalOpen(true);
+                              setAccountMenuOpen(false);
+                            }}
+                            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-black bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-white shadow-xs transition text-left cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <FolderOpen className="w-3.5 h-3.5" />
+                              <span>View All 8 Play Cards</span>
+                            </div>
+                            <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded font-extrabold">Open Folder</span>
+                          </button>
+
+                          {REPORT_DEFINITIONS.filter((r) => r.key !== "reports").map((r) => {
+                            const Icon = r.icon;
+                            const isSel = activeService === "accounts" && activeAccountReport === r.key;
+                            return (
+                              <button
+                                key={r.key}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveAccountReport(r.key);
+                                  setActiveService("accounts");
+                                  setAccountMenuOpen(false);
+                                }}
+                                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition text-left cursor-pointer ${
+                                  isSel
+                                    ? "bg-[#0b1329] text-amber-400 font-extrabold shadow-2xs border border-amber-400/30"
+                                    : "text-slate-700 hover:text-slate-900 hover:bg-white"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 truncate">
+                                  <Icon className={`w-3.5 h-3.5 shrink-0 ${isSel ? "text-amber-400" : r.color}`} />
+                                  <span className="truncate">{r.shortTitle}</span>
+                                </div>
+                                <span className="text-[9px] text-slate-400 font-extrabold">Open →</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
                     {/* Financial Ledgers with Dropdown */}
                     <div className="mt-0.5 space-y-1">
                       <button
@@ -1652,7 +1749,7 @@ function AdminPage() {
                           setFinancialLedgersOpen((prev) => !prev);
                         }}
                         className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition text-left cursor-pointer ${
-                          financialLedgersOpen || activeService === "accounts"
+                          financialLedgersOpen
                             ? "bg-emerald-50 text-[#063f2d] border border-emerald-200/50"
                             : "text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50/60"
                         }`}
@@ -3048,6 +3145,16 @@ function AdminPage() {
         packagesCount={packagesList.length || 17}
         flightBookingsCount={bookingStats.flightBookings || 6}
         busBookingsCount={bookingStats.busBookings || 7}
+      />
+
+      {/* Report Folder Modal with all 8 Play Cards */}
+      <ReportFolderModal
+        isOpen={reportFolderModalOpen}
+        onClose={() => setReportFolderModalOpen(false)}
+        onSelectReport={(reportKey) => {
+          setActiveAccountReport(reportKey);
+          setActiveService("accounts");
+        }}
       />
     </SiteLayout>
   );
