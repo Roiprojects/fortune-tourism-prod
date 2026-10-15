@@ -1413,17 +1413,6 @@ function AdminPage() {
                 <span>Tour Packages</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => setOfflineBookingModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer bg-[color:var(--color-navy)] hover:brightness-110 text-white shadow-xs hover:scale-102 shrink-0"
-                title="Create walk-in or phone reservations (Car, Bus, Train, Flight)"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">New Offline Booking</span>
-                <span className="sm:hidden">Offline Booking</span>
-              </button>
-
               {/* Driver Details Edit Direct Header Button */}
               <button
                 type="button"
