@@ -38,7 +38,10 @@ import {
   Check,
   ChevronDown,
   FolderKanban,
+  FolderArchive,
+  FolderOpen,
 } from "lucide-react";
+import { ReportFolderModal } from "./ReportFolderModal";
 
 export type AccountReportKey =
   | "reports"
@@ -282,6 +285,7 @@ interface AccountsReportsHubProps {
   initialReport?: AccountReportKey;
   onSelectReport?: (reportKey: AccountReportKey) => void;
   onNavigateToDayBook?: () => void;
+  onOpenReportFolderModal?: () => void;
 }
 
 export const REPORT_DEFINITIONS: {
@@ -917,7 +921,10 @@ export function AccountsReportsHub({
   initialReport = "reports",
   onSelectReport,
   onNavigateToDayBook,
+  onOpenReportFolderModal,
 }: AccountsReportsHubProps) {
+  const [isReportFolderExpanded, setIsReportFolderExpanded] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [activeReport, setActiveReport] = useState<AccountReportKey>(
     initialReport === "daybook" ? "reports" : initialReport
   );
@@ -2968,69 +2975,119 @@ export function AccountsReportsHub({
         </div>
       )}
 
-      {/* Reports Overview Dashboard Hub (if activeReport === "reports") */}
+      {/* Report Folder: All 8 Specialized Accounting Report Cards in One Folder */}
       {activeReport === "reports" && (
-        <div className="space-y-4 bg-gradient-to-b from-amber-50/40 to-slate-50/30 p-4 sm:p-6 rounded-3xl border border-amber-200/80 shadow-2xs">
-          <div className="flex items-center justify-between flex-wrap gap-3 pb-2 border-b border-amber-200/60">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#063f2d] to-[#086a46] p-0.5 shadow-xs flex items-center justify-center">
-                <div className="w-full h-full rounded-2xl bg-white flex items-center justify-center text-amber-600">
-                  <FolderKanban className="w-5 h-5 text-amber-600" />
-                </div>
+        <div className="mb-6 bg-white/95 backdrop-blur-md rounded-3xl border border-white/80 p-5 sm:p-6 shadow-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-md shrink-0">
+                <FolderArchive className="w-6 h-6 sm:w-7 sm:h-7" />
               </div>
               <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-black text-slate-900 text-base">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <h3 className="text-lg sm:text-xl font-black text-slate-900">
                     Report Folder
                   </h3>
-                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
-                    All 8 Specialized Accounting Reports
+                  <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200">
+                    8 Specialized Reports
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Direct click-through access to audited accounting ledgers, cash flows, and dues reconciliation.
+                <p className="text-xs sm:text-sm text-slate-600 font-medium max-w-2xl">
+                  Consolidated card folder for Daily Reports, Final Reports, Credit &amp; Debit Statement, Payment Reports, Cash Flow Reports, Dues Reports, Profit &amp; Loss Reports, and Online Transaction Reports. Also accessible anytime from the Account menu.
                 </p>
               </div>
             </div>
-            <span className="text-xs text-slate-600 font-bold bg-white px-3 py-1 rounded-xl border border-slate-200 shadow-2xs">
-              Direct Click-Through Access
-            </span>
+
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setIsReportFolderExpanded((prev) => !prev)}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 px-4 py-2.5 text-xs font-bold text-slate-800 shadow-2xs cursor-pointer transition-all"
+              >
+                {isReportFolderExpanded ? (
+                  <>
+                    <ChevronDown className="h-4 w-4 rotate-180" /> Collapse Cards
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-4 w-4" /> Expand 8 Cards
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onOpenReportFolderModal) {
+                    onOpenReportFolderModal();
+                  } else {
+                    setIsReportModalOpen(true);
+                  }
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 px-4 py-2.5 text-xs font-bold text-white shadow hover:brightness-110 cursor-pointer transition-transform hover:scale-105"
+              >
+                <FolderOpen className="h-4 w-4" /> Open Folder View
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {REPORT_DEFINITIONS.filter((r) => r.key !== "reports").map((r) => {
-              const Icon = r.icon;
-              return (
-                <div
-                  key={r.key}
-                  onClick={() => handleReportChange(r.key)}
-                  className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:shadow-md hover:border-amber-400/80 transition-all cursor-pointer group flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <div className={`w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center ${r.color} group-hover:bg-[#0b1329] group-hover:text-amber-400 transition`}>
-                        <Icon className="w-5 h-5" />
+          {/* When expanded on dashboard, show the 8 specialized report cards */}
+          {isReportFolderExpanded && (
+            <div className="mt-5 pt-5 border-t border-slate-200/80 animate-in fade-in duration-200">
+              <div className="mb-4 flex items-center justify-between">
+                <h4 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">
+                  Reports in Accounting Folder
+                </h4>
+                <span className="text-xs text-slate-500 font-medium">Click any card to open its audited ledger</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {REPORT_DEFINITIONS.filter((r) => r.key !== "reports").map((r) => {
+                  const Icon = r.icon;
+                  return (
+                    <div
+                      key={r.key}
+                      onClick={() => handleReportChange(r.key)}
+                      className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:shadow-md hover:border-amber-400/80 transition-all cursor-pointer group flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className={`w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center ${r.color} group-hover:bg-[#0b1329] group-hover:text-amber-400 transition`}>
+                            <Icon className="w-5 h-5" />
+                          </div>
+                          <span className="text-xs font-bold text-slate-400 group-hover:text-amber-600 transition flex items-center gap-1">
+                            Open Report <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition" />
+                          </span>
+                        </div>
+                        <h4 className="font-black text-slate-900 text-sm group-hover:text-indigo-900 transition">
+                          {r.title}
+                        </h4>
+                        <p className="text-xs text-slate-500 mt-1.5 line-clamp-2">
+                          {r.subtitle}
+                        </p>
                       </div>
-                      <span className="text-xs font-bold text-slate-400 group-hover:text-amber-600 transition flex items-center gap-1">
-                        Open Report <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition" />
-                      </span>
+                      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-slate-400">
+                        <span>Audit Ready</span>
+                        <span className="text-emerald-600">Active Ledger</span>
+                      </div>
                     </div>
-                    <h4 className="font-black text-slate-900 text-sm group-hover:text-indigo-900 transition">
-                      {r.title}
-                    </h4>
-                    <p className="text-xs text-slate-500 mt-1.5 line-clamp-2">
-                      {r.subtitle}
-                    </p>
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-slate-400">
-                    <span>Audit Ready</span>
-                    <span className="text-emerald-600">Active Ledger</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
+      )}
+
+      {/* Standalone Report Folder Modal if invoked without parent handler */}
+      {!onOpenReportFolderModal && (
+        <ReportFolderModal
+          isOpen={isReportModalOpen}
+          onClose={() => setIsReportModalOpen(false)}
+          onSelectReport={(reportKey) => {
+            handleReportChange(reportKey);
+            setIsReportModalOpen(false);
+          }}
+        />
       )}
 
 

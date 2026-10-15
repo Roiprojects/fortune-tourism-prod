@@ -2912,6 +2912,7 @@ function AdminPage() {
             <AccountsReportsHub
               initialReport={activeAccountReport}
               onSelectReport={(k) => setActiveAccountReport(k)}
+              onOpenReportFolderModal={() => setReportFolderModalOpen(true)}
             />
           )}
         </div>
