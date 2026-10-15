@@ -264,8 +264,9 @@ export const Route = createFileRoute("/api/bookings/")({
           if (total <= 0) {
             total = m(body.ticket_amount) || m(body.total_amount) || m(body.fare) || m(body.amount) || m(base_amount) || 0;
           }
-          if (total > 0 && (!base_amount || Number(base_amount) === 0)) {
-            base_amount = total;
+          let effectiveBaseAmount = base_amount;
+          if (total > 0 && (!effectiveBaseAmount || Number(effectiveBaseAmount) === 0)) {
+            effectiveBaseAmount = total;
           }
           if (!Number.isFinite(total) || total < 0) {
             return new Response(
@@ -354,7 +355,7 @@ export const Route = createFileRoute("/api/bookings/")({
               toMoney(distance_km),
               toMoney(rate_per_km),
               min_km ? Number(min_km) : null,
-              toMoney(base_amount),
+              toMoney(effectiveBaseAmount),
               toMoney(driver_allowance),
               toMoney(toll_amount),
               toMoney(parking_amount),
@@ -377,7 +378,7 @@ export const Route = createFileRoute("/api/bookings/")({
               arrival_date || null,
               arrival_time || null,
               ticket_status || null,
-              toMoney(ticket_amount),
+              toMoney(ticket_amount || total),
               airline || null,
               flight_number ||
                 linkedEnquiry?.notes?.match(/Flight No: ([^|]+)/)?.[1]?.trim() ||

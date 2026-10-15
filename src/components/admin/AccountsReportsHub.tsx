@@ -3753,7 +3753,13 @@ export function AccountsReportsHub({
                   <span>Page: <strong className="text-slate-800">{safeDailyPage} of {totalDailyPages}</strong></span>
                   <span>Viewing: <strong className="text-slate-800">{displayedDailyRecords.length}</strong> of <strong className="text-slate-800">{filteredDailyRecords.length}</strong></span>
                   <span>Total Booking: <strong className="text-emerald-700">₹{dailyTotals.booking.toLocaleString("en-IN")}</strong></span>
-                  <span>Total Due: <strong className="text-rose-700">₹{dailyTotals.due.toLocaleString("en-IN")}</st              <table className="w-full text-left text-xs border-collapse border border-slate-300 font-sans">
+                  <span>Total Due: <strong className="text-rose-700">₹{dailyTotals.due.toLocaleString("en-IN")}</strong></span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="min-w-full inline-block align-middle">
+              <table className="w-full text-left text-xs border-collapse border border-slate-300 font-sans">
                 <thead>
                   {activeReport === "dues" ? (
                     <tr className="bg-[#107c41] text-white font-black uppercase tracking-wider text-[11px]">
