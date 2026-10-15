@@ -8,12 +8,19 @@ import {
   Users,
   Trash2,
   ArrowLeft,
+  ArrowRight,
   Download,
   Printer,
   MessageCircle,
   CheckCircle2,
   Clock,
   Phone,
+  CreditCard,
+  Zap,
+  Banknote,
+  Copy,
+  Check,
+  Maximize2,
 } from "lucide-react";
 import { generateTicketNumber, generatePNR } from "@/lib/booking-utils";
 import { buildWhatsAppUrl } from "@/lib/contact";
@@ -57,14 +64,31 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
   // Service switcher: TRAIN | FLIGHT | BUS
   const [serviceType, setServiceType] = useState<"TRAIN" | "FLIGHT" | "BUS">("TRAIN");
 
-  // Step: "JOURNEY" | "PASSENGERS" | "CONFIRMED"
-  const [step, setStep] = useState<"JOURNEY" | "PASSENGERS" | "CONFIRMED">("JOURNEY");
+  // Step: "JOURNEY" | "PASSENGERS" | "PAYMENT" | "CONFIRMED"
+  const [step, setStep] = useState<"JOURNEY" | "PASSENGERS" | "PAYMENT" | "CONFIRMED">("JOURNEY");
+
+  // Payment Choice State
+  const [paymentChoice, setPaymentChoice] = useState<"token_100" | "full" | "zero">("token_100");
+  const [fullPaymentType, setFullPaymentType] = useState<"AUTOMATIC" | "MANUAL">("AUTOMATIC");
+  const [manualMethod, setManualMethod] = useState<"CASH" | "BANK_TRANSFER" | "POS_CARD" | "CHEQUE">("CASH");
+  const [manualReceiptNo, setManualReceiptNo] = useState("");
+  const [collectedBy, setCollectedBy] = useState("Admin Counter");
+  const [utrRef, setUtrRef] = useState("");
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [upiCopied, setUpiCopied] = useState(false);
+
+  const copyUPI = () => {
+    navigator.clipboard.writeText("fortunetourism@okaxis");
+    setUpiCopied(true);
+    toast.success("UPI ID copied to clipboard!");
+    setTimeout(() => setUpiCopied(false), 2000);
+  };
 
   // Train Journey Form Data
   const [trainData, setTrainData] = useState({
     from_station: "",
     to_station: "",
-    date: () => new Date().toISOString().split("T")[0],
+    date: new Date().toISOString().split("T")[0],
     preferred_train: "",
     travel_class: "3A",
     quota: "General",
@@ -83,7 +107,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
 
   // Form State for other services (Bus, Flight)
   const [otherFormData, setOtherFormData] = useState<any>({
-    date: () => new Date().toISOString().split("T")[0],
+    date: new Date().toISOString().split("T")[0],
     time: "07:00",
     from_location: "",
     destination: "",
@@ -250,6 +274,18 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
     otherFormData.passengers,
   ]);
 
+  const paymentStatusText = useMemo(() => {
+    if (paymentChoice === "full") {
+      return fullPaymentType === "AUTOMATIC"
+        ? "CONFIRMED / 100% PAID (ONLINE UPI)"
+        : `CONFIRMED / 100% PAID (${manualMethod === "CASH" ? "CASH" : manualMethod === "BANK_TRANSFER" ? "BANK TRANSFER" : manualMethod === "POS_CARD" ? "CARD POS" : "CHEQUE"})`;
+    }
+    if (paymentChoice === "token_100") {
+      return `₹100 ADVANCE PAID (BAL: ₹${Math.max(0, ticketFareAmount - 100).toLocaleString("en-IN")})`;
+    }
+    return `PAY ON BOARDING (DUE: ₹${ticketFareAmount.toLocaleString("en-IN")})`;
+  }, [paymentChoice, fullPaymentType, manualMethod, ticketFareAmount]);
+
   // Passenger count selector (1 to 6)
   const setPassengerCount = (count: number) => {
     const current = passengers;
@@ -293,32 +329,94 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
     window.scrollTo({ top: 80, behavior: "smooth" });
   };
 
-  // Step 2 Submit Train Booking
+  // Validation from PASSENGERS to PAYMENT
+  const handleGoToPayment = () => {
+    if (serviceType === "TRAIN") {
+      const firstP = passengers[0];
+      if (!firstP || !firstP.name || !firstP.name.trim()) {
+        toast.error("Please enter Passenger 1 Full Name.");
+        return;
+      }
+      if (!firstP.age || !firstP.age.trim()) {
+        toast.error("Please enter Passenger 1 Age.");
+        return;
+      }
+      if (!trainData.phone || !trainData.phone.trim()) {
+        toast.error("Please enter Passenger Phone Number.");
+        return;
+      }
+      if (!trainData.boarding_point || !trainData.boarding_point.trim()) {
+        toast.error("Please enter the Boarding Point.");
+        return;
+      }
+      if (!trainData.boarding_address || !trainData.boarding_address.trim()) {
+        toast.error("Please enter the Boarding Address.");
+        return;
+      }
+    } else if (serviceType === "BUS") {
+      const firstP = otherFormData.passengers?.[0];
+      if (!firstP || !firstP.name || !firstP.name.trim()) {
+        toast.error("Please enter Passenger 1 Full Name.");
+        return;
+      }
+      if (!otherFormData.phone || !otherFormData.phone.trim()) {
+        toast.error("Please enter Passenger Phone Number.");
+        return;
+      }
+      if (!otherFormData.boarding_point || !otherFormData.boarding_point.trim()) {
+        toast.error("Please enter the Boarding Point.");
+        return;
+      }
+      if (!otherFormData.boarding_address || !otherFormData.boarding_address.trim()) {
+        toast.error("Please enter the Boarding Address.");
+        return;
+      }
+    } else if (serviceType === "FLIGHT") {
+      const firstP = otherFormData.passengers?.[0];
+      if (!firstP || !firstP.name || !firstP.name.trim()) {
+        toast.error("Please enter Passenger 1 Full Name.");
+        return;
+      }
+      if (!otherFormData.phone || !otherFormData.phone.trim()) {
+        toast.error("Please enter Passenger Phone Number.");
+        return;
+      }
+      if (!otherFormData.boarding_point || !otherFormData.boarding_point.trim()) {
+        toast.error("Please enter the Boarding Point / Terminal.");
+        return;
+      }
+      if (!otherFormData.boarding_address || !otherFormData.boarding_address.trim()) {
+        toast.error("Please enter the Boarding Address.");
+        return;
+      }
+    }
+    setStep("PAYMENT");
+    window.scrollTo({ top: 80, behavior: "smooth" });
+  };
+
+  // Submit Train Booking (from PAYMENT step)
   const handleCompleteTrainBooking = async () => {
     const firstP = passengers[0];
     if (!firstP || !firstP.name.trim()) {
       toast.error("Please enter Passenger 1 Full Name.");
       return;
     }
-    if (!firstP.age || !firstP.age.trim()) {
-      toast.error("Please enter Passenger 1 Age.");
-      return;
-    }
-    if (!trainData.phone || !trainData.phone.trim()) {
-      toast.error("Please enter Passenger Phone Number.");
-      return;
-    }
-    if (!trainData.boarding_point || !trainData.boarding_point.trim()) {
-      toast.error("Please enter the Boarding Point.");
-      return;
-    }
-    if (!trainData.boarding_address || !trainData.boarding_address.trim()) {
-      toast.error("Please enter the Boarding Address.");
-      return;
-    }
-
     setIsSubmitting(true);
     try {
+      const effectiveAdvance = paymentChoice === "full" ? Number(ticketFareAmount || 0) : paymentChoice === "token_100" ? 100 : 0;
+      const effectiveMethod = paymentChoice === "full"
+        ? (fullPaymentType === "AUTOMATIC" ? "UPI" : `MANUAL_${manualMethod}`)
+        : paymentChoice === "token_100"
+        ? "UPI"
+        : "PAY_ON_ARRIVAL";
+
+      const paymentNotes = [
+        `Payment Choice: ${paymentChoice === "token_100" ? "₹100 Token Advance (Priority Lock)" : paymentChoice === "full" ? `Full Payment (${fullPaymentType})` : "Zero Advance (Pay on Boarding)"}`,
+        paymentChoice === "token_100" && utrRef && `UTR Ref: ${utrRef}`,
+        paymentChoice === "full" && fullPaymentType === "AUTOMATIC" && utrRef && `UPI UTR: ${utrRef}`,
+        paymentChoice === "full" && fullPaymentType === "MANUAL" && `Manual Channel: ${manualMethod}${manualReceiptNo ? ` | Receipt: ${manualReceiptNo}` : ""}${collectedBy ? ` | Handled By: ${collectedBy}` : ""}`,
+      ].filter(Boolean).join(" | ");
+
       const payload = {
         name: firstP.name.trim(),
         phone: trainData.phone.trim(),
@@ -339,12 +437,15 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
           `PNR: ${pnrNumber}`,
           `Train: ${trainData.preferred_train || "Any"} | No: ${trainData.train_number || "N/A"} | Class: ${trainData.travel_class} | Quota: ${trainData.quota}`,
           `Total Fare: ₹${ticketFareAmount}`,
+          paymentNotes,
           `Passengers: ${passengers.map((p, i) => `P${i + 1}: ${p.name} (${p.age}y/${p.gender})`).join(", ")}`,
         ]
           .filter(Boolean)
           .join(" | "),
         total_amount: Number(ticketFareAmount || 0),
         fare: Number(ticketFareAmount || 0),
+        advance_amount: effectiveAdvance,
+        payment_method: effectiveMethod,
         ticket_number: ticketNumber,
         pnr_number: pnrNumber,
         client_token: `FT-ADMIN-TRAIN-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -374,7 +475,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
     }
   };
 
-  // Submit other services (Bus, Flight)
+  // Submit other services (Bus, Flight) from PAYMENT step
   const handleCompleteOtherServiceBooking = async () => {
     setIsSubmitting(true);
     try {
@@ -384,6 +485,20 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
 
       const flightFrom = otherFormData.from_airport || otherFormData.from_location || otherFormData.pickup || "BANGALORE";
       const flightTo = otherFormData.destination || otherFormData.to_airport || otherFormData.to_destination || otherFormData.to_location || "DELHI";
+
+      const effectiveAdvance = paymentChoice === "full" ? Number(ticketFareAmount || 0) : paymentChoice === "token_100" ? 100 : 0;
+      const effectiveMethod = paymentChoice === "full"
+        ? (fullPaymentType === "AUTOMATIC" ? "UPI" : `MANUAL_${manualMethod}`)
+        : paymentChoice === "token_100"
+        ? "UPI"
+        : "PAY_ON_ARRIVAL";
+
+      const paymentNotes = [
+        `Payment Choice: ${paymentChoice === "token_100" ? "₹100 Token Advance (Priority Lock)" : paymentChoice === "full" ? `Full Payment (${fullPaymentType})` : "Zero Advance (Pay on Boarding)"}`,
+        paymentChoice === "token_100" && utrRef && `UTR Ref: ${utrRef}`,
+        paymentChoice === "full" && fullPaymentType === "AUTOMATIC" && utrRef && `UPI UTR: ${utrRef}`,
+        paymentChoice === "full" && fullPaymentType === "MANUAL" && `Manual Channel: ${manualMethod}${manualReceiptNo ? ` | Receipt: ${manualReceiptNo}` : ""}${collectedBy ? ` | Handled By: ${collectedBy}` : ""}`,
+      ].filter(Boolean).join(" | ");
 
       const payload = {
         name: firstP,
@@ -412,11 +527,14 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
               : `Flight: ${otherFormData.cabin_class || "Economy"} | Trip: ${otherFormData.flight_trip_type} | Route: ${flightFrom} → ${flightTo}`
           ),
           `Total Fare: ₹${ticketFareAmount}`,
+          paymentNotes,
         ]
           .filter(Boolean)
           .join(" | "),
         total_amount: Number(ticketFareAmount || 0),
         fare: Number(ticketFareAmount || 0),
+        advance_amount: effectiveAdvance,
+        payment_method: effectiveMethod,
         ticket_number: ticketNumber,
         pnr_number: pnrNumber,
         client_token: `FT-ADMIN-TKT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -526,7 +644,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
       `}</style>
 
       <div className="w-full max-w-5xl mx-auto space-y-6">
-        {step !== "CONFIRMED" ? (
+        {step === "JOURNEY" || step === "PASSENGERS" ? (
           /* ================= STEP 1 & 2: JOURNEY & PASSENGER FORMS ================= */
           <div className="bg-[#0B132B]/95 backdrop-blur-xl border border-white/15 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/60 space-y-6 animate-in fade-in duration-300 text-white">
             {/* Top Header with Back to Services */}
@@ -955,11 +1073,10 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
 
                       <button
                         type="button"
-                        onClick={handleCompleteTrainBooking}
-                        disabled={isSubmitting}
-                        className="bg-[#00c58e] hover:bg-[#00a87a] text-white font-black px-10 sm:px-12 py-3.5 rounded-2xl uppercase tracking-wider text-sm shadow-xl shadow-[#00c58e]/30 transition-all hover:scale-102 active:scale-98 disabled:opacity-60 cursor-pointer flex items-center gap-2"
+                        onClick={handleGoToPayment}
+                        className="bg-[#00c58e] hover:bg-[#00a87a] text-white font-black px-10 sm:px-12 py-3.5 rounded-2xl uppercase tracking-wider text-sm shadow-xl shadow-[#00c58e]/30 transition-all hover:scale-102 active:scale-98 cursor-pointer flex items-center gap-2"
                       >
-                        {isSubmitting ? "Generating Ticket..." : "CONTINUE TO BOOKING →"}
+                        CONTINUE TO PAYMENT CHOICE →
                       </button>
                     </div>
                   </div>
@@ -973,7 +1090,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                 formData={otherFormData}
                 onChange={onOtherChange}
                 errors={{}}
-                onCompleteBooking={handleCompleteOtherServiceBooking}
+                onCompleteBooking={handleGoToPayment}
                 isSubmitting={isSubmitting}
               />
             )}
@@ -984,10 +1101,614 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                 formData={otherFormData}
                 onChange={onOtherChange}
                 errors={{}}
-                onCompleteBooking={handleCompleteOtherServiceBooking}
+                onCompleteBooking={handleGoToPayment}
                 isSubmitting={isSubmitting}
               />
             )}
+          </div>
+        ) : step === "PAYMENT" ? (
+          /* ================= STEP 3: PAYMENT CHOICE (MATCHING USER DESIGN) ================= */
+          <div className="bg-[#0B132B]/95 backdrop-blur-xl border border-white/15 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/60 space-y-6 animate-in fade-in duration-300 text-white">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-white/10">
+              <div>
+                <h2 className="font-extrabold text-white text-lg sm:text-xl font-heading">
+                  Payment Choice
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Select payment option to confirm your reservation
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setStep("PASSENGERS")}
+                className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1.5 px-3.5 py-1.5 border border-white/15 bg-white/5 rounded-xl hover:bg-white/10 transition-colors shadow-sm cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-[#00c58e]" /> Back to Passenger Details
+              </button>
+            </div>
+
+            {/* Trip & Fare Components Breakdown */}
+            <div className="bg-[#111c3a]/90 border border-white/15 rounded-2xl p-4 sm:p-5 space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                    TRIP SUMMARY &amp; FARE COMPONENTS
+                  </span>
+                  <div className="font-extrabold text-white text-sm sm:text-base">
+                    {vehicleDisplay}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold text-slate-400 block">TOTAL FARE</span>
+                  <span className="font-black text-[#00c58e] text-lg sm:text-xl">₹{ticketFareAmount.toLocaleString("en-IN")}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="space-y-1">
+                  <div className="text-slate-400 font-semibold">Route &amp; Journey:</div>
+                  <div className="text-white font-bold">
+                    {fromLocationDisplay} → {toLocationDisplay}
+                  </div>
+                  <div className="text-slate-300 text-[11px] space-y-0.5 pt-0.5">
+                    <div>Departure: {departureDateFormatted}</div>
+                    {serviceType === "TRAIN" && (
+                      <div>Train: <strong>{trainData.preferred_train || "IRCTC Express"}</strong> | Class: <strong>{trainData.travel_class}</strong> | Quota: <strong>{trainData.quota}</strong> | Passengers: <strong>{passengers.length}</strong></div>
+                    )}
+                    {serviceType === "BUS" && (
+                      <div>Bus: <strong>{otherFormData.bus_type || "AC Sleeper"}</strong> | Pickup: <strong>{otherFormData.boarding_point || fromLocationDisplay}</strong> | Seats: <strong>{otherFormData.passengers?.length || 1}</strong></div>
+                    )}
+                    {serviceType === "FLIGHT" && (
+                      <div>Trip: <strong>{otherFormData.flight_trip_type || "One Way"}</strong> | Cabin: <strong>{otherFormData.cabin_class || "Economy"}</strong> | Passengers: <strong>{otherFormData.passengers?.length || 1}</strong></div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1 sm:text-right">
+                  <div className="text-slate-400 font-semibold">Fare Components Breakdown:</div>
+                  <div className="text-slate-300 text-[11px] space-y-0.5">
+                    {serviceType === "TRAIN" ? (
+                      <>
+                        <div>Base Ticket Fare: <strong className="text-white">₹{Math.max(0, Math.round(ticketFareAmount * 0.95)).toLocaleString("en-IN")}</strong></div>
+                        <div>IRCTC &amp; Reservation Charges: <strong className="text-emerald-400">Included</strong></div>
+                        <div>Taxes &amp; GST: <strong className="text-emerald-400">Included (5% GST)</strong></div>
+                        <div>Total All-Inclusive: <strong className="text-[#00c58e] font-black">₹{ticketFareAmount.toLocaleString("en-IN")}</strong></div>
+                      </>
+                    ) : serviceType === "BUS" ? (
+                      <>
+                        <div>Base Seat Fare: <strong className="text-white">₹{Math.max(0, Math.round(ticketFareAmount * 0.95)).toLocaleString("en-IN")}</strong></div>
+                        <div>Toll &amp; Driver Allowance: <strong className="text-emerald-400">Included</strong></div>
+                        <div>Taxes &amp; GST: <strong className="text-emerald-400">Included (5% GST)</strong></div>
+                        <div>Total All-Inclusive: <strong className="text-[#00c58e] font-black">₹{ticketFareAmount.toLocaleString("en-IN")}</strong></div>
+                      </>
+                    ) : (
+                      <>
+                        <div>Base Airfare: <strong className="text-white">₹{Math.max(0, Math.round(ticketFareAmount * 0.88)).toLocaleString("en-IN")}</strong></div>
+                        <div>Fuel &amp; Airline Charges: <strong className="text-emerald-400">Included</strong></div>
+                        <div>Airport Taxes &amp; GST: <strong className="text-emerald-400">Included (12% Taxes)</strong></div>
+                        <div>Total All-Inclusive: <strong className="text-[#00c58e] font-black">₹{ticketFareAmount.toLocaleString("en-IN")}</strong></div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Options */}
+            <div className="space-y-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300 block">
+                PAYMENT CHOICE
+              </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* 1. Pay ₹100 Advance */}
+                <button
+                  type="button"
+                  onClick={() => setPaymentChoice("token_100")}
+                  className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+                    paymentChoice === "token_100"
+                      ? "bg-[#162544]/95 border-[#00c58e] ring-2 ring-[#00c58e]/30 shadow-xl shadow-black/40"
+                      : "bg-[#111c3a]/80 border-white/10 hover:border-white/20"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-black text-white text-sm sm:text-base">⚡ Pay ₹100 Advance</span>
+                    <span className="bg-[#00c58e] text-white font-black text-[10px] px-2.5 py-0.5 rounded-full uppercase shadow-xs">
+                      PRIORITY LOCK
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300">
+                    {serviceType === "TRAIN" && "Instant seat reservation lock with priority booking confirmation."}
+                    {serviceType === "BUS" && "Instant seat reservation lock with priority bus operator confirmation."}
+                    {serviceType === "FLIGHT" && "Instant flight seat block with priority PNR confirmation."}
+                  </p>
+                </button>
+
+                {/* 2. Full Payment Method (Manual & Automatically) */}
+                <button
+                  type="button"
+                  onClick={() => setPaymentChoice("full")}
+                  className={`p-4 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
+                    paymentChoice === "full"
+                      ? "bg-[#162544]/95 border-amber-400 ring-2 ring-amber-400/40 shadow-xl shadow-black/40"
+                      : "bg-[#111c3a]/80 border-white/10 hover:border-white/20"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-black text-white text-sm sm:text-base flex items-center gap-1.5">
+                      <CreditCard className="w-4 h-4 text-amber-400" /> Full Payment Method
+                    </span>
+                    <span className="bg-amber-400 text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded-full uppercase shadow-xs">
+                      MANUAL &amp; AUTO
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300">
+                    100% full amount (₹{ticketFareAmount.toLocaleString("en-IN")}) by manual cash/bank or automatically via UPI.
+                  </p>
+                  <div className="mt-2.5 flex items-center gap-1.5">
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPaymentChoice("full");
+                        setFullPaymentType("AUTOMATIC");
+                      }}
+                      className={`text-[10px] font-black px-2 py-0.5 rounded-md transition-all ${
+                        paymentChoice === "full" && fullPaymentType === "AUTOMATIC"
+                          ? "bg-[#00c58e] text-white shadow"
+                          : "bg-white/10 text-slate-300 hover:bg-white/20"
+                      }`}
+                    >
+                      ⚡ Automatically (UPI/QR)
+                    </span>
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPaymentChoice("full");
+                        setFullPaymentType("MANUAL");
+                      }}
+                      className={`text-[10px] font-black px-2 py-0.5 rounded-md transition-all ${
+                        paymentChoice === "full" && fullPaymentType === "MANUAL"
+                          ? "bg-amber-400 text-slate-950 shadow"
+                          : "bg-white/10 text-slate-300 hover:bg-white/20"
+                      }`}
+                    >
+                      ✍️ Manually (Cash/Bank)
+                    </span>
+                  </div>
+                </button>
+
+                {/* 3. Zero Advance */}
+                <button
+                  type="button"
+                  onClick={() => setPaymentChoice("zero")}
+                  className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+                    paymentChoice === "zero"
+                      ? "bg-[#162544]/95 border-[#00c58e] ring-2 ring-[#00c58e]/30 shadow-xl shadow-black/40"
+                      : "bg-[#111c3a]/80 border-white/10 hover:border-white/20"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-black text-white text-sm sm:text-base">Zero Advance</span>
+                    <span className="bg-white/10 text-slate-300 font-bold text-[10px] px-2 py-0.5 rounded-full">
+                      Pay ₹0 Today
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300">
+                    {serviceType === "FLIGHT" ? "Pay full amount upon ticket issuance / travel date." : "Pay full amount directly upon boarding / journey date."}
+                  </p>
+                </button>
+              </div>
+
+              {/* OPTION 1: UPI QR if ₹100 Advance is selected */}
+              {paymentChoice === "token_100" && (
+                <div className="bg-[#111c3a]/95 border border-purple-500/30 rounded-2xl p-5 space-y-4 shadow-xl shadow-purple-950/20">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-[#5f259f] text-white flex items-center justify-center font-bold text-sm shadow">
+                        पे
+                      </div>
+                      <div>
+                        <h3 className="font-extrabold text-white text-sm">
+                          Scan &amp; Pay via PhonePe / Any UPI App
+                        </h3>
+                        <p className="text-[11px] text-purple-200">
+                          Pay ₹100 Token Advance to confirm and instantly generate journey ticket copy (Balance ₹{(Math.max(0, ticketFareAmount - 100)).toLocaleString("en-IN")} on boarding)
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-950/70 border border-emerald-500/30 px-2.5 py-1 rounded-full">
+                      Token Advance QR (₹100)
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-5">
+                    <div className="bg-white p-3 rounded-2xl shadow-2xl border-2 border-purple-300 shrink-0 text-center group relative">
+                      <div
+                        className="w-44 sm:w-48 overflow-hidden rounded-xl bg-slate-50 border border-slate-200 cursor-pointer"
+                        onClick={() => setShowQrModal(true)}
+                        title="Click to enlarge QR code"
+                      >
+                        <img
+                          src="/images/phonepe-qr.jpg"
+                          alt="PhonePe Payment QR Code - ZAMEER S"
+                          className="w-full h-auto object-contain transition-transform duration-300 group-hover:scale-105"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowQrModal(true)}
+                        className="mt-2 inline-flex items-center gap-1 text-[11px] font-extrabold text-[#5f259f] hover:text-purple-900 transition-colors cursor-pointer"
+                      >
+                        <Maximize2 className="w-3 h-3" /> Tap to Enlarge QR
+                      </button>
+                    </div>
+
+                    <div className="flex-1 space-y-3 w-full">
+                      <div className="bg-[#0B132B] border border-white/15 rounded-xl p-3 flex items-center justify-between shadow-xs">
+                        <div>
+                          <div className="text-[10px] text-purple-300 font-bold uppercase tracking-wider">Beneficiary / Merchant</div>
+                          <div className="font-black text-white text-base flex items-center gap-2">
+                            ZAMEER S
+                            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/30">Verified</span>
+                          </div>
+                          <div className="text-xs text-slate-400 font-mono mt-0.5">fortunetourism@okaxis</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={copyUPI}
+                          className="flex items-center gap-1.5 text-xs font-bold text-emerald-300 bg-emerald-950/70 px-3 py-1.5 rounded-lg border border-emerald-500/40 hover:bg-emerald-900 transition-colors cursor-pointer"
+                        >
+                          {upiCopied ? <Check className="w-3.5 h-3.5 text-[#00c58e]" /> : <Copy className="w-3.5 h-3.5" />}
+                          {upiCopied ? "Copied!" : "Copy"}
+                        </button>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fast Pay ₹100 Advance With UPI App</div>
+                        <div className="flex flex-wrap gap-2">
+                          {[
+                            { name: "PhonePe", link: "phonepe://pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=100&cu=INR", color: "bg-[#5f259f] text-white hover:bg-purple-800 border-purple-400/30" },
+                            { name: "Google Pay", link: "tez://upi/pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=100&cu=INR", color: "bg-blue-600 text-white hover:bg-blue-700 border-blue-400/30" },
+                            { name: "Paytm", link: "paytmmp://upi/pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=100&cu=INR", color: "bg-sky-600 text-white hover:bg-sky-700 border-sky-400/30" },
+                            { name: "Any UPI App", link: "upi://pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=100&cu=INR&tn=Token%20Advance%20Fortune%20Tourism", color: "bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-400/30" },
+                          ].map((app) => (
+                            <a
+                              key={app.name}
+                              href={app.link}
+                              className={`text-xs font-black px-3.5 py-1.5 rounded-lg border transition-all shadow-xs ${app.color}`}
+                            >
+                              {app.name}
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-400 block mb-1">
+                          UTR / Transaction ID (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Enter 12-digit UTR No. e.g. 423589124012"
+                          value={utrRef}
+                          onChange={(e) => setUtrRef(e.target.value)}
+                          className="w-full bg-[#0B132B] border border-white/15 focus:border-[#00c58e] rounded-xl px-3.5 py-2 text-xs text-white placeholder:text-slate-500 outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* OPTION 2: FULL PAYMENT METHOD */}
+              {paymentChoice === "full" && (
+                <div className="bg-[#111c3a]/95 border-2 border-amber-400/50 rounded-2xl p-5 space-y-5 shadow-2xl shadow-amber-950/20">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/15">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-white text-base flex items-center gap-1.5">
+                          <CreditCard className="w-5 h-5 text-amber-400" /> Full Payment Method:
+                        </span>
+                        <span className="text-xs font-mono font-black text-amber-300 bg-amber-400/15 px-3 py-1 rounded-lg border border-amber-400/30">
+                          100% Fare: ₹{ticketFareAmount.toLocaleString("en-IN")}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300 mt-0.5">
+                        Choose between <strong>Automatically</strong> (instant online UPI QR) or <strong>Manually</strong> (Cash / Bank / Card).
+                      </p>
+                    </div>
+
+                    <div className="inline-flex p-1 bg-[#091024] rounded-xl border border-white/15 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setFullPaymentType("AUTOMATIC")}
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                          fullPaymentType === "AUTOMATIC"
+                            ? "bg-[#00c58e] text-white shadow font-black"
+                            : "text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        <Zap className="w-3.5 h-3.5 text-white" /> Automatically (UPI / QR)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFullPaymentType("MANUAL")}
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                          fullPaymentType === "MANUAL"
+                            ? "bg-amber-400 text-slate-950 shadow font-black"
+                            : "text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        <Banknote className="w-3.5 h-3.5" /> Manually (Cash / Bank)
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 2A: AUTOMATIC FULL PAYMENT VIEW */}
+                  {fullPaymentType === "AUTOMATIC" && (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-[#5f259f] text-white flex items-center justify-center font-bold text-sm shadow">
+                            पे
+                          </div>
+                          <div>
+                            <h4 className="font-extrabold text-white text-sm">
+                              Automatic Full Fare Payment via PhonePe / UPI
+                            </h4>
+                            <p className="text-[11px] text-purple-200">
+                              Pay full fare of ₹{ticketFareAmount.toLocaleString("en-IN")} via QR scan to confirm booking 100% settled
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-950/80 border border-emerald-500/30 px-2.5 py-1 rounded-full">
+                          Full Amount ₹{ticketFareAmount.toLocaleString("en-IN")}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-center gap-5">
+                        <div className="bg-white p-3 rounded-2xl shadow-2xl border-2 border-purple-300 shrink-0 text-center group relative">
+                          <div
+                            className="w-44 sm:w-48 overflow-hidden rounded-xl bg-slate-50 border border-slate-200 cursor-pointer"
+                            onClick={() => setShowQrModal(true)}
+                            title="Click to enlarge QR code"
+                          >
+                            <img
+                              src="/images/phonepe-qr.jpg"
+                              alt="PhonePe Payment QR Code - ZAMEER S"
+                              className="w-full h-auto object-contain transition-transform duration-300 group-hover:scale-105"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowQrModal(true)}
+                            className="mt-2 inline-flex items-center gap-1 text-[11px] font-extrabold text-[#5f259f] hover:text-purple-900 transition-colors cursor-pointer"
+                          >
+                            <Maximize2 className="w-3 h-3" /> Tap to Enlarge QR
+                          </button>
+                        </div>
+
+                        <div className="flex-1 space-y-3 w-full">
+                          <div className="bg-[#0B132B] border border-white/15 rounded-xl p-3 flex items-center justify-between shadow-xs">
+                            <div>
+                              <div className="text-[10px] text-purple-300 font-bold uppercase tracking-wider">Beneficiary / Merchant</div>
+                              <div className="font-black text-white text-base flex items-center gap-2">
+                                ZAMEER S
+                                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/30">Verified</span>
+                              </div>
+                              <div className="text-xs text-slate-400 font-mono mt-0.5">fortunetourism@okaxis</div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={copyUPI}
+                              className="flex items-center gap-1.5 text-xs font-bold text-emerald-300 bg-emerald-950/70 px-3 py-1.5 rounded-lg border border-emerald-500/40 hover:bg-emerald-900 transition-colors cursor-pointer"
+                            >
+                              {upiCopied ? <Check className="w-3.5 h-3.5 text-[#00c58e]" /> : <Copy className="w-3.5 h-3.5" />}
+                              {upiCopied ? "Copied!" : "Copy"}
+                            </button>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                              Fast Pay Full Amount (₹{ticketFareAmount.toLocaleString("en-IN")}) With UPI App
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {[
+                                { name: "PhonePe", link: `phonepe://pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=${ticketFareAmount}&cu=INR`, color: "bg-[#5f259f] text-white hover:bg-purple-800 border-purple-400/30" },
+                                { name: "Google Pay", link: `tez://upi/pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=${ticketFareAmount}&cu=INR`, color: "bg-blue-600 text-white hover:bg-blue-700 border-blue-400/30" },
+                                { name: "Paytm", link: `paytmmp://upi/pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=${ticketFareAmount}&cu=INR`, color: "bg-sky-600 text-white hover:bg-sky-700 border-sky-400/30" },
+                                { name: "Any UPI App", link: `upi://pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=${ticketFareAmount}&cu=INR&tn=Full%20Payment%20Fortune%20Tourism`, color: "bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-400/30" },
+                              ].map((app) => (
+                                <a
+                                  key={app.name}
+                                  href={app.link}
+                                  className={`text-xs font-black px-3.5 py-1.5 rounded-lg border transition-all shadow-xs ${app.color}`}
+                                >
+                                  {app.name}
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-bold text-slate-400 block mb-1">
+                              UTR / Online Transaction ID (Mandatory for Auto Verification)
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Enter 12-digit UTR No. e.g. 423589124012"
+                              value={utrRef}
+                              onChange={(e) => setUtrRef(e.target.value)}
+                              className="w-full bg-[#0B132B] border border-white/15 focus:border-[#00c58e] rounded-xl px-3.5 py-2 text-xs text-white placeholder:text-slate-500 outline-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 2B: MANUAL FULL PAYMENT VIEW */}
+                  {fullPaymentType === "MANUAL" && (
+                    <div className="bg-[#0b1329] border border-amber-400/30 rounded-2xl p-5 space-y-4 shadow-xl">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black text-sm shadow">
+                            <Banknote className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="font-extrabold text-white text-sm">
+                              Record Full Manual Payment
+                            </h4>
+                            <p className="text-[11px] text-amber-200">
+                              Settle ₹{ticketFareAmount.toLocaleString("en-IN")} via Cash, Bank Transfer, POS Card or Direct Settlement
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 bg-amber-950/80 border border-amber-500/40 px-2.5 py-1 rounded-full">
+                          Manual Payment Mode
+                        </span>
+                      </div>
+
+                      {/* Manual Payment Method Selector */}
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">
+                          Payment Method / Collection Channel *
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {[
+                            { id: "CASH", label: "💵 Cash in Hand", desc: "Pay at Office/Desk" },
+                            { id: "BANK_TRANSFER", label: "🏦 Bank Transfer", desc: "NEFT / RTGS / IMPS" },
+                            { id: "POS_CARD", label: "💳 Card (POS)", desc: "Swipe / Debit / Credit" },
+                            { id: "CHEQUE", label: "📝 Cheque / DD", desc: "Payable to Fortune Tourism" },
+                          ].map((m) => (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => setManualMethod(m.id as any)}
+                              className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                                manualMethod === m.id
+                                  ? "bg-amber-400/20 border-amber-400 text-amber-200 ring-2 ring-amber-400/30 font-bold"
+                                  : "bg-[#111c3a]/70 border-white/10 text-slate-400 hover:border-white/20"
+                              }`}
+                            >
+                              <div className="font-extrabold text-white text-xs">{m.label}</div>
+                              <div className="text-[10px] text-slate-400 mt-0.5">{m.desc}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* If Bank Transfer: Show Bank Account Details */}
+                      {manualMethod === "BANK_TRANSFER" && (
+                        <div className="bg-[#111c3a] border border-blue-400/30 rounded-xl p-3 text-xs text-slate-300 space-y-1">
+                          <div className="font-black text-blue-300 text-xs">Official Bank Account Details for Transfer:</div>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] pt-1">
+                            <div><span className="text-slate-400">Account Name:</span> <strong className="text-white">FORTUNE TOURISM</strong></div>
+                            <div><span className="text-slate-400">Bank:</span> <strong className="text-white">AXIS BANK LTD</strong></div>
+                            <div><span className="text-slate-400">UPI ID:</span> <strong className="text-white font-mono">fortunetourism@okaxis</strong></div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Receipt No & Collected By */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-400 block mb-1">
+                            Receipt / Voucher / Transaction Ref No. (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. REC-2026-0041 / CASH / NEFT-Ref"
+                            value={manualReceiptNo}
+                            onChange={(e) => setManualReceiptNo(e.target.value)}
+                            className="w-full bg-[#111c3a] border border-white/15 focus:border-amber-400 rounded-xl px-3.5 py-2 text-xs text-white placeholder:text-slate-500 outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-400 block mb-1">
+                            Handled By / Note
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Booking Portal / Counter"
+                            value={collectedBy}
+                            onChange={(e) => setCollectedBy(e.target.value)}
+                            className="w-full bg-[#111c3a] border border-white/15 focus:border-amber-400 rounded-xl px-3.5 py-2 text-xs text-white placeholder:text-slate-500 outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Settlement badge */}
+                      <div className="bg-emerald-950/60 border border-emerald-500/30 rounded-xl p-2.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-[#00c58e]" />
+                          <span className="text-xs font-bold text-emerald-200">
+                            Full Amount of ₹{ticketFareAmount.toLocaleString("en-IN")} marked as 100% Settled &amp; Confirmed
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-black uppercase text-emerald-300 bg-emerald-900/60 px-2 py-0.5 rounded border border-emerald-500/30">
+                          ZERO DUE UPON BOARDING
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* OPTION 3: ZERO ADVANCE NOTIFICATION */}
+              {paymentChoice === "zero" && (
+                <div className="bg-[#111c3a]/90 border border-white/15 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-3 shadow-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-white/10 text-slate-300 flex items-center justify-center font-black">
+                      <Clock className="w-5 h-5 text-amber-400" />
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-white text-sm">
+                        Zero Advance Selected (Pay on Boarding)
+                      </h4>
+                      <p className="text-xs text-slate-400">
+                        Pay the full journey fare of <strong>₹{ticketFareAmount.toLocaleString("en-IN")}</strong> directly upon {serviceType === "FLIGHT" ? "ticket issuance / travel date" : "boarding"} via Cash or PhonePe.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-black text-amber-400 bg-amber-950/60 border border-amber-500/30 px-3 py-1 rounded-xl shrink-0">
+                    Due: ₹{ticketFareAmount.toLocaleString("en-IN")}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Confirm Button */}
+            <div className="flex justify-between pt-4 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setStep("PASSENGERS")}
+                className="text-xs font-bold text-slate-300 hover:text-white px-4 py-2.5 border border-white/15 bg-white/5 rounded-xl hover:bg-white/10 transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-[#00c58e]" /> Back to Passenger Details
+              </button>
+
+              <button
+                type="button"
+                onClick={serviceType === "TRAIN" ? handleCompleteTrainBooking : handleCompleteOtherServiceBooking}
+                disabled={isSubmitting}
+                className="bg-[#00c58e] hover:bg-[#00a87a] text-white font-black px-8 py-3.5 rounded-2xl uppercase tracking-wider text-sm shadow-xl shadow-[#00c58e]/30 transition-all hover:scale-105 disabled:opacity-60 flex items-center gap-2 cursor-pointer"
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Generating Ticket...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" /> CONFIRM BOOKING &amp; GENERATE TICKET COPY
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         ) : (
           /* ================= STEP 3: TICKET CONFIRMATION & OFFICIAL VOUCHER ================= */
@@ -1247,7 +1968,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                         Payment Status:
                       </td>
                       <td className="p-2.5 font-black text-emerald-700 uppercase">
-                        CONFIRMED / PAID
+                        {paymentStatusText}
                       </td>
                       <td className="p-2.5 font-bold text-slate-900 bg-emerald-100/70 whitespace-nowrap">
                         GST &amp; Taxes:
@@ -1311,6 +2032,70 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
           </div>
         )}
       </div>
+
+      {/* PhonePe Full QR Code Modal */}
+      {showQrModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setShowQrModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl p-5 max-w-sm w-full shadow-2xl space-y-3.5 text-center relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="w-7 h-7 rounded-lg bg-[#5f259f] text-white flex items-center justify-center font-bold text-xs shadow-xs">पे</span>
+                <div className="text-left">
+                  <div className="font-extrabold text-slate-900 text-sm leading-tight">PhonePe Accepted Here</div>
+                  <div className="text-[10px] text-purple-700 font-bold">Scan &amp; Pay Using PhonePe App</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQrModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center text-sm font-black transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="overflow-hidden rounded-2xl border-2 border-purple-200 bg-slate-50 shadow-inner">
+              <img
+                src="/images/phonepe-qr.jpg"
+                alt="PhonePe Payment QR Code - ZAMEER S"
+                className="w-full h-auto max-h-[65vh] object-contain mx-auto"
+              />
+            </div>
+
+            <div className="bg-purple-50 rounded-xl p-2.5 border border-purple-200/80 space-y-1">
+              <div className="text-xs font-black text-purple-950 uppercase tracking-wide">
+                Account: ZAMEER S
+              </div>
+              <div className="text-[11px] text-slate-600">
+                Official Payment QR Code for Fortune Tourism &amp; Travels
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={copyUPI}
+                className="flex-1 py-2 rounded-xl text-xs font-black bg-slate-900 hover:bg-slate-800 text-white transition-all cursor-pointer"
+              >
+                {upiCopied ? "✓ UPI Copied" : "Copy UPI ID"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowQrModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -599,7 +599,107 @@ function BookingPage() {
     setCabReturnTo(cabFrom);
   };
 
-  // Direct confirmation for Ticket Booking (No payment step)
+  // Step 1 -> Step 4 for Train, Bus, Flight, Tour (Go to Payment Choice)
+  const handleGoToTicketPayment = () => {
+    const isTrain = serviceType === "TRAIN";
+    const isBus = serviceType === "BUS";
+    const isFlight = serviceType === "FLIGHT";
+
+    if (isTrain) {
+      if (!otherFormData.from_station || !otherFormData.from_station.trim()) {
+        toast.error("Please enter From Station.");
+        return;
+      }
+      if (!otherFormData.to_station || !otherFormData.to_station.trim()) {
+        toast.error("Please enter To Station.");
+        return;
+      }
+      if (!otherFormData.date) {
+        toast.error("Please select Journey Date.");
+        return;
+      }
+      const firstP = otherFormData.passengers?.[0];
+      if (!firstP || !firstP.name || !firstP.name.trim()) {
+        toast.error("Please enter Passenger 1 Full Name.");
+        return;
+      }
+      if (!otherFormData.boarding_point || !otherFormData.boarding_point.trim()) {
+        toast.error("Please enter the Boarding Point.");
+        return;
+      }
+      if (!otherFormData.boarding_address || !otherFormData.boarding_address.trim()) {
+        toast.error("Please enter the Boarding Address.");
+        return;
+      }
+    } else if (isBus) {
+      if (!otherFormData.from_location || !otherFormData.from_location.trim()) {
+        toast.error("Please enter Boarding City.");
+        return;
+      }
+      if (!otherFormData.destination || !otherFormData.destination.trim()) {
+        toast.error("Please enter Destination.");
+        return;
+      }
+      if (!otherFormData.date) {
+        toast.error("Please select Journey Date.");
+        return;
+      }
+      const firstP = otherFormData.passengers?.[0];
+      if (!firstP || !firstP.name || !firstP.name.trim()) {
+        toast.error("Please enter Passenger 1 Full Name.");
+        return;
+      }
+      if (!otherFormData.phone || !otherFormData.phone.trim()) {
+        toast.error("Please enter Passenger Phone Number.");
+        return;
+      }
+      if (!otherFormData.boarding_point || !otherFormData.boarding_point.trim()) {
+        toast.error("Please enter the Boarding Point.");
+        return;
+      }
+      if (!otherFormData.boarding_address || !otherFormData.boarding_address.trim()) {
+        toast.error("Please enter the Boarding Address.");
+        return;
+      }
+    } else if (isFlight) {
+      const flightFrom = otherFormData.from_airport || otherFormData.from_location || otherFormData.pickup;
+      const flightTo = otherFormData.destination || otherFormData.to_airport || otherFormData.to_destination || otherFormData.to_location;
+      if (!flightFrom || !flightFrom.trim()) {
+        toast.error("Please enter From Airport.");
+        return;
+      }
+      if (!flightTo || !flightTo.trim()) {
+        toast.error("Please enter Destination Airport.");
+        return;
+      }
+      if (!otherFormData.date) {
+        toast.error("Please select Departure Date.");
+        return;
+      }
+      const firstP = otherFormData.passengers?.[0];
+      if (!firstP || !firstP.name || !firstP.name.trim()) {
+        toast.error("Please enter Passenger 1 Full Name.");
+        return;
+      }
+      if (!otherFormData.phone || !otherFormData.phone.trim()) {
+        toast.error("Please enter Passenger Phone Number.");
+        return;
+      }
+      if (!otherFormData.boarding_point || !otherFormData.boarding_point.trim()) {
+        toast.error("Please enter the Boarding Point / Terminal.");
+        return;
+      }
+      if (!otherFormData.boarding_address || !otherFormData.boarding_address.trim()) {
+        toast.error("Please enter the Boarding Address.");
+        return;
+      }
+    }
+
+    setStep(4);
+    window.scrollTo({ top: 80, behavior: "smooth" });
+  };
+
+  // Confirmation for Ticket Booking after Payment Choice (Step 4 -> Step 5)
   const handleCompleteTicketBooking = async () => {
     setIsSubmitting(true);
     try {
@@ -612,6 +712,20 @@ function BookingPage() {
 
       const flightFrom = otherFormData.from_airport || otherFormData.from_location || otherFormData.pickup || "BANGALORE (BLR)";
       const flightTo = otherFormData.destination || otherFormData.to_airport || otherFormData.to_destination || otherFormData.to_location || "DELHI (DEL)";
+
+      const effectiveAdvance = paymentChoice === "full" ? Number(displayTotalFare || 0) : paymentChoice === "token_100" ? 100 : 0;
+      const effectiveMethod = paymentChoice === "full"
+        ? (fullPaymentType === "AUTOMATIC" ? "UPI" : `MANUAL_${manualMethod}`)
+        : paymentChoice === "token_100"
+        ? "UPI"
+        : "PAY_ON_ARRIVAL";
+
+      const paymentNotes = [
+        `Payment Choice: ${paymentChoice === "token_100" ? "₹100 Token Advance (Priority Lock)" : paymentChoice === "full" ? `Full Payment (${fullPaymentType})` : "Zero Advance (Pay on Boarding)"}`,
+        paymentChoice === "token_100" && utrRef && `UTR Ref: ${utrRef}`,
+        paymentChoice === "full" && fullPaymentType === "AUTOMATIC" && utrRef && `UPI UTR: ${utrRef}`,
+        paymentChoice === "full" && fullPaymentType === "MANUAL" && `Manual Channel: ${manualMethod}${manualReceiptNo ? ` | Receipt: ${manualReceiptNo}` : ""}${collectedBy ? ` | Handled By: ${collectedBy}` : ""}`,
+      ].filter(Boolean).join(" | ");
 
       const payload = {
         name: firstPassenger,
@@ -637,15 +751,20 @@ function BookingPage() {
               ? `Flight: ${otherFormData.cabin_class || "Economy"} | Round Trip: ${flightFrom} ⇄ ${flightTo} | Dep: ${otherFormData.date || today} | Return: ${otherFormData.return_date || "N/A"}`
               : `Flight: ${otherFormData.cabin_class || "Economy"} | Trip: ${otherFormData.flight_trip_type} | Route: ${flightFrom} → ${flightTo}`
           ),
-          `Fare: ₹${displayTotalFare}`,
+          `Total Fare: ₹${displayTotalFare}`,
+          paymentNotes,
           otherFormData.passengers && `Passengers: ${otherFormData.passengers.map((p: any, i: number) => `P${i + 1}: ${p.name} (${p.age}y/${p.gender}/${p.berth_preference || "None"})`).join(", ")}`,
         ].filter(Boolean).join(" | "),
         ticket_number: ticketNumber,
         pnr_number: pnrNumber,
         total_amount: Number(displayTotalFare || 0),
         fare: Number(displayTotalFare || 0),
-        advance_amount: paymentChoice === "full" ? Number(displayTotalFare || 0) : paymentChoice === "token_100" ? 100 : 0,
-        payment_method: paymentChoice === "full" ? (fullPaymentType === "AUTOMATIC" ? "UPI" : `MANUAL_${manualMethod}`) : paymentChoice === "token_100" ? "UPI" : "PAY_ON_ARRIVAL",
+        advance_amount: effectiveAdvance,
+        payment_choice: paymentChoice,
+        payment_method: effectiveMethod,
+        payment_status: paymentChoice === "full" ? "Fully Paid" : paymentChoice === "token_100" ? "Advance Paid" : "Pending",
+        payment_ref: utrRef || manualReceiptNo || null,
+        transaction_id: utrRef || manualReceiptNo || null,
         client_token: `FT-TKT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       };
 
@@ -737,12 +856,25 @@ function BookingPage() {
       const gstAmt = Math.round(calculatedFare * 0.05);
       const baseAmt = Math.max(0, calculatedFare - driverAllowance - gstAmt);
 
+      const isHourly = cabTripType === "HOURLY PACKAGE" || cabTripType === "LOCAL";
+      const hourlyHoursStr = isHourly
+        ? (localPackage === "4hr_40km" ? "4" : localPackage === "12hr_120km" ? "12" : "8")
+        : null;
+      const hourlyLabel = isHourly
+        ? (localPackage === "4hr_40km" ? "4 Hr's" : localPackage === "12hr_120km" ? "12 Hr's" : "8 Hr's")
+        : null;
+
+      const effectiveAdvance = paymentChoice === "full" ? Number(calculatedFare || 0) : paymentChoice === "token_100" ? 100 : 0;
+      const effectivePaymentStatus = paymentChoice === "full" ? "Fully Paid" : paymentChoice === "token_100" ? "Advance Paid" : "Pending";
+      const effectiveMethod = paymentChoice === "full" ? (fullPaymentType === "AUTOMATIC" ? "UPI" : `MANUAL_${manualMethod}`) : paymentChoice === "token_100" ? "UPI" : "PAY_ON_ARRIVAL";
+
       const payload: Record<string, any> = {
         name: passengerName || "GUEST",
         phone: passengerPhone.replace(/\s+/g, ""),
         email: null,
-        service: "Taxi",
+        service: isHourly ? "Hourly Package" : "Taxi",
         booking_type: "CAB",
+        booking_source: "WEBSITE",
         pickup: fromLocationDisplay,
         destination: isRt ? `${toLocationDisplay} (Round Trip)` : toLocationDisplay,
         date: cabDate || today,
@@ -752,6 +884,8 @@ function BookingPage() {
         trip_type: cabTripType,
         car_type: selectedFleet.name,
         vehicle_type: selectedFleet.name,
+        hours_package: hourlyHoursStr,
+        hours: hourlyLabel,
         distance_km: totalKm,
         rate_per_km: rateKm,
         min_km: minKm,
@@ -760,12 +894,16 @@ function BookingPage() {
         gst_amount: gstAmt,
         boarding_point: boardingPoint,
         boarding_address: boardingAddress,
+        ticket_number: ticketNumber,
+        pnr_number: pnrNumber,
         notes: [
           `Ticket No: ${ticketNumber}`,
           `PNR: ${pnrNumber}`,
           `Fleet: ${selectedFleet.name} (${selectedFleet.seats} Seater)`,
           isRt
             ? `Round Trip: ${cabFrom} ➔ ${cabTo} ➔ ${cabReturnTo || cabFrom} | Onward: ${cabDate} ${cabTime} | Return: ${cabReturnDate} ${cabReturnTime}`
+            : isHourly
+            ? `Hourly Rental: ${hourlyLabel || "Package"} | From: ${fromLocationDisplay}`
             : `One Way: ${fromLocationDisplay} → ${toLocationDisplay} | Dep: ${cabDate} ${cabTime}`,
           `Distance: ~${totalKm} km | Rate: ₹${rateKm}/km`,
           `Fare: ₹${calculatedFare} (Base: ₹${baseAmt} + Driver Allowance: ₹${driverAllowance} + GST: ₹${gstAmt})`,
@@ -781,8 +919,12 @@ function BookingPage() {
           .join(" | "),
         total_amount: Number(calculatedFare || 0),
         fare: Number(calculatedFare || 0),
-        advance_amount: paymentChoice === "full" ? Number(calculatedFare || 0) : paymentChoice === "token_100" ? 100 : 0,
-        payment_method: paymentChoice === "full" ? (fullPaymentType === "AUTOMATIC" ? "UPI" : `MANUAL_${manualMethod}`) : paymentChoice === "token_100" ? "UPI" : "PAY_ON_ARRIVAL",
+        advance_amount: effectiveAdvance,
+        payment_choice: paymentChoice,
+        payment_method: effectiveMethod,
+        payment_status: effectivePaymentStatus,
+        payment_ref: utrRef || manualReceiptNo || null,
+        transaction_id: utrRef || manualReceiptNo || null,
         client_token: `FT-BKG-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       };
 
@@ -796,6 +938,42 @@ function BookingPage() {
 
       if (!res.ok) {
         throw new Error(data.message || data.error || "Failed to submit booking.");
+      }
+
+      // If hourly package, also persist to local storage for instant Hourly Packages Modal view
+      if (isHourly) {
+        try {
+          const STORAGE_KEY = "fortune_hourly_packages_trips_data";
+          const saved = localStorage.getItem(STORAGE_KEY);
+          let currentList: any[] = saved ? JSON.parse(saved) : [];
+          const now = new Date();
+          const curMonthGroup = `1/${now.getMonth() + 1}/${now.getFullYear()}`;
+          const dateStr = `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`;
+          const newEntry = {
+            id: `HPT-${Date.now()}`,
+            monthGroup: curMonthGroup,
+            slNo: currentList.length + 1,
+            date: dateStr,
+            paxName: (passengerName || "GUEST").trim().toUpperCase(),
+            phNumber: passengerPhone.replace(/\s+/g, ""),
+            from: fromLocationDisplay,
+            to: toLocationDisplay,
+            hours: hourlyLabel || "8 Hr's",
+            car: selectedFleet.name,
+            driver: "ZAMEER",
+            drPhNo: "9740463404",
+            taxiNo: "KA 51 AC 6052",
+            toll: "INCLUDED",
+            boarding: boardingPoint,
+            amount: calculatedFare,
+            paymentStatus: effectivePaymentStatus === "Fully Paid" ? "Paid" : effectivePaymentStatus === "Advance Paid" ? "Advance Paid" : "Pending",
+            paymentMethod: effectiveMethod,
+            pnr: pnrNumber,
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify([newEntry, ...currentList]));
+        } catch (e) {
+          console.warn("Could not save hourly package trip locally:", e);
+        }
       }
 
       setStep(5);
@@ -1587,7 +1765,7 @@ function BookingPage() {
                     formData={otherFormData}
                     onChange={onOtherChange}
                     errors={errors}
-                    onCompleteBooking={handleCompleteTicketBooking}
+                    onCompleteBooking={handleGoToTicketPayment}
                     isSubmitting={isSubmitting}
                   />
                 )}
@@ -1596,7 +1774,7 @@ function BookingPage() {
                     formData={otherFormData}
                     onChange={onOtherChange}
                     errors={errors}
-                    onCompleteBooking={handleCompleteTicketBooking}
+                    onCompleteBooking={handleGoToTicketPayment}
                     isSubmitting={isSubmitting}
                   />
                 )}
@@ -1605,7 +1783,7 @@ function BookingPage() {
                     formData={otherFormData}
                     onChange={onOtherChange}
                     errors={errors}
-                    onCompleteBooking={handleCompleteTicketBooking}
+                    onCompleteBooking={handleGoToTicketPayment}
                     isSubmitting={isSubmitting}
                   />
                 )}
@@ -1615,7 +1793,7 @@ function BookingPage() {
                     onChange={onOtherChange}
                     errors={errors}
                     onFareCalculated={() => {}}
-                    onCompleteBooking={handleCompleteTicketBooking}
+                    onCompleteBooking={handleGoToTicketPayment}
                     isSubmitting={isSubmitting}
                     onBackToServices={() => setStep(0)}
                   />
@@ -1937,7 +2115,7 @@ function BookingPage() {
 
                 <button
                   type="button"
-                  onClick={() => setStep(3)}
+                  onClick={() => setStep(serviceType === "CAB" ? 3 : 1)}
                   className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1.5 px-3.5 py-1.5 border border-white/15 bg-white/5 rounded-xl hover:bg-white/10 transition-colors shadow-sm"
                 >
                   <ArrowLeft className="w-3.5 h-3.5 text-[#00c58e]" /> Back to Passenger Details
@@ -1958,7 +2136,7 @@ function BookingPage() {
                   </div>
                   <div className="text-right">
                     <span className="text-[10px] font-bold text-slate-400 block">TOTAL FARE</span>
-                    <span className="font-black text-[#00c58e] text-lg sm:text-xl">₹{calculatedFare.toLocaleString()}</span>
+                    <span className="font-black text-[#00c58e] text-lg sm:text-xl">₹{displayTotalFare.toLocaleString("en-IN")}</span>
                   </div>
                 </div>
 
@@ -1966,19 +2144,31 @@ function BookingPage() {
                   <div className="space-y-1">
                     <div className="text-slate-400 font-semibold">Route &amp; Journey:</div>
                     <div className="text-white font-bold">
-                      {cabTripType === "ROUND TRIP" ? `${cabFrom} ➔ ${cabTo} ➔ ${cabReturnTo || cabFrom} (Round Trip)` : `${fromLocationDisplay} → ${toLocationDisplay}`}
+                      {serviceType === "CAB" && cabTripType === "ROUND TRIP" ? `${cabFrom} ➔ ${cabTo} ➔ ${cabReturnTo || cabFrom} (Round Trip)` : `${fromLocationDisplay} → ${toLocationDisplay}`}
                     </div>
                     <div className="text-slate-300 text-[11px] space-y-0.5 pt-0.5">
-                      {cabTripType === "ROUND TRIP" ? (
+                      {serviceType === "CAB" && cabTripType === "ROUND TRIP" ? (
                         <>
                           <div>🛫 <strong>Leg 1 (Onward):</strong> {cabFrom} → {cabTo} on {departureDateFormatted} at {cabTime}</div>
                           <div>🛬 <strong>Leg 2 (Return):</strong> {cabReturnFrom || cabTo} → {cabReturnTo || cabFrom} on {cabReturnDateFormatted} at {cabReturnTime}</div>
                         </>
                       ) : (
-                        <div>Departure: {departureDateFormatted} at {cabTime}</div>
+                        <div>Departure: {departureDateFormatted} at {serviceType === "CAB" ? cabTime : (otherFormData.time || "07:00")}</div>
+                      )}
+                      {serviceType === "TRAIN" && (
+                        <div>Train: <strong>{otherFormData.preferred_train || otherFormData.train_number || "Express"}</strong> | Class: <strong>{otherFormData.travel_class || "3A"}</strong> | Quota: <strong>{otherFormData.quota || "General"}</strong></div>
+                      )}
+                      {serviceType === "BUS" && (
+                        <div>Bus: <strong>{otherFormData.bus_type || "AC Sleeper"}</strong> | Boarding: <strong>{otherFormData.boarding_point || fromLocationDisplay}</strong></div>
+                      )}
+                      {serviceType === "FLIGHT" && (
+                        <div>Flight: <strong>{otherFormData.flight_trip_type || "One Way"}</strong> | Cabin: <strong>{otherFormData.cabin_class || "Economy"}</strong></div>
+                      )}
+                      {serviceType === "TOUR" && (
+                        <div>Tour: <strong>{otherFormData.package_title || "South India Tour"}</strong></div>
                       )}
                     </div>
-                    {cabTripType === "ROUND TRIP" && (
+                    {serviceType === "CAB" && cabTripType === "ROUND TRIP" && (
                       <span className="inline-block mt-1 bg-[#00c58e]/20 text-[#00c58e] border border-[#00c58e]/30 px-2 py-0.5 rounded font-bold text-[10px]">
                         🔄 2-Way Round Trip ({selectedFleet.includedKms * 2} km included)
                       </span>
@@ -1988,10 +2178,42 @@ function BookingPage() {
                   <div className="space-y-1 sm:text-right">
                     <div className="text-slate-400 font-semibold">Fare Components Breakdown:</div>
                     <div className="text-slate-300 text-[11px] space-y-0.5">
-                      <div>Base Fare: <strong className="text-white">₹{Math.max(0, calculatedFare - 350 - Math.round(calculatedFare * 0.05)).toLocaleString()}</strong></div>
-                      <div>Driver Allowance: <strong className="text-emerald-400">Included (₹350)</strong></div>
-                      <div>Taxes &amp; GST: <strong className="text-emerald-400">Included (5% GST)</strong></div>
-                      <div>Total All-Inclusive: <strong className="text-[#00c58e] font-black">₹{calculatedFare.toLocaleString()}</strong></div>
+                      {serviceType === "CAB" ? (
+                        <>
+                          <div>Base Fare: <strong className="text-white">₹{Math.max(0, calculatedFare - 350 - Math.round(calculatedFare * 0.05)).toLocaleString("en-IN")}</strong></div>
+                          <div>Driver Allowance: <strong className="text-emerald-400">Included (₹350)</strong></div>
+                          <div>Taxes &amp; GST: <strong className="text-emerald-400">Included (5% GST)</strong></div>
+                          <div>Total All-Inclusive: <strong className="text-[#00c58e] font-black">₹{calculatedFare.toLocaleString("en-IN")}</strong></div>
+                        </>
+                      ) : serviceType === "TRAIN" ? (
+                        <>
+                          <div>Base Ticket Fare: <strong className="text-white">₹{Math.max(0, Math.round(displayTotalFare * 0.95)).toLocaleString("en-IN")}</strong></div>
+                          <div>IRCTC &amp; Reservation Charges: <strong className="text-emerald-400">Included</strong></div>
+                          <div>Taxes &amp; GST: <strong className="text-emerald-400">Included (5% GST)</strong></div>
+                          <div>Total All-Inclusive: <strong className="text-[#00c58e] font-black">₹{displayTotalFare.toLocaleString("en-IN")}</strong></div>
+                        </>
+                      ) : serviceType === "BUS" ? (
+                        <>
+                          <div>Base Seat Fare: <strong className="text-white">₹{Math.max(0, Math.round(displayTotalFare * 0.95)).toLocaleString("en-IN")}</strong></div>
+                          <div>Toll &amp; Driver Allowance: <strong className="text-emerald-400">Included</strong></div>
+                          <div>Taxes &amp; GST: <strong className="text-emerald-400">Included (5% GST)</strong></div>
+                          <div>Total All-Inclusive: <strong className="text-[#00c58e] font-black">₹{displayTotalFare.toLocaleString("en-IN")}</strong></div>
+                        </>
+                      ) : serviceType === "FLIGHT" ? (
+                        <>
+                          <div>Base Airfare: <strong className="text-white">₹{Math.max(0, Math.round(displayTotalFare * 0.88)).toLocaleString("en-IN")}</strong></div>
+                          <div>Fuel &amp; Airline Charges: <strong className="text-emerald-400">Included</strong></div>
+                          <div>Airport Taxes &amp; GST: <strong className="text-emerald-400">Included (12% Taxes)</strong></div>
+                          <div>Total All-Inclusive: <strong className="text-[#00c58e] font-black">₹{displayTotalFare.toLocaleString("en-IN")}</strong></div>
+                        </>
+                      ) : (
+                        <>
+                          <div>Base Package Fare: <strong className="text-white">₹{Math.max(0, Math.round(displayTotalFare * 0.95)).toLocaleString("en-IN")}</strong></div>
+                          <div>Sightseeing, Hotel &amp; Transport: <strong className="text-emerald-400">Included</strong></div>
+                          <div>Taxes &amp; GST: <strong className="text-emerald-400">Included (5% GST)</strong></div>
+                          <div>Total All-Inclusive: <strong className="text-[#00c58e] font-black">₹{displayTotalFare.toLocaleString("en-IN")}</strong></div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2024,7 +2246,11 @@ function BookingPage() {
                       </span>
                     </div>
                     <p className="text-xs text-slate-300">
-                      Instant vehicle lock with priority driver dispatch.
+                      {serviceType === "CAB" && "Instant vehicle lock with priority driver dispatch."}
+                      {serviceType === "TRAIN" && "Instant seat reservation lock with priority booking confirmation."}
+                      {serviceType === "BUS" && "Instant seat reservation lock with priority bus operator confirmation."}
+                      {serviceType === "FLIGHT" && "Instant flight seat block with priority PNR confirmation."}
+                      {serviceType === "TOUR" && "Instant holiday booking lock with priority guide dispatch."}
                     </p>
                   </button>
 
@@ -2106,7 +2332,11 @@ function BookingPage() {
                       </span>
                     </div>
                     <p className="text-xs text-slate-300">
-                      Pay full amount directly upon boarding.
+                      {serviceType === "CAB" && "Pay full amount directly upon boarding."}
+                      {serviceType === "TRAIN" && "Pay full amount directly upon boarding / journey date."}
+                      {serviceType === "BUS" && "Pay full amount directly upon boarding."}
+                      {serviceType === "FLIGHT" && "Pay full amount upon ticket issuance / travel date."}
+                      {serviceType === "TOUR" && "Pay full amount upon tour start date."}
                     </p>
                   </button>
                 </div>
@@ -2499,7 +2729,7 @@ function BookingPage() {
               <div className="flex justify-between pt-4 border-t border-white/10">
                 <button
                   type="button"
-                  onClick={() => setStep(3)}
+                  onClick={() => setStep(serviceType === "CAB" ? 3 : 1)}
                   className="text-xs font-bold text-slate-300 hover:text-white px-4 py-2.5 border border-white/15 bg-white/5 rounded-xl hover:bg-white/10 transition-colors shadow-sm flex items-center gap-1.5"
                 >
                   <ArrowLeft className="w-3.5 h-3.5 text-[#00c58e]" /> Back to Passenger Details
@@ -2507,7 +2737,7 @@ function BookingPage() {
 
                 <button
                   type="button"
-                  onClick={handleConfirmAndGenerateTicket}
+                  onClick={serviceType === "CAB" ? handleConfirmAndGenerateTicket : handleCompleteTicketBooking}
                   disabled={isSubmitting}
                   className="bg-[#00c58e] hover:bg-[#00a87a] text-white font-black px-8 py-3.5 rounded-2xl uppercase tracking-wider text-sm shadow-xl shadow-[#00c58e]/30 transition-all hover:scale-105 disabled:opacity-60 flex items-center gap-2"
                 >
@@ -2518,7 +2748,7 @@ function BookingPage() {
                     </>
                   ) : (
                     <>
-                      Confirm Booking & Generate Ticket <ArrowRight className="w-4 h-4" />
+                      <CheckCircle2 className="w-4 h-4" /> CONFIRM BOOKING &amp; GENERATE TICKET COPY
                     </>
                   )}
                 </button>

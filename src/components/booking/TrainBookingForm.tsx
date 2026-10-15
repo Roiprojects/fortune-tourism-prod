@@ -423,9 +423,9 @@ export function TrainBookingForm({ formData, onChange, errors, onCompleteBooking
               type="button"
               onClick={handleFinalSubmit}
               disabled={isSubmitting}
-              className="bg-[#00c58e] hover:bg-[#00a87a] text-white font-black px-10 sm:px-12 py-3.5 rounded-2xl uppercase tracking-wider text-sm shadow-xl shadow-[#00c58e]/30 transition-all hover:scale-102 active:scale-98 disabled:opacity-60 cursor-pointer flex items-center gap-2"
+              className="bg-[#00c58e] hover:bg-[#00a87a] text-white font-black px-8 sm:px-10 py-3.5 rounded-2xl uppercase tracking-wider text-sm shadow-xl shadow-[#00c58e]/30 transition-all hover:scale-102 active:scale-98 disabled:opacity-60 cursor-pointer flex items-center gap-2"
             >
-              {isSubmitting ? "Confirming Ticket Copy..." : "CONTINUE TO BOOKING →"}
+              {isSubmitting ? "Processing..." : "CONTINUE TO PAYMENT CHOICE →"}
             </button>
           </div>
         </div>

@@ -260,14 +260,38 @@ export const Route = createFileRoute("/api/enquiries")({
             if (m && m[1]) fareVal = Number(m[1]);
           }
 
-          // Handle Token Advance Payment (e.g. ₹100 advance)
-          const advancePaid = Number(body.advance_amount || (body.notes?.includes("₹100 Advance") ? 100 : 0));
-          const initialPaymentStatus =
-            fareVal > 0 && advancePaid >= fareVal
-              ? "Fully Paid"
-              : advancePaid > 0
-              ? "Advance Paid"
-              : "Pending";
+          // Handle Token Advance or Full Payment (Manual or Automatic)
+          let advancePaid = Number(body.advance_amount ?? 0);
+          if (advancePaid <= 0 && combinedNotes) {
+            if (
+              combinedNotes.includes("100% Full Payment") ||
+              combinedNotes.includes("Full Payment") ||
+              combinedNotes.includes("ZERO DUE")
+            ) {
+              advancePaid = fareVal;
+            } else if (combinedNotes.includes("₹100 Advance")) {
+              advancePaid = 100;
+            }
+          }
+
+          const isFullySettled =
+            (fareVal > 0 && advancePaid >= fareVal) ||
+            body.payment_status === "Fully Paid" ||
+            body.payment_status === "Paid";
+          const isAdvanceReceived = !isFullySettled && advancePaid > 0;
+
+          const initialPaymentStatus = isFullySettled
+            ? "Fully Paid"
+            : isAdvanceReceived
+            ? "Advance Paid"
+            : "Pending";
+          const initialBookingStatus = isFullySettled
+            ? "CONFIRMED"
+            : isAdvanceReceived
+            ? "ADVANCE RECEIVED"
+            : bType === "TAXI"
+            ? "PENDING CONFIRMATION"
+            : "BOOKING REQUESTED";
 
           const finalReturnDate = return_date || body.return_date || null;
           const isRoundTrip = String(trip_type || "").toUpperCase().includes("ROUND");
@@ -289,17 +313,17 @@ export const Route = createFileRoute("/api/enquiries")({
               distance_km, rate_per_km, min_km, base_amount, driver_allowance, gst_amount
             ) VALUES (
               $1, $2, $3, $4, $5, 
-              $6, $7, $8, $9, 'WEBSITE', 
-              $10, $11, $12, $13,
-              $14, $15, $16, $17,
-              $18, $19, $20, $21,
-              $22, $23, $24, $25, $26,
-              $27, $28, $29, $30, $31, $32
+              $6, $7, $8, $9, $10, 
+              $11, $12, $13, $14,
+              $15, $16, $17, $18,
+              $19, $20, $21, $22, 
+              $23, $24, $25, $26, $27,
+              $28, $29, $30, $31, $32, $33
             ) RETURNING *`,
             [
               bId, bookingRef, bookingNum, ticketNum, pnrNum,
-              bType, bCategory, bookingStatus, initialPaymentStatus,
-              enquiry.id, enquiryNumber, fareVal, advancePaid,
+              bType, bCategory, initialBookingStatus, initialPaymentStatus, String(body.booking_source || "WEBSITE").toUpperCase(),
+              enquiry.id, enquiryNumber, fareVal, isFullySettled ? fareVal : advancePaid,
               name, phone, email || null, whatsapp || phone || null,
               date || null, finalReturnDate, time || null, passengers ? parseInt(String(passengers), 10) || null : null,
               pickup || null, destination || null, trip_type || null, car_type || vehicle_slug || null, combinedNotes || null,
@@ -309,37 +333,39 @@ export const Route = createFileRoute("/api/enquiries")({
 
           const booking = bookingRes.rows[0];
 
-          if (advancePaid > 0) {
+          if (isFullySettled || isAdvanceReceived) {
+            const paidAmt = isFullySettled ? fareVal : advancePaid;
             const payId = `PAY-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
             const payMethod = String(body.payment_method || "UPI").toUpperCase();
-            const payRef = body.payment_ref || body.transaction_id || `UPI-${Date.now().toString().slice(-6)}`;
+            const payRef = body.payment_ref || body.transaction_id || `PAY-${Date.now().toString().slice(-6)}`;
+            const payNotes = isFullySettled ? "100% Full Payment Settled" : `Token Advance ₹${paidAmt} Payment`;
 
             await query(
               `INSERT INTO booking_payments (
                 booking_id, payment_id, amount, payment_method, payment_status, reference_number, notes, paid_at
-              ) VALUES ($1, $2, $3, $4, 'Success', $5, 'Online ₹100 Token Advance Booking', NOW())`,
-              [booking.id, payId, advancePaid, payMethod, payRef]
+              ) VALUES ($1, $2, $3, $4, 'Success', $5, $6, NOW())`,
+              [booking.id, payId, paidAmt, payMethod, payRef, payNotes]
             );
 
             await query(
               `UPDATE bookings SET
                 advance_amount = $2,
                 amount_paid = $2,
-                payment_status = CASE WHEN total_amount > 0 AND total_amount <= $2 THEN 'Fully Paid' ELSE 'Advance Paid' END,
-                booking_status = CASE WHEN booking_status = 'PENDING CONFIRMATION' THEN 'ADVANCE RECEIVED' ELSE booking_status END,
+                payment_status = $3,
+                booking_status = $4,
                 updated_at = NOW()
               WHERE id = $1`,
-              [booking.id, advancePaid]
+              [booking.id, paidAmt, isFullySettled ? "Fully Paid" : "Advance Paid", isFullySettled ? "CONFIRMED" : "ADVANCE RECEIVED"]
             );
 
             await logActivity({
               booking_id: booking.id,
-              action: "ADVANCE PAYMENT RECORDED",
+              action: isFullySettled ? "FULL PAYMENT RECORDED" : "ADVANCE PAYMENT RECORDED",
               entity: "booking",
               entity_ref: bookingNum,
-              new_value: `₹${advancePaid}`,
-              details: `Token advance payment of ₹${advancePaid} received via ${payMethod} (Ref: ${payRef})`,
-              actor: "Customer (Online)",
+              new_value: `₹${paidAmt}`,
+              details: `${isFullySettled ? "Full payment" : "Token advance payment"} of ₹${paidAmt} received via ${payMethod} (Ref: ${payRef})`,
+              actor: body.booking_source === "ADMIN" ? "Admin Desk" : "Customer (Online)",
             });
           }
 
@@ -350,7 +376,7 @@ export const Route = createFileRoute("/api/enquiries")({
             action: `Customer submitted ${bType} enquiry`,
             entity: "booking",
             entity_ref: bookingNum,
-            details: `Enquiry ${enquiryNumber} converted to booking${advancePaid > 0 ? ` with ₹${advancePaid} advance` : ''}`,
+            details: `Enquiry ${enquiryNumber} converted to booking${advancePaid > 0 ? ` with ₹${advancePaid} paid` : ''}`,
             actor: "Website",
           });
           // ---- End Create Auto-Booking ----
@@ -546,9 +572,38 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
       const m = combinedNotes.match(/(?:Total Fare|Fare|Amount|Price):\s*₹?(\d+(?:\.\d+)?)/i);
       if (m && m[1]) fareVal = Number(m[1]);
     }
-    const advanceVal = Number(payload.advance_amount || (combinedNotes.includes("₹100 Advance") ? 100 : 0));
-    const dueVal = Math.max(0, fareVal - advanceVal);
-    const dayBookStatus = fareVal > 0 && dueVal === 0 ? "Paid" : "Pending";
+    let advanceVal = Number(payload.advance_amount ?? 0);
+    if (advanceVal <= 0 && combinedNotes) {
+      if (
+        combinedNotes.includes("100% Full Payment") ||
+        combinedNotes.includes("Full Payment") ||
+        combinedNotes.includes("ZERO DUE")
+      ) {
+        advanceVal = fareVal;
+      } else if (combinedNotes.includes("₹100 Advance")) {
+        advanceVal = 100;
+      }
+    }
+    const isFullSettled =
+      (fareVal > 0 && advanceVal >= fareVal) ||
+      payload.payment_status === "Fully Paid" ||
+      payload.payment_status === "Paid";
+    const dueVal = isFullSettled ? 0 : Math.max(0, fareVal - advanceVal);
+    const dayBookStatus = isFullSettled ? "Paid" : advanceVal > 0 ? "Advance Paid" : "Pending";
+    const officeAdvanceVal = isFullSettled ? fareVal : advanceVal;
+
+    // Detect hourly package for Trav By
+    const isHourlyBooking =
+      sUpper.includes("HOURLY") ||
+      sUpper.includes("LOCAL") ||
+      String(payload.trip_type || "").toUpperCase().includes("HOURLY") ||
+      Boolean(payload.hours_package);
+    const hrsVal = payload.hours_package
+      ? String(payload.hours_package)
+      : combinedNotes.match(/(\d+)\s*(?:hrs?|hr's)/i)?.[1] || "8";
+    const travelByDisplay = isHourlyBooking
+      ? `HOURLY (${hrsVal} HRS)`
+      : car_type || service || "Cab";
 
     await query(
       `INSERT INTO day_book_entries (
@@ -561,13 +616,13 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
         serialNo,
         todayStr,
         travelDate,
-        car_type || service || "Cab",
+        travelByDisplay,
         name,
         phone,
         pickup || "Bengaluru",
         destination || "Outstation",
         fareVal,
-        advanceVal,
+        officeAdvanceVal,
         dueVal,
         fareVal,
         dayBookStatus,
@@ -586,13 +641,13 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
           serialNo,
           todayStr,
           travelDate,
-          car_type || service || "Cab",
+          travelByDisplay,
           name,
           phone,
           pickup || "Bengaluru",
           destination || "Outstation",
           fareVal,
-          advanceVal,
+          officeAdvanceVal,
           dueVal,
           dayBookStatus,
           combinedNotes,
@@ -601,16 +656,17 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
       ).catch(async () => {
         await query(
           `INSERT INTO day_book_entries (serial_number, booking_date, travel_date, travel_by, passenger_name, passenger_phone, from_location, to_location, status, notes, pnr)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Pending', $9, $10)`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
           [
             serialNo,
             todayStr,
             travelDate,
-            car_type || service || "Cab",
+            travelByDisplay,
             name,
             phone,
             pickup || "Bengaluru",
             destination || "Outstation",
+            dayBookStatus,
             combinedNotes,
             pnrVal,
           ],
@@ -621,11 +677,17 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
 
   // 3. Create record in specific service section table
   try {
+    const isFullSettled =
+      (fareVal > 0 && advanceVal >= fareVal) ||
+      payload.payment_status === "Fully Paid" ||
+      payload.payment_status === "Paid";
+    const dueVal = isFullSettled ? 0 : Math.max(0, fareVal - advanceVal);
+
     if (sUpper.includes("PACKAGE") || sUpper.includes("TOUR")) {
       const tripNo = `PKG-${Date.now().toString().slice(-6)}`;
       await query(
-        `INSERT INTO package_trips (trip_number, tour_name, journey_date, return_date, passenger_name, passenger_phone, pickup_location, drop_location, car_type, notes)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        `INSERT INTO package_trips (trip_number, tour_name, journey_date, return_date, passenger_name, passenger_phone, pickup_location, drop_location, car_type, due_amount, paid_amount, notes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
         [
           tripNo,
           tour_name || service,
@@ -636,15 +698,24 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
           pickup || "Bengaluru",
           destination || "Tour Destination",
           car_type || "SUV",
+          dueVal,
+          isFullSettled ? fareVal : advanceVal,
           combinedNotes,
         ],
       ).catch(() => {});
-    } else if (sUpper.includes("HOURLY") || sUpper.includes("LOCAL")) {
+    } else if (
+      sUpper.includes("HOURLY") ||
+      sUpper.includes("LOCAL") ||
+      String(payload.trip_type || "").toUpperCase().includes("HOURLY") ||
+      Boolean(payload.hours_package)
+    ) {
       const bkNo = `HR-${Date.now().toString().slice(-6)}`;
-      const hrs = hours_package ? parseInt(hours_package) || 8 : 8;
+      const hrs = payload.hours_package
+        ? parseInt(String(payload.hours_package)) || 8
+        : (combinedNotes.match(/(\d+)\s*(?:hrs?|hr's)/i)?.[1] ? parseInt(RegExp.$1) : 8);
       await query(
-        `INSERT INTO hourly_bookings (booking_number, booking_date, travel_date, passenger_name, phone, from_location, to_location, hours, payment_status, notes)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Pending', $9)`,
+        `INSERT INTO hourly_bookings (booking_number, booking_date, travel_date, passenger_name, phone, from_location, to_location, hours, amount, payment_status, notes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
         [
           bkNo,
           todayStr,
@@ -652,8 +723,10 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
           name,
           phone,
           pickup || "Bengaluru",
-          destination || "Local City",
+          destination || (payload.trip_type || "Local Hourly Package"),
           hrs,
+          fareVal,
+          isFullSettled ? "Paid" : advanceVal > 0 ? "Advance Paid" : "Pending",
           combinedNotes,
         ],
       ).catch(() => {});
@@ -661,7 +734,7 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
       const bkNo = `BUS-${Date.now().toString().slice(-6)}`;
       await query(
         `INSERT INTO bus_bookings (booking_number, booking_date, travel_date, from_location, to_location, travels, passenger_name, passenger_phone, payment_status, notes)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Pending', $9)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [
           bkNo,
           todayStr,
@@ -671,6 +744,7 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
           bus_operator || "KSRTC / Private Operator",
           name,
           phone,
+          isFullSettled ? "Paid" : advanceVal > 0 ? "Advance Paid" : "Pending",
           combinedNotes,
         ],
       ).catch(() => {});
@@ -727,8 +801,8 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
       // Default: Outstation / Cab / Corporate / Airport -> Insert into cab_bookings
       const bkNo = `CAB-${Date.now().toString().slice(-6)}`;
       await query(
-        `INSERT INTO cab_bookings (booking_number, booking_date, travel_date, from_location, to_location, pickup_time, passenger_name, passenger_phone, vehicle_type, payment_status, status, notes)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Pending', 'Pending', $10)`,
+        `INSERT INTO cab_bookings (booking_number, booking_date, travel_date, from_location, to_location, pickup_time, passenger_name, passenger_phone, vehicle_type, due_amount, payment_status, status, notes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
         [
           bkNo,
           todayStr,
@@ -739,6 +813,9 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
           company_name ? `${name} (${company_name})` : name,
           phone,
           car_type || "Sedan",
+          dueVal,
+          isFullSettled ? "Paid" : advanceVal > 0 ? "Advance Paid" : "Pending",
+          isFullSettled ? "Confirmed" : "Pending",
           combinedNotes,
         ],
       ).catch(() => {});

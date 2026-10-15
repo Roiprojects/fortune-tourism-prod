@@ -363,11 +363,25 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
   const handleConfirmAndGenerateTicket = async () => {
     setIsSubmitting(true);
     try {
+      const isHourly = cabTripType === "HOURLY PACKAGE";
+      const hourlyHoursStr = isHourly
+        ? (cabPackage === "4hr_40km" ? "4" : cabPackage === "12hr_120km" ? "12" : "8")
+        : null;
+      const hourlyLabel = isHourly
+        ? (cabPackage === "4hr_40km" ? "4 Hr's" : cabPackage === "12hr_120km" ? "12 Hr's" : "8 Hr's")
+        : null;
+
+      const effectiveAdvance = paymentChoice === "full" ? Number(calculatedFare || 0) : paymentChoice === "token_100" ? 100 : 0;
+      const effectivePaymentStatus = paymentChoice === "full" ? "Fully Paid" : paymentChoice === "token_100" ? "Advance Paid" : "Pending";
+      const effectiveMethod = paymentChoice === "full" ? (fullPaymentType === "AUTOMATIC" ? "UPI" : `MANUAL_${manualMethod}`) : paymentChoice === "token_100" ? "UPI" : "PAY_ON_ARRIVAL";
+
       const payload = {
         name: passengerName.trim(),
         phone: passengerPhone.trim(),
         email: "booking@fortunetourism.in",
-        service: "Cab Booking",
+        service: isHourly ? "Hourly Package" : "Cab Booking",
+        booking_type: "CAB",
+        booking_source: "ADMIN",
         category: "CAR",
         pickup: fromLocationDisplay,
         destination: toLocationDisplay,
@@ -376,13 +390,27 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
         passengers: String(selectedFleet.seats),
         trip_type: cabTripType,
         car_type: vehicleDisplay,
+        vehicle_type: vehicleDisplay,
+        hours_package: hourlyHoursStr,
+        hours: hourlyLabel,
         boarding_point: boardingPoint,
         boarding_address: boardingAddress,
+        ticket_number: ticketNumber,
+        pnr_number: pnrNumber,
+        total_amount: Number(calculatedFare || 0),
+        fare: Number(calculatedFare || 0),
+        advance_amount: effectiveAdvance,
+        payment_choice: paymentChoice,
+        payment_method: effectiveMethod,
+        payment_status: effectivePaymentStatus,
+        payment_ref: utrRef || manualReceiptNo || null,
+        transaction_id: utrRef || manualReceiptNo || null,
         notes: [
           `Offline Admin Booking`,
           `Ticket No: ${ticketNumber}`,
           `PNR: ${pnrNumber}`,
           `Fleet: ${vehicleDisplay}`,
+          isHourly ? `Rental Package: ${hourlyLabel || "Hourly"} (${fromLocationDisplay})` : null,
           `Fare: ₹${calculatedFare}`,
           paymentChoice === "full"
             ? `Payment: 100% Full Payment (${fullPaymentType === "AUTOMATIC" ? "Online UPI" : `Manual - ${manualMethod}`})`
@@ -407,6 +435,42 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.message || data.error || "Failed to submit booking.");
+      }
+
+      // If hourly package, also persist directly to hourly packages storage for instant report view
+      if (isHourly) {
+        try {
+          const STORAGE_KEY = "fortune_hourly_packages_trips_data";
+          const saved = localStorage.getItem(STORAGE_KEY);
+          let currentList: any[] = saved ? JSON.parse(saved) : [];
+          const now = new Date();
+          const curMonthGroup = `1/${now.getMonth() + 1}/${now.getFullYear()}`;
+          const dateStr = `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`;
+          const newEntry = {
+            id: `HPT-${Date.now()}`,
+            monthGroup: curMonthGroup,
+            slNo: currentList.length + 1,
+            date: dateStr,
+            paxName: passengerName.trim().toUpperCase(),
+            phNumber: passengerPhone.trim(),
+            from: fromLocationDisplay,
+            to: toLocationDisplay,
+            hours: hourlyLabel || "8 Hr's",
+            car: vehicleDisplay,
+            driver: "ZAMEER",
+            drPhNo: "9740463404",
+            taxiNo: "KA 51 AC 6052",
+            toll: "INCLUDED",
+            boarding: boardingPoint,
+            amount: calculatedFare,
+            paymentStatus: effectivePaymentStatus === "Fully Paid" ? "Paid" : effectivePaymentStatus === "Advance Paid" ? "Advance Paid" : "Pending",
+            paymentMethod: effectiveMethod,
+            pnr: pnrNumber,
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify([newEntry, ...currentList]));
+        } catch (e) {
+          console.warn("Could not save to fortune_hourly_packages_trips_data:", e);
+        }
       }
 
       setStep(5);

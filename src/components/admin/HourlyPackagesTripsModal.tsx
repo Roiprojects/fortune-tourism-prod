@@ -39,6 +39,8 @@ export interface HourlyPackageTripRecord {
   taxiNo: string; // e.g. "KA 51 AC 6052"
   toll: string; // e.g. "NO", "EXTRA", "100"
   boarding: string; // e.g. "N YATRI", "GOVT SCHOOL", "DWLL INN"
+  amount?: number;
+  paymentStatus?: "Paid" | "Advance Paid" | "Pending" | "Due" | string;
 }
 
 // Exactly matching the data from the user's uploaded Excel sheet "HOURLY PACKAGES TOURS"
@@ -60,6 +62,8 @@ export const INITIAL_HOURLY_PACKAGES_RECORDS: HourlyPackageTripRecord[] = [
     taxiNo: "KA 51 AC 6052",
     toll: "NO",
     boarding: "N YATRI",
+    amount: 1800,
+    paymentStatus: "Paid",
   },
   {
     id: "HPT-2",
@@ -77,6 +81,8 @@ export const INITIAL_HOURLY_PACKAGES_RECORDS: HourlyPackageTripRecord[] = [
     taxiNo: "KA 01 AN 9582",
     toll: "EXTRA",
     boarding: "GOVT SCHOOL",
+    amount: 2400,
+    paymentStatus: "Paid",
   },
 
   // March 2026 (1/3/2026)
@@ -96,6 +102,8 @@ export const INITIAL_HOURLY_PACKAGES_RECORDS: HourlyPackageTripRecord[] = [
     taxiNo: "KA 51 AC 6052",
     toll: "NO",
     boarding: "N YATHRI",
+    amount: 2800,
+    paymentStatus: "Paid",
   },
   {
     id: "HPT-4",
@@ -113,6 +121,8 @@ export const INITIAL_HOURLY_PACKAGES_RECORDS: HourlyPackageTripRecord[] = [
     taxiNo: "KA 51 AC 6052",
     toll: "NO",
     boarding: "DWLL INN",
+    amount: 2800,
+    paymentStatus: "Paid",
   },
   {
     id: "HPT-5",
@@ -130,6 +140,8 @@ export const INITIAL_HOURLY_PACKAGES_RECORDS: HourlyPackageTripRecord[] = [
     taxiNo: "KA 51 AC 6052",
     toll: "100",
     boarding: "N YATHRI",
+    amount: 2000,
+    paymentStatus: "Paid",
   },
   {
     id: "HPT-6",
@@ -147,6 +159,8 @@ export const INITIAL_HOURLY_PACKAGES_RECORDS: HourlyPackageTripRecord[] = [
     taxiNo: "KA 51 AC 6052",
     toll: "NO",
     boarding: "N YATHRI",
+    amount: 1800,
+    paymentStatus: "Paid",
   },
   {
     id: "HPT-7",
@@ -164,6 +178,8 @@ export const INITIAL_HOURLY_PACKAGES_RECORDS: HourlyPackageTripRecord[] = [
     taxiNo: "KA 51 AC 6052",
     toll: "NO",
     boarding: "N YATHRI",
+    amount: 3200,
+    paymentStatus: "Paid",
   },
 ];
 
@@ -195,6 +211,7 @@ export function HourlyPackagesTripsModal({
   const [selectedMonthFilter, setSelectedMonthFilter] = useState("ALL");
   const [selectedDriverFilter, setSelectedDriverFilter] = useState("ALL");
   const [selectedCarFilter, setSelectedCarFilter] = useState("ALL");
+  const [selectedDurationFilter, setSelectedDurationFilter] = useState("ALL");
 
   // Edit / Add modal state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -258,6 +275,12 @@ export function HourlyPackagesTripsModal({
       if (selectedCarFilter !== "ALL" && r.car !== selectedCarFilter) {
         return false;
       }
+      if (selectedDurationFilter !== "ALL") {
+        const durDigits = selectedDurationFilter.replace(/\D/g, "");
+        if (durDigits && !r.hours.includes(durDigits)) {
+          return false;
+        }
+      }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matches =
@@ -276,7 +299,7 @@ export function HourlyPackagesTripsModal({
       }
       return true;
     });
-  }, [records, selectedMonthFilter, selectedDriverFilter, selectedCarFilter, searchQuery]);
+  }, [records, selectedMonthFilter, selectedDriverFilter, selectedCarFilter, selectedDurationFilter, searchQuery]);
 
   // Group records by Month Group for display matching the sheet structure
   const groupedByMonth = useMemo(() => {
@@ -322,6 +345,8 @@ export function HourlyPackagesTripsModal({
       taxiNo: "KA 51 AC 6052",
       toll: "NO",
       boarding: "N YATRI",
+      amount: 2800,
+      paymentStatus: "Paid",
     });
     setIsNewEntry(true);
     setIsEditModalOpen(true);
@@ -406,6 +431,8 @@ export function HourlyPackagesTripsModal({
         "TAXI NO": r.taxiNo,
         TOLL: r.toll,
         BOARDING: r.boarding,
+        "AMOUNT (₹)": r.amount || 0,
+        "PAYMENT STATUS": r.paymentStatus || "Paid",
       }));
 
       const ws = XLSX.utils.json_to_sheet(rowsForExcel);
@@ -556,6 +583,24 @@ export function HourlyPackagesTripsModal({
                 </option>
               ))}
             </select>
+
+            {/* Filter by Duration (4 Hr's, 8 Hr's, 12 Hr's) */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
+              {["ALL", "4 Hr's", "8 Hr's", "12 Hr's"].map((dur) => (
+                <button
+                  key={dur}
+                  type="button"
+                  onClick={() => setSelectedDurationFilter(dur)}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-black transition cursor-pointer ${
+                    selectedDurationFilter === dur
+                      ? "bg-[#063f2d] text-white shadow-xs"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-white/80"
+                  }`}
+                >
+                  {dur === "ALL" ? "All Hours" : dur}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Action Buttons */}
@@ -627,6 +672,7 @@ export function HourlyPackagesTripsModal({
                   <th className="py-2.5 px-3 w-32">TAXI NO</th>
                   <th className="py-2.5 px-2 w-16">TOLL</th>
                   <th className="py-2.5 px-3 text-left">BOARDING</th>
+                  <th className="py-2.5 px-3 w-28 text-right bg-slate-50 text-slate-800">AMOUNT / STATUS</th>
                   <th className="py-2.5 px-3 w-24 bg-slate-100 text-slate-700">ACTION</th>
                 </tr>
               </thead>
@@ -634,7 +680,7 @@ export function HourlyPackagesTripsModal({
                 {groupedByMonth.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={14}
+                      colSpan={15}
                       className="py-12 text-center text-slate-500 font-semibold bg-slate-50/50"
                     >
                       <div className="flex flex-col items-center justify-center gap-2">
@@ -655,7 +701,7 @@ export function HourlyPackagesTripsModal({
                     <React.Fragment key={month}>
                       {/* Yellow Section Divider Bar matching Excel Image */}
                       <tr className="bg-[#ffff00] border-y-2 border-slate-400 font-black text-slate-950">
-                        <td colSpan={14} className="py-1.5 px-4 text-left text-xs uppercase tracking-wide">
+                        <td colSpan={15} className="py-1.5 px-4 text-left text-xs uppercase tracking-wide">
                           <span className="font-extrabold mr-3">{month}</span>
                           <span className="text-[11px] font-semibold text-slate-800">
                             ({monthItems.length} Bookings)
@@ -734,6 +780,22 @@ export function HourlyPackagesTripsModal({
                             {item.boarding}
                           </td>
 
+                          {/* AMOUNT / STATUS */}
+                          <td className="py-2 px-3 text-right bg-slate-50/50 whitespace-nowrap">
+                            <div className="font-extrabold text-slate-900 text-xs">
+                              {item.amount ? `₹${Number(item.amount).toLocaleString("en-IN")}` : "—"}
+                            </div>
+                            <span className={`inline-block text-[10px] font-black px-1.5 py-0.5 rounded uppercase mt-0.5 ${
+                              (item.paymentStatus || "").toLowerCase() === "paid"
+                                ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                : (item.paymentStatus || "").toLowerCase().includes("advance")
+                                ? "bg-amber-100 text-amber-800 border border-amber-300"
+                                : "bg-slate-100 text-slate-700 border border-slate-300"
+                            }`}>
+                              {item.paymentStatus || "Paid"}
+                            </span>
+                          </td>
+
                           {/* ACTION */}
                           <td className="py-2 px-2.5 bg-slate-50">
                             <div className="flex items-center justify-center gap-1.5">
@@ -765,14 +827,14 @@ export function HourlyPackagesTripsModal({
 
                 {/* Additional Yellow Separator for February / April No Bookings replica */}
                 <tr className="bg-[#ffff00] border-y-2 border-slate-400 font-black text-slate-950">
-                  <td colSpan={14} className="py-1.5 px-4 text-left text-xs uppercase tracking-wide">
+                  <td colSpan={15} className="py-1.5 px-4 text-left text-xs uppercase tracking-wide">
                     <span className="font-extrabold mr-3">1/2/2026</span>
                     <span className="font-bold text-slate-900 mr-4">NO BOOKINGS</span>
                     <span className="text-slate-700">28/02/2026</span>
                   </td>
                 </tr>
                 <tr className="bg-[#ffff00] border-y-2 border-slate-400 font-black text-slate-950">
-                  <td colSpan={14} className="py-1.5 px-4 text-left text-xs uppercase tracking-wide">
+                  <td colSpan={15} className="py-1.5 px-4 text-left text-xs uppercase tracking-wide">
                     <span className="font-extrabold mr-3">1/4/2026</span>
                     <span className="font-bold text-slate-900">NO BOOKINGS</span>
                   </td>
@@ -1047,6 +1109,43 @@ export function HourlyPackagesTripsModal({
                     }
                     className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 font-bold uppercase focus:ring-2 focus:ring-emerald-500 outline-none"
                   />
+                </div>
+              </div>
+
+              {/* Row 6: AMOUNT (FARE) & PAYMENT STATUS */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-emerald-50/50 p-3 rounded-xl border border-emerald-200">
+                <div>
+                  <label className="block font-bold text-emerald-900 mb-1">AMOUNT / FARE (₹)</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 1800, 2800, 3200"
+                    value={editingRecord.amount !== undefined ? editingRecord.amount : ""}
+                    onChange={(e) =>
+                      setEditingRecord({
+                        ...editingRecord,
+                        amount: Number(e.target.value) || 0,
+                      })
+                    }
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-emerald-300 font-black text-emerald-950 focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-emerald-900 mb-1">PAYMENT STATUS</label>
+                  <select
+                    value={editingRecord.paymentStatus || "Paid"}
+                    onChange={(e) =>
+                      setEditingRecord({
+                        ...editingRecord,
+                        paymentStatus: e.target.value,
+                      })
+                    }
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-emerald-300 font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none bg-white cursor-pointer"
+                  >
+                    <option value="Paid">Paid (100% Fully Settled)</option>
+                    <option value="Advance Paid">Advance Paid (₹100 Locked)</option>
+                    <option value="Pending">Pending (Pay on Boarding)</option>
+                    <option value="Due">Due</option>
+                  </select>
                 </div>
               </div>
             </div>

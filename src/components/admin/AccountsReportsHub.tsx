@@ -1712,15 +1712,18 @@ export function AccountsReportsHub({
   const fetchLiveTransactions = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Day Book Entries + Bookings + Business Records concurrently
-      const [dbRes, bkgRes, bizRes] = await Promise.all([
-        fetch("/api/business/day_book_entries?limit=500", {
-          headers: { "x-admin-key": "Admin@fortunetourism2026" },
-        }).catch(() => null),
+      // 1. Fetch Day Book Entries + Bookings + Hourly Bookings concurrently
+      const adminKey =
+        (typeof window !== "undefined" &&
+          (sessionStorage.getItem("fortune_admin_key") ||
+            localStorage.getItem("fortune_admin_key"))) ||
+        "Admin@fortunetourism2026";
+      const headers: Record<string, string> = { "x-admin-key": adminKey };
+
+      const [dbRes, bkgRes, hourlyRes] = await Promise.all([
+        fetch("/api/business/day_book_entries?limit=500", { headers }).catch(() => null),
         fetch("/api/bookings?limit=500").catch(() => null),
-        fetch("/api/business/business_records?limit=500", {
-          headers: { "x-admin-key": "Admin@fortunetourism2026" },
-        }).catch(() => null),
+        fetch("/api/business/hourly_bookings?limit=500", { headers }).catch(() => null),
       ]);
 
       const pnrByPhone = new Map<string, string>();
@@ -1803,7 +1806,13 @@ export function AccountsReportsHub({
 
             const rawDue = r.due_amount !== null && r.due_amount !== undefined ? Number(r.due_amount) : null;
             const bkgRem = matchingBkg && matchingBkg.remaining_amount !== undefined ? Number(matchingBkg.remaining_amount) : null;
-            const finalDue = rawDue !== null ? rawDue : bkgRem !== null ? bkgRem : Math.max(0, finalBookingAmt - finalAdvAmt);
+            const calculatedDue = rawDue !== null ? rawDue : bkgRem !== null ? bkgRem : Math.max(0, finalBookingAmt - finalAdvAmt);
+
+            const isFullyPaid =
+              (calculatedDue === 0 && finalBookingAmt > 0) ||
+              (matchingBkg && ((matchingBkg.payment_status || "").toUpperCase() === "FULLY PAID" || (matchingBkg.payment_status || "").toUpperCase() === "PAID")) ||
+              (r.status || "").toUpperCase() === "PAID";
+            const isAdvPaid = !isFullyPaid && (finalAdvAmt > 0 || (r.status || "").toUpperCase().includes("ADVANCE"));
 
             return {
               id: r.id,
@@ -1818,9 +1827,9 @@ export function AccountsReportsHub({
               to: r.to_location || matchingBkg?.to_location || "",
               pickup: r.pickup_location || matchingBkg?.pickup_location || "—",
               booking: finalBookingAmt,
-              off_adv: finalAdvAmt,
-              due: finalDue,
-              status: r.status || (finalDue === 0 && finalBookingAmt > 0 ? "Paid" : "Pending"),
+              off_adv: isFullyPaid ? finalBookingAmt : finalAdvAmt,
+              due: isFullyPaid ? 0 : calculatedDue,
+              status: isFullyPaid ? "Paid" : isAdvPaid ? "Advance Paid" : "Pending",
               notes: r.notes || matchingBkg?.notes || "",
             };
           });
@@ -1831,17 +1840,31 @@ export function AccountsReportsHub({
       bList.forEach((b: any) => {
         if (!matchedBkgIds.has(String(b.id))) {
           const rawCat = (b.booking_type || b.category || "CAR").toUpperCase();
-          const travBy = rawCat === "TAXI" || rawCat === "CAB" ? "CAR" : rawCat;
+          let travBy = rawCat === "TAXI" || rawCat === "CAB" ? "CAR" : rawCat;
+
+          // Detect hourly package details (4 hrs, 8 hrs, 12 hrs)
+          const isHourly =
+            (b.service && b.service.toUpperCase().includes("HOURLY")) ||
+            (b.trip_type && b.trip_type.toUpperCase().includes("HOURLY")) ||
+            (b.notes && (b.notes.includes("4 Hr") || b.notes.includes("8 Hr") || b.notes.includes("12 Hr") || b.notes.includes("4 hrs") || b.notes.includes("8 hrs") || b.notes.includes("12 hrs")));
+          if (isHourly) {
+            const hrsMatch = (b.notes || b.trip_type || "").match(/(\d+)\s*(?:hrs?|hr's)/i);
+            const hrsNum = hrsMatch ? hrsMatch[1] : (b.hours_package || "8");
+            travBy = `HOURLY (${hrsNum} HRS)`;
+          }
+
           const totalAmt = Number(b.total_amount || b.fare || 0);
           const advAmt = Number(b.paid_total ?? b.advance_amount ?? 0);
           const remAmt = Number(
             b.remaining_amount !== undefined ? b.remaining_amount : Math.max(0, totalAmt - advAmt)
           );
+          const rawPayStatus = (b.payment_status || "").toUpperCase();
           const isFullyPaid =
             (remAmt === 0 && totalAmt > 0) ||
-            (b.payment_status || "").toUpperCase() === "PAID" ||
-            (b.payment_status || "").toUpperCase() === "FULLY PAID" ||
-            (b.payment_status || "").toUpperCase() === "SUCCESS";
+            rawPayStatus === "PAID" ||
+            rawPayStatus === "FULLY PAID" ||
+            rawPayStatus === "SUCCESS";
+          const isAdvPaid = !isFullyPaid && (advAmt > 0 || rawPayStatus.includes("ADVANCE"));
 
           liveDaily.push({
             id: `BKG-${b.id}`,
@@ -1856,13 +1879,47 @@ export function AccountsReportsHub({
             to: b.to_location || "—",
             pickup: b.pickup_location || "—",
             booking: totalAmt,
-            off_adv: advAmt,
-            due: remAmt,
-            status: isFullyPaid ? "Paid" : "Pending",
+            off_adv: isFullyPaid ? totalAmt : advAmt,
+            due: isFullyPaid ? 0 : remAmt,
+            status: isFullyPaid ? "Paid" : isAdvPaid ? "Advance Paid" : "Pending",
             notes: b.notes || "",
           });
         }
       });
+
+      // Also merge any offline hourly bookings stored in localStorage
+      if (typeof window !== "undefined") {
+        try {
+          const localHourly = JSON.parse(localStorage.getItem("fortune_hourly_packages_trips_data") || "[]");
+          if (Array.isArray(localHourly)) {
+            localHourly.forEach((h: any) => {
+              if (h.id && h.id.startsWith("HPT-") && !matchedBkgIds.has(String(h.id))) {
+                const amt = Number(h.amount || 0);
+                const isPaid = h.paymentStatus === "Paid";
+                const isAdv = h.paymentStatus === "Advance Paid";
+                liveDaily.push({
+                  id: h.id,
+                  date: h.date || formatDisplayDate(new Date().toISOString()),
+                  raw_date: new Date().toISOString().split("T")[0],
+                  trav_on: h.date || formatDisplayDate(new Date().toISOString()),
+                  pnr: h.pnr || `HPT-${h.slNo}`,
+                  trav_by: `HOURLY (${(h.hours || "8 Hr's").toUpperCase()})`,
+                  pax: h.paxName || "Direct Customer",
+                  ph_no: h.phNumber || "",
+                  from: h.from || "Bengaluru",
+                  to: h.to || "Local",
+                  pickup: h.boarding || "—",
+                  booking: amt,
+                  off_adv: isPaid ? amt : isAdv ? 100 : 0,
+                  due: isPaid ? 0 : isAdv ? Math.max(0, amt - 100) : amt,
+                  status: isPaid ? "Paid" : isAdv ? "Advance Paid" : "Pending",
+                  notes: `Car: ${h.car || "Cab"} | Driver: ${h.driver || "Assigned"}`,
+                });
+              }
+            });
+          }
+        } catch (e) {}
+      }
 
       const isCleared = typeof window !== "undefined" && localStorage.getItem("fortune_reports_cleared") === "true";
       const deletedDailyIds = new Set<string>([
@@ -1885,33 +1942,66 @@ export function AccountsReportsHub({
         setDailyRecords([...seedsToKeep, ...filteredLiveDaily]);
       }
 
-      // 2. Map Transactions (combines business_records AND all bookings!)
-      let mappedBiz: TransactionRecord[] = [];
-      if (bizRes && bizRes.ok) {
-        const data = await bizRes.json();
-        if (data.success && Array.isArray(data.rows)) {
-          mappedBiz = data.rows.map((r: any, idx: number) => {
-            const amount = Number(r.amount || r.total_amount || r.fare || 0);
-            const isExpense = (r.record_type || r.type || "").toUpperCase().includes("EXPENSE");
-            const income = isExpense ? 0 : amount;
-            const expense = isExpense ? amount : Number(r.expense_amount || r.cost || 0);
-            return {
-              id: `TXN-${r.id || idx + 100}`,
-              date: r.created_at || r.travel_date || r.date || new Date().toISOString(),
-              ref_number: r.voucher_no || r.booking_reference || `REC-${r.id}`,
-              particulars: r.particulars || r.description || r.activity || "Travel Booking Service",
-              category: (r.category || "TOUR").toUpperCase() as any,
-              payment_method: (r.payment_mode || "UPI").toUpperCase() as any,
-              status: (r.status || "PAID").toUpperCase() as any,
-              income,
-              expense,
-              balance: income - expense,
-              customer_name: r.client_name || r.passenger_name || "Direct Customer",
-              phone: r.phone || r.mobile || "",
-              notes: r.notes || "",
-            };
-          });
-        }
+      // 2. Map Transactions (combines all real bookings & hourly tours!)
+      let mappedHourly: TransactionRecord[] = [];
+      if (hourlyRes && hourlyRes.ok) {
+        try {
+          const hData = await hourlyRes.json();
+          if (hData.success && Array.isArray(hData.rows)) {
+            mappedHourly = hData.rows.map((hr: any) => {
+              const amt = Number(hr.amount || 0);
+              const isPaid = (hr.payment_status || "").toUpperCase() === "PAID";
+              return {
+                id: `HR-${hr.id || hr.booking_number}`,
+                date: hr.created_at || hr.booking_date || new Date().toISOString(),
+                ref_number: hr.booking_number || `HR-${hr.id}`,
+                particulars: `Hourly Package (${hr.hours || 8} Hrs): ${hr.passenger_name || "Customer"} (${hr.from_location || "Local"} → ${hr.to_location || "Local"})`,
+                category: "CAR" as const,
+                payment_method: "UPI" as const,
+                status: isPaid ? "PAID" as const : "PENDING" as const,
+                income: amt,
+                expense: 0,
+                balance: amt,
+                customer_name: hr.passenger_name || "Customer",
+                phone: hr.phone || "",
+                notes: isPaid ? "100% Fully Settled" : `Pending Settlement: ₹${amt}`,
+              };
+            });
+          }
+        } catch (e) {}
+      }
+
+      // Also merge any local hourly package bookings into mappedHourly
+      if (typeof window !== "undefined") {
+        try {
+          const localHourly = JSON.parse(localStorage.getItem("fortune_hourly_packages_trips_data") || "[]");
+          if (Array.isArray(localHourly)) {
+            const existingHrKeys = new Set(mappedHourly.map((m) => m.ref_number.toLowerCase()));
+            localHourly.forEach((h: any) => {
+              const refNo = h.pnr || (h.slNo ? `HPT-${h.slNo}` : `HPT-${h.id}`);
+              const amt = Number(h.amount || 0);
+              if (!existingHrKeys.has(refNo.toLowerCase()) && (amt > 0 || h.paymentStatus)) {
+                const isPaid = (h.paymentStatus || "").toLowerCase() === "paid";
+                const isAdv = (h.paymentStatus || "").toLowerCase().includes("advance");
+                mappedHourly.push({
+                  id: `HR-${h.id}`,
+                  date: h.date || new Date().toISOString(),
+                  ref_number: refNo,
+                  particulars: `Hourly Package (${h.hours || "8 Hr's"}): ${h.paxName || "Customer"} (${h.from || "Bengaluru"} → ${h.to || "Local"})`,
+                  category: "CAR" as const,
+                  payment_method: "UPI" as const,
+                  status: isPaid ? ("PAID" as const) : ("PENDING" as const),
+                  income: isPaid ? amt : isAdv ? 100 : amt,
+                  expense: 0,
+                  balance: isPaid ? amt : isAdv ? 100 : amt,
+                  customer_name: h.paxName || "Customer",
+                  phone: h.phNumber || "",
+                  notes: isPaid ? "100% Fully Settled" : isAdv ? `Advance Paid: ₹100 | Remaining Due: ₹${Math.max(0, amt - 100)}` : `Pending Settlement: ₹${amt}`,
+                });
+              }
+            });
+          }
+        } catch (e) {}
       }
 
       // Map every booking into TransactionRecord so Master Report, P&L, Dues, and Payments display all bookings
@@ -1921,29 +2011,23 @@ export function AccountsReportsHub({
         const rem = Number(
           b.remaining_amount !== undefined ? b.remaining_amount : Math.max(0, total - adv)
         );
-        const rawCat = (b.category || b.booking_type || "CAR").toUpperCase();
-        let cat: TransactionRecord["category"] = "CAR";
-        if (rawCat.includes("FLIGHT")) cat = "FLIGHT";
-        else if (rawCat.includes("BUS")) cat = "BUS";
-        else if (rawCat.includes("TRAIN")) cat = "TRAIN";
-        else if (rawCat.includes("HOTEL")) cat = "HOTEL";
-        else if (rawCat.includes("TOUR") || rawCat.includes("PACKAGE")) cat = "TOUR";
-        else if (rawCat.includes("CAR") || rawCat.includes("CAB") || rawCat.includes("TAXI")) cat = "CAR";
-
+        const rawPayStatus = (b.payment_status || "").toUpperCase();
         const isPaid =
           (rem === 0 && total > 0) ||
-          (b.payment_status || "").toUpperCase() === "PAID" ||
-          (b.payment_status || "").toUpperCase() === "SUCCESS" ||
-          (b.payment_status || "").toUpperCase() === "FULLY PAID";
+          rawPayStatus === "PAID" ||
+          rawPayStatus === "FULLY PAID" ||
+          rawPayStatus === "SUCCESS";
+        const isAdvPaid = !isPaid && (adv > 0 || rawPayStatus.includes("ADVANCE"));
         const isCancelled = (b.booking_status || "").toUpperCase().includes("CANCEL");
         const isRefunded =
           (b.booking_status || "").toUpperCase().includes("REFUND") ||
-          (b.payment_status || "").toUpperCase().includes("REFUND");
+          rawPayStatus.includes("REFUND");
 
         let status: TransactionRecord["status"] = "PENDING";
         if (isRefunded) status = "REFUNDED";
         else if (isCancelled) status = "CANCELLED";
         else if (isPaid) status = "PAID";
+        else if (isAdvPaid) status = "PAID"; // The collected advance is recorded as cash inflow/income
 
         let method: TransactionRecord["payment_method"] = "UPI";
         const pMode = String(b.payment_mode || b.payment_method || "UPI").toUpperCase();
@@ -1952,27 +2036,43 @@ export function AccountsReportsHub({
         else if (pMode.includes("NET") || pMode.includes("BANK")) method = "NETBANKING";
         else if (pMode.includes("RAZORPAY")) method = "RAZORPAY";
 
+        const rawCat = (b.category || b.booking_type || "CAR").toUpperCase();
+        let cat: TransactionRecord["category"] = "CAR";
+        if (rawCat.includes("FLIGHT")) cat = "FLIGHT";
+        else if (rawCat.includes("BUS")) cat = "BUS";
+        else if (rawCat.includes("TRAIN")) cat = "TRAIN";
+        else if (rawCat.includes("HOTEL")) cat = "HOTEL";
+        else if (rawCat.includes("TOUR") || rawCat.includes("PACKAGE")) cat = "TOUR";
+
+        const isHourly =
+          (b.service && b.service.toUpperCase().includes("HOURLY")) ||
+          (b.trip_type && b.trip_type.toUpperCase().includes("HOURLY")) ||
+          (b.notes && (b.notes.includes("4 Hr") || b.notes.includes("8 Hr") || b.notes.includes("12 Hr") || b.notes.includes("4 hrs") || b.notes.includes("8 hrs") || b.notes.includes("12 hrs")));
+        const hrsLabel = isHourly ? (b.notes?.match(/(\d+)\s*(?:hrs?|hr's)/i)?.[0] || `${b.hours_package || 8} Hrs`) : null;
+        const particularHeader = hrsLabel ? `Hourly Package (${hrsLabel})` : `${cat} Booking`;
+
         const fromTo = b.from_location && b.to_location ? ` (${b.from_location} → ${b.to_location})` : "";
         const pnrSnippet = b.pnr_number ? ` [PNR: ${b.pnr_number}]` : "";
+        const actualIncome = isPaid ? total : adv > 0 ? adv : (rem > 0 ? total : total);
 
         return {
           id: `BKG-TXN-${b.id}`,
           date: b.created_at || b.departure_datetime || b.travel_date || new Date().toISOString(),
           ref_number: b.booking_number || b.ticket_number || b.pnr_number || `BKG-${b.id}`,
-          particulars: `${cat} Booking: ${b.passenger_name || "Guest"}${fromTo}${pnrSnippet}`,
+          particulars: `${particularHeader}: ${b.passenger_name || "Guest"}${fromTo}${pnrSnippet}`,
           category: cat,
           payment_method: method,
-          status,
+          status: isPaid ? "PAID" : isAdvPaid ? (rem > 0 ? "PENDING" : "PAID") : "PENDING",
           income: isPaid ? total : adv > 0 ? adv : total,
           expense: 0,
           balance: isPaid ? total : adv > 0 ? adv : total,
           customer_name: b.passenger_name || "Direct Customer",
           phone: b.passenger_phone || "",
-          notes: b.notes || (rem > 0 ? `Remaining Due: ₹${rem}` : "Fully Settled"),
+          notes: isPaid ? "100% Fully Settled" : isAdvPaid ? `Advance Paid: ₹${adv} | Remaining Due: ₹${rem}` : `Pay on Boarding: Due ₹${total}`,
         };
       });
 
-      const allCombinedTxns = [...bookingTxns, ...mappedBiz];
+      const allCombinedTxns = [...bookingTxns, ...mappedHourly];
 
       if (isCleared) {
         setTransactions(allCombinedTxns);
@@ -2042,8 +2142,11 @@ export function AccountsReportsHub({
             tb.includes("SEDAN") ||
             tb.includes("INNOVA") ||
             tb.includes("TEMPO") ||
-            tb.includes("SUV");
+            tb.includes("SUV") ||
+            tb.includes("HOURLY");
           if (!isCar) return false;
+        } else if (appliedDailyBookingType === "HOURLY") {
+          if (!tb.includes("HOURLY") && !tb.includes("HR")) return false;
         } else if (appliedDailyBookingType === "HOTEL") {
           if (!tb.includes("HOTEL")) return false;
         } else if (appliedDailyBookingType === "TOUR") {
@@ -3014,6 +3117,7 @@ export function AccountsReportsHub({
                   <option value="BUS">Bus</option>
                   <option value="TRAIN">Train</option>
                   <option value="CAR">Car / Taxi</option>
+                  <option value="HOURLY">Hourly Package (4h / 8h / 12h)</option>
                   <option value="HOTEL">Hotel</option>
                   <option value="TOUR">Tour Package</option>
                 </select>
@@ -3349,13 +3453,28 @@ export function AccountsReportsHub({
 
                         {/* 13. DUE */}
                         <td className="py-2 px-3 text-right whitespace-nowrap font-black border border-slate-300 bg-rose-50/20">
-                          <span
-                            className={
-                              Number(r.due) > 0 ? "text-rose-600" : "text-emerald-700"
-                            }
-                          >
-                            ₹{Number(r.due).toLocaleString("en-IN")}
-                          </span>
+                          <div className="flex flex-col items-end">
+                            <span
+                              className={
+                                Number(r.due) > 0 ? "text-rose-600 font-black" : "text-emerald-700 font-extrabold"
+                              }
+                            >
+                              ₹{Number(r.due).toLocaleString("en-IN")}
+                            </span>
+                            {r.status && (
+                              <span
+                                className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded mt-0.5 border ${
+                                  r.status === "Paid"
+                                    ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                                    : r.status === "Advance Paid"
+                                    ? "bg-amber-100 text-amber-800 border-amber-300"
+                                    : "bg-rose-100 text-rose-800 border-rose-300"
+                                }`}
+                              >
+                                {r.status}
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* ACTIONS */}
