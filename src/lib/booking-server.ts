@@ -351,6 +351,8 @@ export async function logActivity(entry: ActivityEntry): Promise<void> {
    ──────────────────────────────────────────────────────────── */
 
 const EDITABLE_FIELDS = [
+  "ticket_number",
+  "pnr_number",
   "passenger_name",
   "passenger_phone",
   "number_of_members",

@@ -29,6 +29,7 @@ import { ExpenseReportModal } from "@/components/admin/ExpenseReportModal";
 import { QuotationGeneratorModal } from "@/components/admin/QuotationGeneratorModal";
 import { BackupFolderModal } from "@/components/admin/BackupFolderModal";
 import { ReportFolderModal } from "@/components/admin/ReportFolderModal";
+import { TicketSearchModal } from "@/components/admin/TicketSearchModal";
 import logoAsset from "@/assets/fortune-tourism-logo.png";
 import fullLogoAsset from "@/assets/fortune-tourism-full-logo.png";
 import keralaHeroImg from "@/assets/kerala-hero.jpg";
@@ -359,6 +360,7 @@ function AdminPage() {
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [ticketSearchModalOpen, setTicketSearchModalOpen] = useState(false);
   const [offlineBookingModalOpen, setOfflineBookingModalOpen] = useState(false);
   const [fareEditorModalOpen, setFareEditorModalOpen] = useState(false);
   const [carFareEditorOpen, setCarFareEditorOpen] = useState(false);
@@ -397,6 +399,7 @@ function AdminPage() {
         setExpenseReportModalOpen(false);
         setQuotationModalOpen(false);
         setReportFolderModalOpen(false);
+        setTicketSearchModalOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -1150,9 +1153,8 @@ function AdminPage() {
                 {LOGIN_DESTINATION_SLIDES.map((slide, idx) => (
                   <div
                     key={slide.title}
-                    className={`absolute inset-0 flex items-center justify-center transition-opacity duration-700 ease-in-out p-2 ${
-                      idx === activeSlide ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"
-                    }`}
+                    className={`absolute inset-0 flex items-center justify-center transition-opacity duration-700 ease-in-out p-2 ${idx === activeSlide ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"
+                      }`}
                   >
                     <img
                       src={slide.image}
@@ -1191,11 +1193,10 @@ function AdminPage() {
                       key={slide.title}
                       type="button"
                       onClick={() => setActiveSlide(idx)}
-                      className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
-                        idx === activeSlide
+                      className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${idx === activeSlide
                           ? "w-6 bg-[#063f2d] shadow-2xs"
                           : "w-2 bg-slate-300 hover:bg-slate-400"
-                      }`}
+                        }`}
                       aria-label={`Go to ${slide.title} slide`}
                       title={slide.title}
                     />
@@ -1204,9 +1205,8 @@ function AdminPage() {
 
                 <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400">
                   <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      isSliderHovered ? "bg-amber-500" : "bg-emerald-500 animate-pulse"
-                    }`}
+                    className={`w-1.5 h-1.5 rounded-full ${isSliderHovered ? "bg-amber-500" : "bg-emerald-500 animate-pulse"
+                      }`}
                   />
                   <span>{isSliderHovered ? "Paused on hover" : "Auto-sliding"}</span>
                 </div>
@@ -1389,11 +1389,10 @@ function AdminPage() {
               <button
                 type="button"
                 onClick={() => setActiveService("home")}
-                className={`flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                  activeService === "home"
+                className={`flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${activeService === "home"
                     ? "bg-[#063f2d] text-white shadow-xs font-extrabold"
                     : "text-slate-700 hover:text-[#063f2d] hover:bg-slate-100"
-                }`}
+                  }`}
               >
                 <Home className="w-4 h-4" />
                 <span>Dashboard</span>
@@ -1402,11 +1401,10 @@ function AdminPage() {
               <button
                 type="button"
                 onClick={() => setActiveService("packages")}
-                className={`flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                  activeService === "packages" || activeService === "tour_booking_flow"
+                className={`flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${activeService === "packages" || activeService === "tour_booking_flow"
                     ? "bg-[#063f2d] text-white shadow-xs font-extrabold"
                     : "text-slate-700 hover:text-[#063f2d] hover:bg-slate-100"
-                }`}
+                  }`}
                 title="View & manage holiday tour packages"
               >
                 <Package className="w-4 h-4 text-amber-400" />
@@ -1457,6 +1455,18 @@ function AdminPage() {
                 <span>Report Folder</span>
                 <span className="bg-amber-200/90 text-amber-950 text-[10px] font-black px-1.5 py-0.2 rounded-md">8</span>
               </button>
+
+              {/* Ticket & PNR Search Direct Header Button */}
+              <button
+                type="button"
+                onClick={() => setTicketSearchModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white shadow-xs hover:scale-102 shrink-0 border border-emerald-500/40"
+                title="Search generated tickets by Ticket Number or PNR, preview, update & delete"
+              >
+                <Search className="w-4 h-4 text-emerald-200" />
+                <span>Ticket Search</span>
+                <span className="bg-emerald-950/40 text-emerald-200 text-[10px] font-black px-1.5 py-0.2 rounded-md">PNR</span>
+              </button>
             </div>
 
             {/* Right: Account with image dropdown */}
@@ -1469,11 +1479,10 @@ function AdminPage() {
               <button
                 type="button"
                 onClick={() => setAccountMenuOpen((prev) => !prev)}
-                className={`flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${
-                  accountMenuOpen
+                className={`flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${accountMenuOpen
                     ? "border-[#063f2d] bg-emerald-50 text-[#063f2d]"
                     : "border-slate-200 bg-white text-slate-800 hover:border-slate-300 shadow-2xs"
-                }`}
+                  }`}
                 aria-expanded={accountMenuOpen}
               >
                 <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#063f2d] to-[#086a46] p-0.5 shadow-xs flex items-center justify-center">
@@ -1521,6 +1530,24 @@ function AdminPage() {
                     >
                       <Settings className="w-4 h-4 text-amber-600 shrink-0" />
                       <span>Settings</span>
+                    </button>
+
+                    {/* Ticket & PNR Search */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        setTicketSearchModalOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50 transition text-left cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Search className="w-4 h-4 text-emerald-600 shrink-0 group-hover:scale-110 transition-transform" />
+                        <span>Ticket &amp; PNR Search</span>
+                      </div>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded-md">
+                        PNR Lookup
+                      </span>
                     </button>
 
                     {/* Car Fare Edit */}
@@ -1657,11 +1684,10 @@ function AdminPage() {
                           e.stopPropagation();
                           setReportFolderOpen((prev) => !prev);
                         }}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition text-left cursor-pointer ${
-                          reportFolderOpen || activeService === "accounts"
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition text-left cursor-pointer ${reportFolderOpen || activeService === "accounts"
                             ? "bg-amber-50 text-amber-950 border border-amber-300 shadow-2xs"
                             : "text-slate-700 hover:text-amber-900 hover:bg-amber-50/70"
-                        }`}
+                          }`}
                         aria-expanded={reportFolderOpen}
                       >
                         <div className="flex items-center gap-2.5">
@@ -1673,9 +1699,8 @@ function AdminPage() {
                             8 Reports
                           </span>
                           <ChevronDown
-                            className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
-                              reportFolderOpen ? "rotate-180 text-amber-900" : ""
-                            }`}
+                            className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${reportFolderOpen ? "rotate-180 text-amber-900" : ""
+                              }`}
                           />
                         </div>
                       </button>
@@ -1711,11 +1736,10 @@ function AdminPage() {
                                   setActiveService("accounts");
                                   setAccountMenuOpen(false);
                                 }}
-                                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition text-left cursor-pointer ${
-                                  isSel
+                                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition text-left cursor-pointer ${isSel
                                     ? "bg-[#0b1329] text-amber-400 font-extrabold shadow-2xs border border-amber-400/30"
                                     : "text-slate-700 hover:text-slate-900 hover:bg-white"
-                                }`}
+                                  }`}
                               >
                                 <div className="flex items-center gap-2 truncate">
                                   <Icon className={`w-3.5 h-3.5 shrink-0 ${isSel ? "text-amber-400" : r.color}`} />
@@ -1737,11 +1761,10 @@ function AdminPage() {
                           e.stopPropagation();
                           setFinancialLedgersOpen((prev) => !prev);
                         }}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition text-left cursor-pointer ${
-                          financialLedgersOpen
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition text-left cursor-pointer ${financialLedgersOpen
                             ? "bg-emerald-50 text-[#063f2d] border border-emerald-200/50"
                             : "text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50/60"
-                        }`}
+                          }`}
                         aria-expanded={financialLedgersOpen}
                       >
                         <div className="flex items-center gap-2.5">
@@ -1749,9 +1772,8 @@ function AdminPage() {
                           <span>Financial Ledgers</span>
                         </div>
                         <ChevronDown
-                          className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
-                            financialLedgersOpen ? "rotate-180 text-[#063f2d]" : ""
-                          }`}
+                          className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${financialLedgersOpen ? "rotate-180 text-[#063f2d]" : ""
+                            }`}
                         />
                       </button>
 
@@ -1770,11 +1792,10 @@ function AdminPage() {
                                   setActiveService("accounts");
                                   setAccountMenuOpen(false);
                                 }}
-                                className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition text-left cursor-pointer ${
-                                  isSel
+                                className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition text-left cursor-pointer ${isSel
                                     ? "bg-[#0b1329] text-amber-400 font-extrabold shadow-2xs border border-amber-400/30"
                                     : "text-slate-600 hover:text-slate-900 hover:bg-white"
-                                }`}
+                                  }`}
                               >
                                 <Icon className={`w-3.5 h-3.5 shrink-0 ${isSel ? "text-amber-400" : r.color}`} />
                                 <span className="truncate">{r.shortTitle}</span>
@@ -1793,11 +1814,10 @@ function AdminPage() {
                           e.stopPropagation();
                           setBackupFolderOpen((prev) => !prev);
                         }}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition text-left cursor-pointer ${
-                          backupFolderOpen
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition text-left cursor-pointer ${backupFolderOpen
                             ? "bg-amber-50 text-amber-900 border border-amber-200/50"
                             : "text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50/60"
-                        }`}
+                          }`}
                         aria-expanded={backupFolderOpen}
                       >
                         <div className="flex items-center gap-2.5">
@@ -1809,9 +1829,8 @@ function AdminPage() {
                             6 Categories
                           </span>
                           <ChevronDown
-                            className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
-                              backupFolderOpen ? "rotate-180 text-amber-900" : ""
-                            }`}
+                            className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${backupFolderOpen ? "rotate-180 text-amber-900" : ""
+                              }`}
                           />
                         </div>
                       </button>
@@ -2296,7 +2315,7 @@ function AdminPage() {
               </div>
             </>
           )}
-      {/* END HOME SERVICE VIEW */}
+          {/* END HOME SERVICE VIEW */}
 
           {/* CAB BOOKING FLOW (OFFLINE MULTI-STEP FLOW) */}
           {activeService === "cab_booking_flow" && (
@@ -2712,11 +2731,10 @@ function AdminPage() {
                           key={d}
                           type="button"
                           onClick={() => setNewPkg({ ...newPkg, duration: d })}
-                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition cursor-pointer ${
-                            newPkg.duration === d
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition cursor-pointer ${newPkg.duration === d
                               ? "bg-amber-500 text-slate-900 border-amber-600 font-extrabold shadow-xs"
                               : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                          }`}
+                            }`}
                         >
                           {d}
                         </button>
@@ -2822,11 +2840,10 @@ function AdminPage() {
                         key={f.key}
                         type="button"
                         onClick={() => setAdminPkgDurationFilter(f.key)}
-                        className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap flex items-center gap-1 ${
-                          adminPkgDurationFilter === f.key
+                        className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap flex items-center gap-1 ${adminPkgDurationFilter === f.key
                             ? "bg-amber-500 text-slate-900 font-black shadow-xs ring-2 ring-amber-500/50"
                             : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                        }`}
+                          }`}
                       >
                         <span>{f.icon} {f.label}</span>
                       </button>
@@ -3145,6 +3162,13 @@ function AdminPage() {
           setActiveAccountReport(reportKey);
           setActiveService("accounts");
         }}
+      />
+
+      {/* Ticket & PNR Search Modal with Preview, Update & Delete Actions */}
+      <TicketSearchModal
+        isOpen={ticketSearchModalOpen}
+        onClose={() => setTicketSearchModalOpen(false)}
+        onTicketUpdated={() => fetchData()}
       />
     </SiteLayout>
   );

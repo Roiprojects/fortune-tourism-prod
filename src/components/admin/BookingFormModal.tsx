@@ -5,6 +5,8 @@ import { formatCurrency } from "@/lib/booking-utils";
 
 export interface FormBookingRow {
   id?: number;
+  ticket_number?: string;
+  pnr_number?: string;
   booking_number?: string;
   enquiry_id?: number | null;
   enquiry_number?: string;
@@ -73,6 +75,8 @@ const FARE_KEYS = [
 ] as const;
 
 interface FormState {
+  ticket_number: string;
+  pnr_number: string;
   enquiry_id: number | null;
   category: string;
   booking_source: string;
@@ -126,6 +130,8 @@ interface FormState {
 
 function emptyForm(): FormState {
   return {
+    ticket_number: "",
+    pnr_number: "",
     enquiry_id: null,
     category: "CAR",
     booking_source: "ADMIN",
@@ -239,6 +245,8 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
     }
     const b = source?.booking;
     if (b) {
+      f.ticket_number = b.ticket_number || "";
+      f.pnr_number = b.pnr_number || "";
       f.enquiry_id = b.enquiry_id ?? null;
       f.category = b.category || "CAR";
       f.booking_source = b.booking_source || "ADMIN";
@@ -340,6 +348,8 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
           : 0;
 
       const payload: any = {
+        ticket_number: form.ticket_number.trim() || undefined,
+        pnr_number: form.pnr_number.trim() || undefined,
         category: cat,
         booking_type: cat === "CAR" ? "TAXI" : cat,
         booking_source: form.booking_source,
@@ -520,6 +530,26 @@ export function BookingFormModal({ open, onClose, onSaved, mode, source }: Props
                 {label}
               </button>
             ))}
+          </div>
+
+          {/* Ticket & PNR References */}
+          <div className="grid gap-3 sm:grid-cols-2 bg-slate-50 border border-slate-200/80 p-3 rounded-xl">
+            <Field label="Ticket Number">
+              <input
+                className={`${inputCls} font-mono font-bold text-amber-900 bg-white`}
+                value={form.ticket_number}
+                onChange={(e) => set("ticket_number", e.target.value)}
+                placeholder="Auto-generated if empty (e.g. TK-...)"
+              />
+            </Field>
+            <Field label="PNR Number">
+              <input
+                className={`${inputCls} font-mono font-bold text-slate-900 bg-white`}
+                value={form.pnr_number}
+                onChange={(e) => set("pnr_number", e.target.value)}
+                placeholder="e.g. 4234567890 / PNR-..."
+              />
+            </Field>
           </div>
 
           {/* Customer */}
