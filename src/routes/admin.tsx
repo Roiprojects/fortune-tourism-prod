@@ -353,6 +353,8 @@ function AdminPage() {
 
   // Account Menu dropdown states & handlers
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [fareManagementOpen, setFareManagementOpen] = useState(false);
+  const [driverTripManagementOpen, setDriverTripManagementOpen] = useState(false);
   const [reportFolderOpen, setReportFolderOpen] = useState(false);
   const [reportFolderModalOpen, setReportFolderModalOpen] = useState(false);
   const [financialLedgersOpen, setFinancialLedgersOpen] = useState(false);
@@ -375,6 +377,27 @@ function AdminPage() {
   const [companyEnteredBookingOpen, setCompanyEnteredBookingOpen] = useState(false);
   const [offlineBookingSource, setOfflineBookingSource] = useState<any>({});
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
+
+  // Active state detection for the 2 sidebar dropdown groups
+  const isFareManagementActive = Boolean(
+    carFareEditorOpen || tourFareEditorOpen || carPackagesTripsModalOpen
+  );
+  const isDriverTripManagementActive = Boolean(
+    driverDetailsEditorOpen || hourlyPackagesTripsModalOpen
+  );
+
+  // Auto-expand parent dropdown when one of its submenu pages/modals is active
+  useEffect(() => {
+    if (isFareManagementActive) {
+      setFareManagementOpen(true);
+    }
+  }, [isFareManagementActive]);
+
+  useEffect(() => {
+    if (isDriverTripManagementActive) {
+      setDriverTripManagementOpen(true);
+    }
+  }, [isDriverTripManagementActive]);
 
   // Close dropdowns on outside click or Escape key
   useEffect(() => {
@@ -1505,7 +1528,7 @@ function AdminPage() {
               {/* Account Dropdown Menu: Profile, Settings, Logout */}
               {accountMenuOpen && (
                 <div className="absolute right-0 top-full pt-1.5 w-72 sm:w-80 z-50 animate-in fade-in zoom-in-95 duration-150">
-                  <div className="rounded-2xl bg-white border border-slate-200 shadow-xl p-2.5 ring-1 ring-black/5">
+                  <div className="rounded-2xl bg-white border border-slate-200 shadow-xl p-2.5 ring-1 ring-black/5 max-h-[85vh] overflow-y-auto scrollbar-thin">
                     <div className="px-3 py-2 border-b border-slate-100 mb-1.5">
                       <p className="text-xs font-bold text-slate-900 truncate">{adminUser?.name || "Fortune Tourism Administrator"}</p>
                       <p className="text-[11px] text-slate-500 truncate">{adminUser?.email || "adminfortunetourism@gmail.com"}</p>
@@ -1576,95 +1599,187 @@ function AdminPage() {
                       </span>
                     </button>
 
-                    {/* Car Fare Edit */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAccountMenuOpen(false);
-                        setCarFareEditorOpen(true);
-                      }}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50 transition text-left cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Car className="w-4 h-4 text-emerald-600 shrink-0 group-hover:scale-110 transition-transform" />
-                        <span>Car Fare Edit</span>
-                      </div>
-                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded-md">
-                        Cab Rates
-                      </span>
-                    </button>
+                    {/* 5. Dropdown One: Fare Management */}
+                    <div className="mt-0.5 space-y-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFareManagementOpen((prev) => !prev);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition text-left cursor-pointer ${
+                          fareManagementOpen || isFareManagementActive
+                            ? "bg-emerald-50 text-[#063f2d] border border-emerald-300 shadow-2xs font-extrabold"
+                            : "text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50/70"
+                        }`}
+                        aria-expanded={fareManagementOpen}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <IndianRupee className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span className="font-extrabold text-slate-900">Fare Management</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] bg-emerald-100 text-emerald-900 font-extrabold px-1.5 py-0.5 rounded-md border border-emerald-200">
+                            3 Items
+                          </span>
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                              fareManagementOpen ? "rotate-180 text-[#063f2d]" : ""
+                            }`}
+                          />
+                        </div>
+                      </button>
 
-                    {/* Tour Fare Edit */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAccountMenuOpen(false);
-                        setTourFareEditorOpen(true);
-                      }}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50 transition text-left cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Palmtree className="w-4 h-4 text-purple-600 shrink-0 group-hover:scale-110 transition-transform" />
-                        <span>Tour Fare Edit</span>
-                      </div>
-                      <span className="text-[10px] bg-purple-100 text-purple-800 font-extrabold px-1.5 py-0.5 rounded-md">
-                        Tour Packages
-                      </span>
-                    </button>
+                      {fareManagementOpen && (
+                        <div className="pl-1 pr-1 py-1 space-y-0.5 bg-slate-50/90 rounded-xl border border-slate-200/80 animate-in fade-in slide-in-from-top-1 duration-150">
+                          {/* 1. Car Fare Edit */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAccountMenuOpen(false);
+                              setCarFareEditorOpen(true);
+                            }}
+                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition text-left cursor-pointer group ${
+                              carFareEditorOpen
+                                ? "bg-white text-[#063f2d] shadow-2xs font-black border border-emerald-300"
+                                : "text-slate-700 hover:text-[#063f2d] hover:bg-white"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Car className="w-3.5 h-3.5 text-emerald-600 shrink-0 group-hover:scale-110 transition-transform" />
+                              <span>Car Fare Edit</span>
+                            </div>
+                            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded-md">
+                              Cab Rates
+                            </span>
+                          </button>
 
-                    {/* Driver Details Edit */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAccountMenuOpen(false);
-                        setDriverDetailsEditorOpen(true);
-                      }}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50 transition text-left cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <UserCheck className="w-4 h-4 text-emerald-600 shrink-0 group-hover:scale-110 transition-transform" />
-                        <span>Driver Details Edit</span>
-                      </div>
-                      <span className="text-[10px] bg-emerald-100 text-[#063f2d] font-extrabold px-1.5 py-0.5 rounded-md">
-                        Duty Log
-                      </span>
-                    </button>
+                          {/* 2. Tour Fare Edit */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAccountMenuOpen(false);
+                              setTourFareEditorOpen(true);
+                            }}
+                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition text-left cursor-pointer group ${
+                              tourFareEditorOpen
+                                ? "bg-white text-[#063f2d] shadow-2xs font-black border border-emerald-300"
+                                : "text-slate-700 hover:text-[#063f2d] hover:bg-white"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Palmtree className="w-3.5 h-3.5 text-purple-600 shrink-0 group-hover:scale-110 transition-transform" />
+                              <span>Tour Fare Edit</span>
+                            </div>
+                            <span className="text-[10px] bg-purple-100 text-purple-800 font-extrabold px-1.5 py-0.5 rounded-md">
+                              Tour Packages
+                            </span>
+                          </button>
 
-                    {/* Car Packages Trips Edit */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAccountMenuOpen(false);
-                        setCarPackagesTripsModalOpen(true);
-                      }}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50 transition text-left cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Compass className="w-4 h-4 text-amber-600 shrink-0 group-hover:scale-110 transition-transform" />
-                        <span>Car Packages Trips Edit</span>
-                      </div>
-                      <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-1.5 py-0.5 rounded-md">
-                        Trip Details
-                      </span>
-                    </button>
+                          {/* 3. Car Packages Trips Edit */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAccountMenuOpen(false);
+                              setCarPackagesTripsModalOpen(true);
+                            }}
+                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition text-left cursor-pointer group ${
+                              carPackagesTripsModalOpen
+                                ? "bg-white text-[#063f2d] shadow-2xs font-black border border-emerald-300"
+                                : "text-slate-700 hover:text-[#063f2d] hover:bg-white"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Compass className="w-3.5 h-3.5 text-amber-600 shrink-0 group-hover:scale-110 transition-transform" />
+                              <span>Car Packages Trips Edit</span>
+                            </div>
+                            <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-1.5 py-0.5 rounded-md">
+                              Trip Details
+                            </span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
 
-                    {/* Hourly Packages Trips Edit */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAccountMenuOpen(false);
-                        setHourlyPackagesTripsModalOpen(true);
-                      }}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50 transition text-left cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Clock className="w-4 h-4 text-blue-600 shrink-0 group-hover:scale-110 transition-transform" />
-                        <span>Hourly Packages Tours Edit</span>
-                      </div>
-                      <span className="text-[10px] bg-blue-100 text-blue-900 font-extrabold px-1.5 py-0.5 rounded-md">
-                        Hourly Trips
-                      </span>
-                    </button>
+                    {/* 6. Dropdown Two: Driver & Trip Management */}
+                    <div className="mt-0.5 space-y-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDriverTripManagementOpen((prev) => !prev);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition text-left cursor-pointer ${
+                          driverTripManagementOpen || isDriverTripManagementActive
+                            ? "bg-emerald-50 text-[#063f2d] border border-emerald-300 shadow-2xs font-extrabold"
+                            : "text-slate-700 hover:text-[#063f2d] hover:bg-emerald-50/70"
+                        }`}
+                        aria-expanded={driverTripManagementOpen}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <UserCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span className="font-extrabold text-slate-900">Driver &amp; Trip Management</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] bg-blue-100 text-blue-900 font-extrabold px-1.5 py-0.5 rounded-md border border-blue-200">
+                            2 Items
+                          </span>
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                              driverTripManagementOpen ? "rotate-180 text-[#063f2d]" : ""
+                            }`}
+                          />
+                        </div>
+                      </button>
+
+                      {driverTripManagementOpen && (
+                        <div className="pl-1 pr-1 py-1 space-y-0.5 bg-slate-50/90 rounded-xl border border-slate-200/80 animate-in fade-in slide-in-from-top-1 duration-150">
+                          {/* 1. Driver Details Edit */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAccountMenuOpen(false);
+                              setDriverDetailsEditorOpen(true);
+                            }}
+                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition text-left cursor-pointer group ${
+                              driverDetailsEditorOpen
+                                ? "bg-white text-[#063f2d] shadow-2xs font-black border border-emerald-300"
+                                : "text-slate-700 hover:text-[#063f2d] hover:bg-white"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <UserCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0 group-hover:scale-110 transition-transform" />
+                              <span>Driver Details Edit</span>
+                            </div>
+                            <span className="text-[10px] bg-emerald-100 text-[#063f2d] font-extrabold px-1.5 py-0.5 rounded-md">
+                              Duty Log
+                            </span>
+                          </button>
+
+                          {/* 2. Hourly Packages Tours Edit */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAccountMenuOpen(false);
+                              setHourlyPackagesTripsModalOpen(true);
+                            }}
+                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition text-left cursor-pointer group ${
+                              hourlyPackagesTripsModalOpen
+                                ? "bg-white text-[#063f2d] shadow-2xs font-black border border-emerald-300"
+                                : "text-slate-700 hover:text-[#063f2d] hover:bg-white"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Clock className="w-3.5 h-3.5 text-blue-600 shrink-0 group-hover:scale-110 transition-transform" />
+                              <span>Hourly Packages Tours Edit</span>
+                            </div>
+                            <span className="text-[10px] bg-blue-100 text-blue-900 font-extrabold px-1.5 py-0.5 rounded-md">
+                              Hourly Trips
+                            </span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
 
                     {/* Official Quotation Generator (Letterhead A4) */}
                     <button
