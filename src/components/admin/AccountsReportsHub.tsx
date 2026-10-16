@@ -2923,7 +2923,7 @@ export function AccountsReportsHub({
 
           {/* Action buttons across all Financial Ledger reports */}
           <div className="flex flex-wrap items-center gap-2">
-            {((activeReport === "daily" ? deletedByReport["daily"]?.length : deletedByReport[activeReport]?.length) || 0) > 0 && (
+            {activeReport !== "final" && ((activeReport === "daily" ? deletedByReport["daily"]?.length : deletedByReport[activeReport]?.length) || 0) > 0 && (
               <button
                 type="button"
                 onClick={() => restoreDeletedForReport(activeReport)}
@@ -2935,24 +2935,29 @@ export function AccountsReportsHub({
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={handleClearCurrentReportData}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600/90 hover:bg-rose-700 text-white border border-rose-500/40 text-xs font-bold transition shadow-xs cursor-pointer"
-              title={`Clear entries in ${activeDef.shortTitle} only`}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Clear {activeDef.shortTitle}</span>
-            </button>
+            {/* Clear Current Report and Clear All buttons (Removed from Final Reports) */}
+            {activeReport !== "final" && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleClearCurrentReportData}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600/90 hover:bg-rose-700 text-white border border-rose-500/40 text-xs font-bold transition shadow-xs cursor-pointer"
+                  title={`Clear entries in ${activeDef.shortTitle} only`}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Clear {activeDef.shortTitle}</span>
+                </button>
 
-            <button
-              type="button"
-              onClick={handleClearAllReportData}
-              className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-bold transition shadow-xs cursor-pointer"
-              title="Permanently clear records across all reports"
-            >
-              <span>Clear All</span>
-            </button>
+                <button
+                  type="button"
+                  onClick={handleClearAllReportData}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-bold transition shadow-xs cursor-pointer"
+                  title="Permanently clear records across all reports"
+                >
+                  <span>Clear All</span>
+                </button>
+              </>
+            )}
             {(dailyRecords.length === 0 || transactions.length === 0) && (
               <button
                 type="button"
