@@ -30,6 +30,7 @@ import { QuotationGeneratorModal } from "@/components/admin/QuotationGeneratorMo
 import { BackupFolderModal } from "@/components/admin/BackupFolderModal";
 import { ReportFolderModal } from "@/components/admin/ReportFolderModal";
 import { TicketSearchModal } from "@/components/admin/TicketSearchModal";
+import { CompanyEnteredBookingModal } from "@/components/admin/CompanyEnteredBookingModal";
 import logoAsset from "@/assets/fortune-tourism-logo.png";
 import fullLogoAsset from "@/assets/fortune-tourism-full-logo.png";
 import keralaHeroImg from "@/assets/kerala-hero.jpg";
@@ -192,6 +193,7 @@ import {
   FolderArchive,
   FolderOpen,
   FolderKanban,
+  Building2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
@@ -370,6 +372,7 @@ function AdminPage() {
   const [hourlyPackagesTripsModalOpen, setHourlyPackagesTripsModalOpen] = useState(false);
   const [expenseReportModalOpen, setExpenseReportModalOpen] = useState(false);
   const [quotationModalOpen, setQuotationModalOpen] = useState(false);
+  const [companyEnteredBookingOpen, setCompanyEnteredBookingOpen] = useState(false);
   const [offlineBookingSource, setOfflineBookingSource] = useState<any>({});
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
 
@@ -400,6 +403,7 @@ function AdminPage() {
         setQuotationModalOpen(false);
         setReportFolderModalOpen(false);
         setTicketSearchModalOpen(false);
+        setCompanyEnteredBookingOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -1456,6 +1460,18 @@ function AdminPage() {
                 <span>Ticket Search</span>
                 <span className="bg-emerald-950/40 text-emerald-200 text-[10px] font-black px-1.5 py-0.2 rounded-md">PNR</span>
               </button>
+
+              {/* Company Entered Booking Direct Header Button */}
+              <button
+                type="button"
+                onClick={() => setCompanyEnteredBookingOpen(true)}
+                className="hidden lg:inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs shrink-0"
+                title="Company Entered Booking - Mr. David Sir Account"
+              >
+                <Building2 className="w-4 h-4 text-amber-700" />
+                <span className="font-extrabold">Company Booking</span>
+                <span className="bg-amber-200/90 text-amber-950 text-[10px] font-black px-1.5 py-0.2 rounded-md">David Sir</span>
+              </button>
             </div>
 
             {/* Right: Account with image dropdown */}
@@ -1494,6 +1510,27 @@ function AdminPage() {
                       <p className="text-xs font-bold text-slate-900 truncate">{adminUser?.name || "Fortune Tourism Administrator"}</p>
                       <p className="text-[11px] text-slate-500 truncate">{adminUser?.email || "adminfortunetourism@gmail.com"}</p>
                     </div>
+
+                    {/* Company Entered Booking (Mr. David Sir Account) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        setCompanyEnteredBookingOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-900 bg-amber-50 hover:bg-amber-100/80 border border-amber-300 shadow-2xs transition text-left cursor-pointer group mb-1.5"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Building2 className="w-4 h-4 text-amber-700 shrink-0 group-hover:scale-110 transition-transform" />
+                        <div>
+                          <span className="block font-black leading-tight text-slate-950">Company Entered Booking</span>
+                          <span className="text-[10px] text-amber-800 font-semibold block">Mr. David Sir Account (12/12/2025)</span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] bg-rose-100 text-rose-800 border border-rose-300 font-black px-1.5 py-0.5 rounded-md shrink-0">
+                        Due ₹710
+                      </span>
+                    </button>
 
                     {/* Profile */}
                     <button
@@ -3158,6 +3195,12 @@ function AdminPage() {
         isOpen={ticketSearchModalOpen}
         onClose={() => setTicketSearchModalOpen(false)}
         onTicketUpdated={() => fetchData()}
+      />
+
+      {/* Company Entered Booking Modal (Mr. David Sir Account) */}
+      <CompanyEnteredBookingModal
+        isOpen={companyEnteredBookingOpen}
+        onClose={() => setCompanyEnteredBookingOpen(false)}
       />
     </SiteLayout>
   );
