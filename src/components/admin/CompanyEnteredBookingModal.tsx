@@ -11,6 +11,7 @@ import {
   Pencil,
   Printer,
   Download,
+  FileDown,
   RotateCcw,
   CheckCircle2,
   AlertTriangle,
@@ -23,17 +24,21 @@ import {
   Sparkles,
 } from "lucide-react";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import logoAsset from "@/assets/fortune-tourism-logo.png";
 
 export interface CompanyBookingEntry {
   id: string;
   date: string;
   trip: string;
+  company_name?: string;
   opening_balance: number;
   advance_received: number;
   trip_dues: number;
   closing_amt: number;
   name: string;
+  phone_number?: string;
   notes?: string;
   is_summary_row?: boolean;
   summary_type?: "POSITIVE" | "NEGATIVE";
@@ -44,61 +49,73 @@ export const DEFAULT_DAVID_SIR_ENTRIES: CompanyBookingEntry[] = [
     id: "entry-1",
     date: "19/11/2025",
     trip: "POSITIVE BALANCE (23 & 17/11/2025)",
+    company_name: "David Sir Account",
     opening_balance: 8000,
     advance_received: 0,
     trip_dues: 0,
     closing_amt: 8000,
     name: "—",
+    phone_number: "+91 9740463404",
   },
   {
     id: "entry-2",
     date: "12/12/2025",
     trip: "AIRPORT TO VILLA DROP AT:9.45 AM",
+    company_name: "David Sir Account",
     opening_balance: 8000,
     advance_received: 0,
     trip_dues: 1800,
     closing_amt: 6200,
     name: "Mr.DAVID SIR",
+    phone_number: "+91 9740463404",
   },
   {
     id: "entry-3",
     date: "23/12/2025",
     trip: "VILLA TO AIRPORT DROP AT:3.00 PM",
+    company_name: "David Sir Account",
     opening_balance: 6200,
     advance_received: 0,
     trip_dues: 1800,
     closing_amt: 4400,
     name: "Mr.DAVID SIR",
+    phone_number: "+91 9740463404",
   },
   {
     id: "entry-4",
     date: "8/1/2026",
     trip: "VILLA TO AIRPORT DROP AT:4.15 AM",
+    company_name: "David Sir Account",
     opening_balance: 4400,
     advance_received: 0,
     trip_dues: 1800,
     closing_amt: 2600,
     name: "Mr.Mohd",
+    phone_number: "+91 9740463404",
   },
   {
     id: "entry-5",
     date: "14/01/2026",
     trip: "MEJESTIC TO VILLA DROP AT:11.15 AM",
+    company_name: "David Sir Account",
     opening_balance: 2600,
     advance_received: 0,
     trip_dues: 1000,
     closing_amt: 1600,
     name: "Mr.DAVID SIR & Mohd",
+    phone_number: "+91 9740463404",
   },
   {
     id: "entry-sub-1",
     date: "14/01/2026",
     trip: "POSTIVE BALANCE AS ON 14/01/2026",
+    company_name: "David Sir Account",
     opening_balance: 1600,
     advance_received: 0,
     trip_dues: 0,
     closing_amt: 1600,
     name: "BALANCE AS ON 14/01/2026",
+    phone_number: "+91 9740463404",
     is_summary_row: true,
     summary_type: "POSITIVE",
   },
@@ -106,77 +123,91 @@ export const DEFAULT_DAVID_SIR_ENTRIES: CompanyBookingEntry[] = [
     id: "entry-6",
     date: "20/01/2026",
     trip: "Advance Payment On:20/01/2026",
+    company_name: "David Sir Account",
     opening_balance: 1600,
     advance_received: 10000,
     trip_dues: 0,
     closing_amt: 11600,
     name: "Advance Payment",
+    phone_number: "+91 9740463404",
   },
   {
     id: "entry-7",
     date: "22/01/2026",
     trip: "VILLA TO AIRPORT DROP AT:9.45 AM",
+    company_name: "David Sir Account",
     opening_balance: 11600,
     advance_received: 0,
     trip_dues: 1800,
     closing_amt: 9800,
     name: "Mr.DAVID SIR",
+    phone_number: "+91 9740463404",
   },
   {
     id: "entry-8",
     date: "6/2/2026",
     trip: "VILLA TO EXEBITION UP & DOWN AT:10.00 AM",
+    company_name: "David Sir Account",
     opening_balance: 9800,
     advance_received: 0,
     trip_dues: 4000,
     closing_amt: 5800,
     name: "Mr.Mohd",
+    phone_number: "+91 9740463404",
   },
   {
     id: "entry-9",
     date: "6/2/2026",
     trip: "Toll Charges of Nice Road Up & Down",
+    company_name: "David Sir Account",
     opening_balance: 5800,
     advance_received: 0,
     trip_dues: 610,
     closing_amt: 5190,
     name: "NICE ROAD",
+    phone_number: "+91 9740463404",
   },
   {
     id: "entry-10",
     date: "15/02/2026",
     trip: "PAID TO DRIVER",
+    company_name: "David Sir Account",
     opening_balance: 5190,
     advance_received: 5000,
     trip_dues: 0,
     closing_amt: 10190,
     name: "PAID TO DRIVER",
+    phone_number: "+91 9740463404",
   },
   {
     id: "entry-11",
     date: "15/02/2026",
     trip: "CHENNAI TO VILLA DROP AT:10.00 AM",
+    company_name: "David Sir Account",
     opening_balance: 10190,
     advance_received: 0,
     trip_dues: 10900,
     closing_amt: -710,
     name: "Mr.DAVID SIR",
+    phone_number: "+91 9740463404",
   },
   {
     id: "entry-sub-2",
     date: "16/02/2026",
     trip: "NEGATIVE BALANCE AS ON 16/02/2026",
+    company_name: "David Sir Account",
     opening_balance: -710,
     advance_received: 0,
     trip_dues: 0,
     closing_amt: -710,
     name: "DUE TO FORTUNE",
+    phone_number: "+91 9740463404",
     is_summary_row: true,
     summary_type: "NEGATIVE",
   },
 ];
 
-const LOCAL_STORAGE_KEY = "fortune_company_entered_bookings_david_v1";
+const LOCAL_STORAGE_KEY = "fortune_company_entered_bookings_david_v2";
 
 interface CompanyEnteredBookingModalProps {
   isOpen: boolean;
@@ -189,12 +220,25 @@ export function CompanyEnteredBookingModal({
 }: CompanyEnteredBookingModalProps) {
   const [entries, setEntries] = useState<CompanyBookingEntry[]>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (saved) {
+      const savedV2 = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (savedV2) {
         try {
-          return JSON.parse(saved);
+          return JSON.parse(savedV2);
         } catch (e) {
-          console.error("Failed to parse saved company entered bookings", e);
+          console.error("Failed to parse saved company entered bookings v2", e);
+        }
+      }
+      const savedV1 = localStorage.getItem("fortune_company_entered_bookings_david_v1");
+      if (savedV1) {
+        try {
+          const parsed: CompanyBookingEntry[] = JSON.parse(savedV1);
+          return parsed.map((e) => ({
+            ...e,
+            company_name: e.company_name || "David Sir Account",
+            phone_number: e.phone_number || "+91 9740463404",
+          }));
+        } catch (e) {
+          console.error("Failed to migrate v1 company entered bookings", e);
         }
       }
     }
@@ -209,9 +253,11 @@ export function CompanyEnteredBookingModal({
   const [formData, setFormData] = useState({
     date: new Date().toLocaleDateString("en-GB"),
     trip: "",
+    company_name: "David Sir Account",
     advance_received: 0,
     trip_dues: 0,
     name: "Mr.DAVID SIR",
+    phone_number: "+91 9740463404",
     notes: "",
   });
 
@@ -282,7 +328,9 @@ export function CompanyEnteredBookingModal({
       (e) =>
         e.date.toLowerCase().includes(q) ||
         e.trip.toLowerCase().includes(q) ||
-        e.name.toLowerCase().includes(q)
+        e.name.toLowerCase().includes(q) ||
+        (e.company_name && e.company_name.toLowerCase().includes(q)) ||
+        (e.phone_number && e.phone_number.toLowerCase().includes(q))
     );
   }, [entries, searchQuery]);
 
@@ -310,9 +358,11 @@ export function CompanyEnteredBookingModal({
     setFormData({
       date: entry.date,
       trip: entry.trip,
+      company_name: entry.company_name || "David Sir Account",
       advance_received: entry.advance_received,
       trip_dues: entry.trip_dues,
       name: entry.name,
+      phone_number: entry.phone_number || "+91 9740463404",
       notes: entry.notes || "",
     });
     setShowAddModal(true);
@@ -324,9 +374,11 @@ export function CompanyEnteredBookingModal({
     setFormData({
       date: new Date().toLocaleDateString("en-GB"),
       trip: "",
+      company_name: "David Sir Account",
       advance_received: 0,
       trip_dues: 0,
       name: "Mr.DAVID SIR",
+      phone_number: "+91 9740463404",
       notes: "",
     });
     setShowAddModal(true);
@@ -347,9 +399,11 @@ export function CompanyEnteredBookingModal({
             ...item,
             date: formData.date,
             trip: formData.trip,
+            company_name: formData.company_name,
             advance_received: Number(formData.advance_received || 0),
             trip_dues: Number(formData.trip_dues || 0),
             name: formData.name,
+            phone_number: formData.phone_number,
             notes: formData.notes,
           };
         }
@@ -362,11 +416,13 @@ export function CompanyEnteredBookingModal({
         id: `entry-${Date.now()}`,
         date: formData.date,
         trip: formData.trip,
+        company_name: formData.company_name,
         opening_balance: 0,
         advance_received: Number(formData.advance_received || 0),
         trip_dues: Number(formData.trip_dues || 0),
         closing_amt: 0,
         name: formData.name,
+        phone_number: formData.phone_number,
         notes: formData.notes,
       };
       setEntries(recalculateLedger([...entries, newEntry]));
@@ -377,6 +433,233 @@ export function CompanyEnteredBookingModal({
     setEditingEntry(null);
   };
 
+  // Download PDF Corporate Statement
+  const handleDownloadPDF = () => {
+    try {
+      const doc = new jsPDF("l", "mm", "a4"); // Landscape A4: 297mm x 210mm
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+
+      // Top Dark Green Header Bar
+      doc.setFillColor(6, 63, 45); // #063f2d
+      doc.rect(0, 0, pageWidth, 28, "F");
+
+      // Company Title & Branding
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(15);
+      doc.setTextColor(255, 255, 255);
+      doc.text("FORTUNE TOURISM & TRAVELS", 15, 12);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(209, 250, 229);
+      doc.text("No.256/A Next To Narayana Hospital, Health City, Bommasandra Bangalore.560099", 15, 18);
+      doc.text("Phone: +91 9740463404  |  Email: info@fortunetourism.in", 15, 23);
+
+      // Top Right Statement Badge
+      doc.setFillColor(11, 19, 41);
+      doc.roundedRect(pageWidth - 95, 5, 80, 18, 2, 2, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(245, 158, 11); // Amber
+      doc.text("CORPORATE STATEMENT OF ACCOUNT", pageWidth - 55, 11, { align: "center" });
+      doc.setFontSize(9.5);
+      doc.setTextColor(255, 255, 255);
+      doc.text("Mr. David Sir Account", pageWidth - 55, 17, { align: "center" });
+
+      // Info Card Section
+      let currentY = 34;
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(15, currentY, pageWidth - 30, 20, 2, 2, "FD");
+
+      // Info Columns
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text("COMPANY / ACCOUNT:", 20, currentY + 6);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(15, 23, 42);
+      doc.text("David Sir Account", 20, currentY + 11.5);
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "normal");
+      doc.text("Account Starts: 12/12/2025", 20, currentY + 16.5);
+
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text("PASSENGER / CONTACT PERSON:", 85, currentY + 6);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(15, 23, 42);
+      doc.text("Mr. DAVID SIR", 85, currentY + 11.5);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text("Phone: +91 9740463404", 85, currentY + 16.5);
+
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text("TRIP SUMMARY:", 165, currentY + 6);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(15, 23, 42);
+      doc.text(`${metrics.tripCount} Trips Logged`, 165, currentY + 11.5);
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Generated: ${new Date().toLocaleDateString("en-GB")}`, 165, currentY + 16.5);
+
+      // Balance Pill
+      const isNeg = metrics.closingBalance < 0;
+      if (isNeg) {
+        doc.setFillColor(254, 242, 242);
+        doc.setDrawColor(252, 165, 165);
+      } else {
+        doc.setFillColor(236, 253, 245);
+        doc.setDrawColor(110, 231, 183);
+      }
+      doc.roundedRect(pageWidth - 85, currentY + 3, 65, 14, 2, 2, "FD");
+
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.text("CURRENT ACCOUNT BALANCE", pageWidth - 52.5, currentY + 7.5, { align: "center" });
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      if (isNeg) {
+        doc.setTextColor(185, 28, 28);
+        doc.text(`Rs. ${Math.abs(metrics.closingBalance).toLocaleString("en-IN")} DUE (NEG)`, pageWidth - 52.5, currentY + 13.5, { align: "center" });
+      } else {
+        doc.setTextColor(4, 120, 87);
+        doc.text(`Rs. ${metrics.closingBalance.toLocaleString("en-IN")} CREDIT`, pageWidth - 52.5, currentY + 13.5, { align: "center" });
+      }
+
+      currentY += 25;
+
+      // AutoTable Columns
+      const tableHeaders = [
+        ["DATE", "TRIP / ACTIVITY", "COMPANY", "OPENING BAL (Rs.)", "ADVANCE REC. (Rs.)", "TRIP DUES (Rs.)", "CLOSING BAL (Rs.)", "PASSENGER & CONTACT"]
+      ];
+
+      const tableData = entries.map((row) => {
+        if (row.is_summary_row) {
+          return [
+            row.date,
+            row.trip,
+            row.company_name || "David Sir Account",
+            "—",
+            "—",
+            "—",
+            `Rs. ${row.closing_amt.toLocaleString("en-IN")}`,
+            row.name,
+          ];
+        }
+        return [
+          row.date,
+          row.trip + (row.notes ? `\n(${row.notes})` : ""),
+          row.company_name || "David Sir Account",
+          `Rs. ${row.opening_balance.toLocaleString("en-IN")}`,
+          row.advance_received > 0 ? `+Rs. ${row.advance_received.toLocaleString("en-IN")}` : "0",
+          row.trip_dues > 0 ? `Rs. ${row.trip_dues.toLocaleString("en-IN")}` : "0",
+          `Rs. ${row.closing_amt.toLocaleString("en-IN")}`,
+          row.name + (row.phone_number ? `\nPh: ${row.phone_number}` : ""),
+        ];
+      });
+
+      autoTable(doc, {
+        head: tableHeaders,
+        body: tableData,
+        startY: currentY,
+        margin: { left: 15, right: 15 },
+        theme: "grid",
+        styles: {
+          fontSize: 7.5,
+          cellPadding: 2,
+          valign: "middle",
+          textColor: [30, 41, 59],
+        },
+        headStyles: {
+          fillColor: [11, 19, 41],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          fontSize: 7.5,
+          halign: "center",
+        },
+        columnStyles: {
+          0: { cellWidth: 20, halign: "center", fontStyle: "bold" },
+          1: { cellWidth: 62 },
+          2: { cellWidth: 32 },
+          3: { cellWidth: 26, halign: "right" },
+          4: { cellWidth: 28, halign: "right", textColor: [4, 120, 87], fontStyle: "bold" },
+          5: { cellWidth: 24, halign: "right", textColor: [180, 83, 9], fontStyle: "bold" },
+          6: { cellWidth: 28, halign: "right", fontStyle: "bold" },
+          7: { cellWidth: 47 },
+        },
+        didParseCell: (data) => {
+          const rowIndex = data.row.index;
+          const entry = entries[rowIndex];
+          if (entry?.is_summary_row) {
+            if (entry.summary_type === "POSITIVE") {
+              data.cell.styles.fillColor = [209, 250, 229]; // light green
+              data.cell.styles.textColor = [6, 78, 59];
+              data.cell.styles.fontStyle = "bold";
+            } else {
+              data.cell.styles.fillColor = [254, 226, 226]; // light red
+              data.cell.styles.textColor = [153, 27, 27];
+              data.cell.styles.fontStyle = "bold";
+            }
+          }
+        },
+      });
+
+      // Bottom Metrics Footer Box
+      let finalY = (doc as any).lastAutoTable?.finalY || currentY + 90;
+      if (finalY > pageHeight - 35) {
+        doc.addPage();
+        finalY = 20;
+      } else {
+        finalY += 4;
+      }
+
+      doc.setFillColor(11, 19, 41);
+      doc.roundedRect(15, finalY, pageWidth - 30, 16, 2, 2, "F");
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(203, 213, 225);
+      doc.text(`Initial Opening Credit: Rs. ${metrics.initialOpening.toLocaleString("en-IN")}`, 22, finalY + 6.5);
+      doc.text(`Total Advance Received: Rs. ${metrics.totalAdvance.toLocaleString("en-IN")}`, 22, finalY + 11.5);
+
+      doc.text(`Total Trip Dues: Rs. ${metrics.totalDues.toLocaleString("en-IN")}`, 105, finalY + 6.5);
+      doc.text(`Total Logged Records: ${entries.length}`, 105, finalY + 11.5);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      if (metrics.isNegative) {
+        doc.setTextColor(252, 165, 165);
+        doc.text(`FINAL CLOSING BALANCE: -Rs. ${Math.abs(metrics.closingBalance).toLocaleString("en-IN")} (DUE TO FORTUNE)`, pageWidth - 20, finalY + 9.5, { align: "right" });
+      } else {
+        doc.setTextColor(110, 231, 183);
+        doc.text(`FINAL CLOSING BALANCE: Rs. ${metrics.closingBalance.toLocaleString("en-IN")} (POSITIVE CREDIT)`, pageWidth - 20, finalY + 9.5, { align: "right" });
+      }
+
+      // Legal & Signatory
+      const signY = finalY + 19;
+      if (signY < pageHeight - 8) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6.5);
+        doc.setTextColor(100, 116, 139);
+        doc.text("Terms: Positive balances represent prepaid credits. Negative balances represent pending trip dues payable upon receipt.", 15, signY + 3);
+        doc.text("Authorized by: Accounts & Corporate Booking Desk, Fortune Tourism & Travels, Narayana Health City, Bangalore.", 15, signY + 6.5);
+        doc.text(`Official System Generated Document · Downloaded on ${new Date().toLocaleString("en-GB")}`, pageWidth - 15, signY + 6.5, { align: "right" });
+      }
+
+      doc.save("Mr_David_Sir_Account_Ledger_Statement.pdf");
+      toast.success("PDF statement downloaded: Mr_David_Sir_Account_Ledger_Statement.pdf");
+    } catch (err: any) {
+      console.error("PDF generation failed:", err);
+      toast.error("Failed to generate PDF statement.");
+    }
+  };
+
   // Export to Excel
   const handleExportExcel = () => {
     try {
@@ -385,17 +668,19 @@ export function CompanyEnteredBookingModal({
         ["Account: Mr. David Sir Account", "Account Starts: 12/12/2025", `Export Date: ${new Date().toLocaleDateString("en-GB")}`],
         ["Client Name: Mr. David Sir", "Contact: +91 9740463404", `Current Balance: Rs. ${metrics.closingBalance.toLocaleString("en-IN")}`],
         [],
-        ["DATE", "TRIP / ACTIVITY", "OPENING BALANCE", "ADVANCE PAYMENT RECEIVED", "TRIP DUES", "CLOSING AMT", "NAME"],
+        ["DATE", "TRIP / ACTIVITY", "COMPANY NAME", "OPENING BALANCE", "ADVANCE PAYMENT RECEIVED", "TRIP DUES", "CLOSING AMT", "PASSENGER NAME", "PHONE NUMBER"],
       ];
 
       const rows = entries.map((e) => [
         e.date,
         e.trip,
+        e.company_name || "David Sir Account",
         e.opening_balance,
         e.advance_received || 0,
         e.trip_dues || 0,
         e.closing_amt,
         e.name,
+        e.phone_number || "+91 9740463404",
       ]);
 
       const summaryFooter = [
@@ -472,21 +757,24 @@ export function CompanyEnteredBookingModal({
                 </span>
               </div>
               <p className="text-xs text-emerald-100/80 mt-0.5">
-                Official Corporate Ledger · Trip Dues, Advance Payments, Opening &amp; Closing Balances
+                Official Corporate Ledger · Trip Dues, Advance Payments, Passenger Contacts &amp; Balances
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Download PDF Button */}
             <button
               type="button"
-              onClick={handlePrint}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/15 transition cursor-pointer"
-              title="Print official letterhead statement"
+              onClick={handleDownloadPDF}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs shadow transition cursor-pointer"
+              title="Download official PDF corporate statement"
             >
-              <Printer className="w-4 h-4 text-amber-300" />
-              <span>Print Statement</span>
+              <FileDown className="w-4 h-4" />
+              <span>Download PDF</span>
             </button>
+
+            {/* Export Excel Button */}
             <button
               type="button"
               onClick={handleExportExcel}
@@ -496,6 +784,19 @@ export function CompanyEnteredBookingModal({
               <FileSpreadsheet className="w-4 h-4" />
               <span>Export Excel</span>
             </button>
+
+            {/* Print Button */}
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/15 transition cursor-pointer"
+              title="Print official letterhead statement"
+            >
+              <Printer className="w-4 h-4 text-amber-300" />
+              <span>Print</span>
+            </button>
+
+            {/* Close Button */}
             <button
               type="button"
               onClick={onClose}
@@ -548,19 +849,22 @@ export function CompanyEnteredBookingModal({
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-4">
               <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Client / Account Name
+                  Company / Account
                 </span>
                 <span className="text-sm font-black text-slate-900 mt-0.5 block flex items-center gap-1.5">
-                  <User className="w-4 h-4 text-emerald-700" /> Mr. DAVID SIR
+                  <Building2 className="w-4 h-4 text-emerald-700" /> David Sir Account
                 </span>
               </div>
 
               <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Registered Contact
+                  Passenger / Contact
                 </span>
                 <span className="text-sm font-black text-slate-900 mt-0.5 block flex items-center gap-1.5">
-                  <Phone className="w-4 h-4 text-blue-600" /> +91 9740463404
+                  <User className="w-4 h-4 text-emerald-700" /> Mr. DAVID SIR
+                </span>
+                <span className="text-xs font-semibold text-blue-700 flex items-center gap-1 mt-0.5">
+                  <Phone className="w-3 h-3 text-blue-600" /> +91 9740463404
                 </span>
               </div>
 
@@ -570,6 +874,9 @@ export function CompanyEnteredBookingModal({
                 </span>
                 <span className="text-sm font-black text-slate-900 mt-0.5 block">
                   {metrics.tripCount} Trips Completed
+                </span>
+                <span className="text-[11px] text-slate-500 font-medium">
+                  {entries.length} Ledger Line Items
                 </span>
               </div>
 
@@ -610,7 +917,7 @@ export function CompanyEnteredBookingModal({
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search trip, date, passenger name..."
+                placeholder="Search trip, date, passenger name, company or phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 focus:border-[#063f2d] focus:bg-white rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 outline-none transition"
@@ -629,6 +936,26 @@ export function CompanyEnteredBookingModal({
 
               <button
                 type="button"
+                onClick={handleDownloadPDF}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 font-extrabold text-xs border border-rose-200 shadow-xs transition cursor-pointer"
+                title="Download PDF corporate statement"
+              >
+                <FileDown className="w-4 h-4 text-rose-600" />
+                <span>Download PDF</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-extrabold text-xs border border-emerald-200 shadow-xs transition cursor-pointer"
+                title="Export Microsoft Excel spreadsheet"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                <span>Export Excel</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={handleResetDefault}
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-200 transition cursor-pointer"
                 title="Restore default David Sir Account transactions from 12/12/2025"
@@ -639,7 +966,7 @@ export function CompanyEnteredBookingModal({
             </div>
           </div>
 
-          {/* 7-COLUMN EXACT SPREADSHEET TABLE */}
+          {/* EXACT SPREADSHEET TABLE WITH PASSENGER PHONE & COMPANY */}
           <div className="bg-white rounded-2xl border-2 border-slate-900 overflow-hidden shadow-md">
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left border-collapse font-sans">
@@ -648,13 +975,14 @@ export function CompanyEnteredBookingModal({
                   <tr className="divide-x divide-slate-800 border-b-2 border-slate-900">
                     <th className="p-3 w-28 text-center whitespace-nowrap">DATE</th>
                     <th className="p-3">TRIP</th>
+                    <th className="p-3 w-36 whitespace-nowrap">COMPANY</th>
                     <th className="p-3 w-32 text-right whitespace-nowrap">Opening balance</th>
                     <th className="p-3 w-36 text-right whitespace-nowrap text-emerald-300">
                       Advance payment received
                     </th>
                     <th className="p-3 w-28 text-right whitespace-nowrap text-amber-300">Trip Dues</th>
                     <th className="p-3 w-32 text-right whitespace-nowrap text-teal-300">Closing amt</th>
-                    <th className="p-3 w-40">NAME</th>
+                    <th className="p-3 w-48">PASSENGER &amp; CONTACT</th>
                     <th className="p-3 w-20 text-center no-print">ACTION</th>
                   </tr>
                 </thead>
@@ -688,6 +1016,7 @@ export function CompanyEnteredBookingModal({
                           </td>
                           <td className="p-3 text-right text-slate-600">—</td>
                           <td className="p-3 text-right text-slate-600">—</td>
+                          <td className="p-3 text-right text-slate-600">—</td>
                           <td
                             className={`p-3 text-right text-sm font-extrabold ${
                               row.summary_type === "POSITIVE" ? "text-emerald-800" : "text-rose-800"
@@ -695,12 +1024,19 @@ export function CompanyEnteredBookingModal({
                           >
                             ₹{row.closing_amt.toLocaleString("en-IN")}
                           </td>
-                          <td className="p-3 uppercase font-black">{row.name}</td>
+                          <td className="p-3 uppercase font-black">
+                            <div>{row.name}</div>
+                            {row.phone_number && (
+                              <div className="text-[10px] text-slate-600 font-mono font-normal">
+                                {row.phone_number}
+                              </div>
+                            )}
+                          </td>
                           <td className="p-3 text-center no-print">
                             <button
                               type="button"
                               onClick={() => handleDeleteRow(row.id)}
-                              className="text-slate-400 hover:text-rose-600 transition"
+                              className="text-slate-400 hover:text-rose-600 transition cursor-pointer"
                               title="Delete summary marker"
                             >
                               <Trash2 className="w-3.5 h-3.5 mx-auto" />
@@ -732,12 +1068,20 @@ export function CompanyEnteredBookingModal({
                           )}
                         </td>
 
-                        {/* 3. Opening balance */}
+                        {/* 3. COMPANY */}
+                        <td className="p-2.5 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                            <Building2 className="w-3 h-3 text-emerald-700 shrink-0" />
+                            <span>{row.company_name || "David Sir Account"}</span>
+                          </span>
+                        </td>
+
+                        {/* 4. Opening balance */}
                         <td className="p-2.5 text-right font-bold text-slate-800 font-mono whitespace-nowrap">
                           ₹{row.opening_balance.toLocaleString("en-IN")}
                         </td>
 
-                        {/* 4. Advance payment received */}
+                        {/* 5. Advance payment received */}
                         <td className="p-2.5 text-right font-extrabold text-emerald-700 font-mono whitespace-nowrap">
                           {row.advance_received > 0 ? (
                             <span className="bg-emerald-50 px-2 py-0.5 rounded border border-emerald-300">
@@ -748,7 +1092,7 @@ export function CompanyEnteredBookingModal({
                           )}
                         </td>
 
-                        {/* 5. Trip Dues */}
+                        {/* 6. Trip Dues */}
                         <td className="p-2.5 text-right font-extrabold text-amber-800 font-mono whitespace-nowrap">
                           {row.trip_dues > 0 ? (
                             <span className="bg-amber-50 px-2 py-0.5 rounded border border-amber-300">
@@ -759,7 +1103,7 @@ export function CompanyEnteredBookingModal({
                           )}
                         </td>
 
-                        {/* 6. Closing amt */}
+                        {/* 7. Closing amt */}
                         <td className="p-2.5 text-right font-black font-mono whitespace-nowrap">
                           <span
                             className={`px-2.5 py-0.5 rounded-lg border inline-block ${
@@ -772,18 +1116,26 @@ export function CompanyEnteredBookingModal({
                           </span>
                         </td>
 
-                        {/* 7. NAME */}
-                        <td className="p-2.5 font-black uppercase text-slate-900 whitespace-nowrap">
-                          {row.name}
+                        {/* 8. NAME & PHONE */}
+                        <td className="p-2.5 whitespace-nowrap">
+                          <div className="font-black uppercase text-slate-900 leading-tight">
+                            {row.name}
+                          </div>
+                          {row.phone_number && (
+                            <div className="text-[11px] text-blue-700 font-semibold flex items-center gap-1 mt-0.5 font-mono">
+                              <Phone className="w-3 h-3 text-blue-600 shrink-0" />
+                              <span>{row.phone_number}</span>
+                            </div>
+                          )}
                         </td>
 
-                        {/* 8. ACTIONS */}
+                        {/* 9. ACTIONS */}
                         <td className="p-2.5 text-center whitespace-nowrap no-print">
                           <div className="flex items-center justify-center gap-1.5">
                             <button
                               type="button"
                               onClick={() => handleOpenEdit(row)}
-                              className="p-1 rounded text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition"
+                              className="p-1 rounded text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition cursor-pointer"
                               title="Edit line"
                             >
                               <Pencil className="w-3.5 h-3.5" />
@@ -791,7 +1143,7 @@ export function CompanyEnteredBookingModal({
                             <button
                               type="button"
                               onClick={() => handleDeleteRow(row.id)}
-                              className="p-1 rounded text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition"
+                              className="p-1 rounded text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
                               title="Delete record"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -902,7 +1254,7 @@ export function CompanyEnteredBookingModal({
         </div>
       </div>
 
-      {/* Add / Edit Trip Line Modal */}
+      {/* Add / Edit Trip Line Modal (Form with Passenger Phone & Company Name) */}
       {showAddModal && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-3 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="w-full max-w-lg bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden">
@@ -914,14 +1266,15 @@ export function CompanyEnteredBookingModal({
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
-                className="text-white/80 hover:text-white"
+                className="text-white/80 hover:text-white cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <form onSubmit={handleSaveForm} className="p-5 space-y-3.5 text-xs text-slate-800">
-              <div className="grid grid-cols-2 gap-3">
+              {/* Row 1: Date & Passenger Name */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">DATE (DD/MM/YYYY) *</label>
                   <input
@@ -947,6 +1300,33 @@ export function CompanyEnteredBookingModal({
                 </div>
               </div>
 
+              {/* Row 2: Company Name & Passenger Phone Number */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">COMPANY NAME *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.company_name}
+                    onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                    placeholder="e.g. David Sir Account"
+                    className="w-full bg-slate-50 border border-slate-300 focus:border-[#063f2d] rounded-xl px-3 py-2 text-xs font-bold outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">PASSENGER PHONE NUMBER</label>
+                  <input
+                    type="text"
+                    value={formData.phone_number}
+                    onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                    placeholder="e.g. +91 9740463404"
+                    className="w-full bg-slate-50 border border-slate-300 focus:border-[#063f2d] rounded-xl px-3 py-2 text-xs font-bold outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Row 3: Trip / Activity Description */}
               <div>
                 <label className="font-bold text-slate-700 block mb-1">TRIP / ACTIVITY DESCRIPTION *</label>
                 <input
@@ -959,7 +1339,8 @@ export function CompanyEnteredBookingModal({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* Row 4: Advance Payment Received & Trip Dues / Fare */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-2.5">
                   <label className="font-bold text-emerald-900 block mb-1">
                     Advance Payment Received (₹)
@@ -995,6 +1376,7 @@ export function CompanyEnteredBookingModal({
                 </div>
               </div>
 
+              {/* Row 5: Additional Notes */}
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Additional Notes (Optional)</label>
                 <input
@@ -1006,17 +1388,18 @@ export function CompanyEnteredBookingModal({
                 />
               </div>
 
+              {/* Buttons */}
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs transition"
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-[#063f2d] hover:bg-[#086a46] text-white font-black text-xs shadow transition"
+                  className="px-5 py-2 rounded-xl bg-[#063f2d] hover:bg-[#086a46] text-white font-black text-xs shadow transition cursor-pointer"
                 >
                   {editingEntry ? "Update Entry" : "Save Record"}
                 </button>
