@@ -159,12 +159,11 @@ export function downloadTicketCopyPDF(data: TicketCopyData) {
               : data.fareAmount
               ? `INR ${data.fareAmount}`
               : "INR 0",
+            colSpan: 2,
             styles: { fontStyle: "bold", fontSize: 9.5, textColor: [14, 107, 80] },
           },
           { content: "Payment Status:", styles: { fontStyle: "bold", fillColor: [230, 245, 235] } },
-          { content: data.paymentStatus || "CONFIRMED / PAID", styles: { fontStyle: "bold", textColor: [14, 107, 80] } },
-          { content: "GST & Taxes:", styles: { fontStyle: "bold", fillColor: [230, 245, 235] } },
-          { content: "INCLUDED (5% GST)", styles: { fontStyle: "bold" } },
+          { content: data.paymentStatus || "CONFIRMED / PAID", colSpan: 2, styles: { fontStyle: "bold", textColor: [14, 107, 80] } },
         ],
       ],
     });

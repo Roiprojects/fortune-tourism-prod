@@ -2093,25 +2093,19 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                       </td>
                     </tr>
 
-                    {/* Row 6: Total Fare Amount | Payment Status | Taxes */}
+                    {/* Row 6: Total Fare Amount | Payment Status */}
                     <tr className="divide-x divide-slate-900 bg-emerald-50/50">
                       <td className="p-2.5 font-black text-slate-900 bg-emerald-100/70 whitespace-nowrap">
                         Total Fare Amount:
                       </td>
-                      <td className="p-2.5 font-black text-emerald-800 text-sm sm:text-base">
+                      <td colSpan={2} className="p-2.5 font-black text-emerald-800 text-sm sm:text-base">
                         ₹{Number(effectiveCabFare || 0).toLocaleString("en-IN")}
                       </td>
                       <td className="p-2.5 font-bold text-slate-900 bg-emerald-100/70 whitespace-nowrap">
                         Payment Status:
                       </td>
-                      <td className="p-2.5 font-black text-emerald-700 uppercase">
+                      <td colSpan={2} className="p-2.5 font-black text-emerald-700 uppercase">
                         {paymentStatusText}
-                      </td>
-                      <td className="p-2.5 font-bold text-slate-900 bg-emerald-100/70 whitespace-nowrap">
-                        GST &amp; Taxes:
-                      </td>
-                      <td className="p-2.5 font-bold text-slate-900">
-                        Included (5% GST)
                       </td>
                     </tr>
                   </tbody>
