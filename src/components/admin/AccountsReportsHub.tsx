@@ -2923,7 +2923,7 @@ export function AccountsReportsHub({
 
           {/* Action buttons across all Financial Ledger reports */}
           <div className="flex flex-wrap items-center gap-2">
-            {activeReport !== "final" && ((activeReport === "daily" ? deletedByReport["daily"]?.length : deletedByReport[activeReport]?.length) || 0) > 0 && (
+            {activeReport !== "final" && activeReport !== "cash_flow" && ((activeReport === "daily" ? deletedByReport["daily"]?.length : deletedByReport[activeReport]?.length) || 0) > 0 && (
               <button
                 type="button"
                 onClick={() => restoreDeletedForReport(activeReport)}
@@ -2935,8 +2935,8 @@ export function AccountsReportsHub({
               </button>
             )}
 
-            {/* Clear Current Report and Clear All buttons (Removed from Final Reports) */}
-            {activeReport !== "final" && (
+            {/* Clear Current Report and Clear All buttons (Removed from Final Reports and Cash Flow Reports) */}
+            {activeReport !== "final" && activeReport !== "cash_flow" && (
               <>
                 <button
                   type="button"
