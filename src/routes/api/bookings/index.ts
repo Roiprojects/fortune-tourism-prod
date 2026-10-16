@@ -244,8 +244,11 @@ export const Route = createFileRoute("/api/bookings/")({
             gst_amount,
           ].some((v) => Number(v) > 0) || Number(base_amount) > 0;
 
+          const explicitTotal = m(body.total_amount) || m(body.ticket_amount) || m(body.fare) || m(body.amount);
           let total: number;
-          if (hasComponents) {
+          if (explicitTotal > 0) {
+            total = explicitTotal;
+          } else if (hasComponents) {
             total =
               m(base_amount) +
               m(driver_allowance) +

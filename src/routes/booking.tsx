@@ -392,13 +392,14 @@ function BookingPage() {
 
   // Dynamic Total Fare calculation for confirmation ticket copy
   const displayTotalFare = useMemo(() => {
+    // If a custom manual fare amount has been entered, prioritize it for ALL service types (CAB, TRAIN, BUS, FLIGHT, TOUR)
+    if (otherFormData.fare_amount && Number(otherFormData.fare_amount) > 0) {
+      return Number(otherFormData.fare_amount);
+    }
     if (serviceType === "CAB") {
       return calculatedFare;
     }
     if (serviceType === "TOUR") {
-      if (otherFormData.fare_amount && Number(otherFormData.fare_amount) > 0) {
-        return Number(otherFormData.fare_amount);
-      }
       const pkg = liveTourPackages.find((p) => p.slug === otherFormData.package_slug) || liveTourPackages[0];
       const base = pkg?.startingPrice || 4999;
       const adults = Number(otherFormData.adults || 2);
@@ -875,7 +876,8 @@ function BookingPage() {
         ? (localPackage === "4hr_40km" ? "4 Hr's" : localPackage === "12hr_120km" ? "12 Hr's" : "8 Hr's")
         : null;
 
-      const effectiveAdvance = paymentChoice === "full" ? Number(calculatedFare || 0) : paymentChoice === "token_100" ? 100 : 0;
+      const effectiveCabTotal = Number(otherFormData.fare_amount && Number(otherFormData.fare_amount) > 0 ? otherFormData.fare_amount : calculatedFare);
+      const effectiveAdvance = paymentChoice === "full" ? effectiveCabTotal : paymentChoice === "token_100" ? 100 : 0;
       const effectivePaymentStatus = paymentChoice === "full" ? "Fully Paid" : paymentChoice === "token_100" ? "Advance Paid" : "Pending";
       const effectiveMethod = paymentChoice === "full" ? (fullPaymentType === "AUTOMATIC" ? "UPI" : `MANUAL_${manualMethod}`) : paymentChoice === "token_100" ? "UPI" : "PAY_ON_ARRIVAL";
 
@@ -900,7 +902,7 @@ function BookingPage() {
         distance_km: totalKm,
         rate_per_km: rateKm,
         min_km: minKm,
-        base_amount: baseAmt,
+        base_amount: Math.max(0, effectiveCabTotal - driverAllowance - gstAmt),
         driver_allowance: driverAllowance,
         gst_amount: gstAmt,
         boarding_point: boardingPoint,
@@ -917,19 +919,19 @@ function BookingPage() {
             ? `Hourly Rental: ${hourlyLabel || "Package"} | From: ${fromLocationDisplay}`
             : `One Way: ${fromLocationDisplay} → ${toLocationDisplay} | Dep: ${cabDate} ${cabTime}`,
           `Distance: ~${totalKm} km | Rate: ₹${rateKm}/km`,
-          `Fare: ₹${calculatedFare} (Base: ₹${baseAmt} + Driver Allowance: ₹${driverAllowance} + GST: ₹${gstAmt})`,
+          `Fare: ₹${effectiveCabTotal} (Base: ₹${Math.max(0, effectiveCabTotal - driverAllowance - gstAmt)} + Driver Allowance: ₹${driverAllowance} + GST: ₹${gstAmt})`,
           paymentChoice === "full"
-            ? `Payment: 100% Full Payment (${fullPaymentType === "AUTOMATIC" ? "Online UPI" : `Manual - ${manualMethod}`})`
+            ? `Payment: 100% Full Payment of ₹${effectiveCabTotal} (${fullPaymentType === "AUTOMATIC" ? "Online UPI" : `Manual - ${manualMethod}`})`
             : paymentChoice === "token_100"
-            ? `Payment: ₹100 Advance Paid (Balance: ₹${Math.max(0, calculatedFare - 100)})`
+            ? `Payment: ₹100 Advance Paid (Balance: ₹${Math.max(0, effectiveCabTotal - 100)})`
             : `Payment: Zero Advance (Pay on Boarding)`,
           utrRef && `UTR/Ref: ${utrRef}`,
           manualReceiptNo && `Manual Ref: ${manualReceiptNo}`,
         ]
           .filter(Boolean)
           .join(" | "),
-        total_amount: Number(calculatedFare || 0),
-        fare: Number(calculatedFare || 0),
+        total_amount: effectiveCabTotal,
+        fare: effectiveCabTotal,
         advance_amount: effectiveAdvance,
         payment_choice: paymentChoice,
         payment_method: effectiveMethod,
@@ -976,7 +978,7 @@ function BookingPage() {
             taxiNo: "KA 51 AC 6052",
             toll: "INCLUDED",
             boarding: boardingPoint,
-            amount: calculatedFare,
+            amount: effectiveCabTotal,
             paymentStatus: effectivePaymentStatus === "Fully Paid" ? "Paid" : effectivePaymentStatus === "Advance Paid" ? "Advance Paid" : "Pending",
             paymentMethod: effectiveMethod,
             pnr: pnrNumber,
@@ -2256,6 +2258,9 @@ function BookingPage() {
                     onChange={(e) => {
                       const val = e.target.value;
                       setOtherFormData((prev: any) => ({ ...prev, fare_amount: val }));
+                      if (paymentChoice === "full") {
+                        setAdvanceOption(Number(val) || 0);
+                      }
                     }}
                     placeholder={String(displayTotalFare)}
                     className="w-36 bg-[#0B132B] border border-amber-400/60 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30 text-white font-black text-base px-3 py-1.5 rounded-xl outline-none"
@@ -2657,6 +2662,36 @@ function BookingPage() {
                           <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 bg-amber-950/80 border border-amber-500/40 px-2.5 py-1 rounded-full">
                             Manual Payment Mode
                           </span>
+                        </div>
+
+                        {/* Manual Payment Amount Field */}
+                        <div className="bg-[#111c3a] border-2 border-amber-400/60 rounded-xl p-3.5 space-y-1.5 shadow-inner">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                              <Banknote className="w-4 h-4 text-amber-400" /> Manual Payment / Total Fare Amount (₹) *
+                            </label>
+                            <span className="text-[10px] font-bold text-amber-300 bg-amber-400/20 px-2 py-0.5 rounded border border-amber-400/30">
+                              Prints on Ticket &amp; Reports
+                            </span>
+                          </div>
+                          <div className="relative">
+                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white font-black text-base">₹</span>
+                            <input
+                              type="number"
+                              min={1}
+                              value={otherFormData.fare_amount || displayTotalFare}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setOtherFormData((prev: any) => ({ ...prev, fare_amount: val }));
+                                setAdvanceOption(Number(val) || 0);
+                              }}
+                              placeholder={String(displayTotalFare)}
+                              className="w-full bg-[#0B132B] border border-amber-400 focus:border-amber-300 focus:ring-2 focus:ring-amber-400/40 rounded-xl pl-8 pr-4 py-2.5 text-base font-black text-amber-300 placeholder:text-slate-500 outline-none"
+                            />
+                          </div>
+                          <p className="text-[11px] text-slate-300">
+                            Enter the exact manual amount collected for this booking. This exact amount will be displayed on the generated ticket, confirmation voucher, and all accounting reports.
+                          </p>
                         </div>
 
                         {/* Manual Payment Method Selector */}

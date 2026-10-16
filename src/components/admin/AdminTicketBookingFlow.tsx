@@ -1649,6 +1649,39 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                         </span>
                       </div>
 
+                      {/* Manual Payment Amount Field */}
+                      <div className="bg-[#111c3a] border-2 border-amber-400/60 rounded-xl p-3.5 space-y-1.5 shadow-inner">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <Banknote className="w-4 h-4 text-amber-400" /> Manual Payment / Total Ticket Fare (₹) *
+                          </label>
+                          <span className="text-[10px] font-bold text-amber-300 bg-amber-400/20 px-2 py-0.5 rounded border border-amber-400/30">
+                            Prints on Ticket &amp; Reports
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white font-black text-base">₹</span>
+                          <input
+                            type="number"
+                            min={1}
+                            value={serviceType === "TRAIN" ? (trainData.fare_amount || ticketFareAmount) : (otherFormData.fare_amount || ticketFareAmount)}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (serviceType === "TRAIN") {
+                                setTrainData((prev) => ({ ...prev, fare_amount: val }));
+                              } else {
+                                setOtherFormData((prev: any) => ({ ...prev, fare_amount: val }));
+                              }
+                            }}
+                            placeholder={String(ticketFareAmount)}
+                            className="w-full bg-[#0B132B] border border-amber-400 focus:border-amber-300 focus:ring-2 focus:ring-amber-400/40 rounded-xl pl-8 pr-4 py-2.5 text-base font-black text-amber-300 placeholder:text-slate-500 outline-none"
+                          />
+                        </div>
+                        <p className="text-[11px] text-slate-300">
+                          Enter the exact manual payment amount collected. This exact amount will appear on the generated ticket, confirmation voucher, and all accounting reports.
+                        </p>
+                      </div>
+
                       {/* Manual Payment Method Selector */}
                       <div className="space-y-1.5">
                         <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">

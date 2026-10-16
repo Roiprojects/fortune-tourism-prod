@@ -828,6 +828,9 @@ export function AdminHotelBookingFlow({
         ]
           .filter(Boolean)
           .join(" | "),
+        total_amount: Number(totalFare || 0),
+        fare: Number(totalFare || 0),
+        advance_amount: Number(effectiveAdvance || 0),
         client_token: `FT-ADMIN-HTL-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       };
 

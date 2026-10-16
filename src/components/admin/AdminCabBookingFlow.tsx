@@ -220,6 +220,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
   const [collectedBy, setCollectedBy] = useState("Admin Desk");
   const [utrRef, setUtrRef] = useState("");
   const [showQrModal, setShowQrModal] = useState<boolean>(false);
+  const [manualFareAmount, setManualFareAmount] = useState<string>("");
 
   // Ticket Identifiers
   const [ticketNumber, setTicketNumber] = useState(() => generateTicketNumber());
@@ -268,6 +269,14 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
     return withLuggageCarrier ? base + roofLuggageRate : base;
   }, [cabTripType, selectedFleet, localPackage, withLuggageCarrier, roofLuggageRate]);
 
+  // Effective Cab Fare prioritizing manual amount entered by user
+  const effectiveCabFare = useMemo(() => {
+    if (manualFareAmount && Number(manualFareAmount) > 0) {
+      return Number(manualFareAmount);
+    }
+    return calculatedFare;
+  }, [manualFareAmount, calculatedFare]);
+
   const paymentStatusText = useMemo(() => {
     if (paymentChoice === "full") {
       return fullPaymentType === "AUTOMATIC"
@@ -275,10 +284,10 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
         : `CONFIRMED / 100% PAID (${manualMethod === "CASH" ? "CASH" : manualMethod === "BANK_TRANSFER" ? "BANK TRANSFER" : manualMethod === "POS_CARD" ? "CARD POS" : "CHEQUE"})`;
     }
     if (paymentChoice === "token_100") {
-      return `₹100 ADVANCE PAID (BAL: ₹${Math.max(0, calculatedFare - 100).toLocaleString("en-IN")})`;
+      return `₹100 ADVANCE PAID (BAL: ₹${Math.max(0, effectiveCabFare - 100).toLocaleString("en-IN")})`;
     }
-    return `PAY ON BOARDING (DUE: ₹${calculatedFare.toLocaleString("en-IN")})`;
-  }, [paymentChoice, fullPaymentType, manualMethod, calculatedFare]);
+    return `PAY ON BOARDING (DUE: ₹${effectiveCabFare.toLocaleString("en-IN")})`;
+  }, [paymentChoice, fullPaymentType, manualMethod, effectiveCabFare]);
 
   const fromLocationDisplay = useMemo(() => {
     if (cabTripType === "AIRPORT") {
@@ -371,7 +380,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
         ? (cabPackage === "4hr_40km" ? "4 Hr's" : cabPackage === "12hr_120km" ? "12 Hr's" : "8 Hr's")
         : null;
 
-      const effectiveAdvance = paymentChoice === "full" ? Number(calculatedFare || 0) : paymentChoice === "token_100" ? 100 : 0;
+      const effectiveAdvance = paymentChoice === "full" ? Number(effectiveCabFare || 0) : paymentChoice === "token_100" ? 100 : 0;
       const effectivePaymentStatus = paymentChoice === "full" ? "Fully Paid" : paymentChoice === "token_100" ? "Advance Paid" : "Pending";
       const effectiveMethod = paymentChoice === "full" ? (fullPaymentType === "AUTOMATIC" ? "UPI" : `MANUAL_${manualMethod}`) : paymentChoice === "token_100" ? "UPI" : "PAY_ON_ARRIVAL";
 
@@ -397,8 +406,8 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
         boarding_address: boardingAddress,
         ticket_number: ticketNumber,
         pnr_number: pnrNumber,
-        total_amount: Number(calculatedFare || 0),
-        fare: Number(calculatedFare || 0),
+        total_amount: Number(effectiveCabFare || 0),
+        fare: Number(effectiveCabFare || 0),
         advance_amount: effectiveAdvance,
         payment_choice: paymentChoice,
         payment_method: effectiveMethod,
@@ -411,11 +420,11 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
           `PNR: ${pnrNumber}`,
           `Fleet: ${vehicleDisplay}`,
           isHourly ? `Rental Package: ${hourlyLabel || "Hourly"} (${fromLocationDisplay})` : null,
-          `Fare: ₹${calculatedFare}`,
+          `Fare: ₹${effectiveCabFare}`,
           paymentChoice === "full"
-            ? `Payment: 100% Full Payment (${fullPaymentType === "AUTOMATIC" ? "Online UPI" : `Manual - ${manualMethod}`})`
+            ? `Payment: 100% Full Payment of ₹${effectiveCabFare} (${fullPaymentType === "AUTOMATIC" ? "Online UPI" : `Manual - ${manualMethod}`})`
             : paymentChoice === "token_100"
-            ? `Payment: ₹100 Advance Paid (Balance: ₹${Math.max(0, calculatedFare - 100)})`
+            ? `Payment: ₹100 Advance Paid (Balance: ₹${Math.max(0, effectiveCabFare - 100)})`
             : `Payment: Zero Advance (Pay on Boarding)`,
           utrRef && `UTR/Ref: ${utrRef}`,
           manualReceiptNo && `Manual Ref: ${manualReceiptNo}`,
@@ -462,7 +471,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
             taxiNo: "KA 51 AC 6052",
             toll: "INCLUDED",
             boarding: boardingPoint,
-            amount: calculatedFare,
+            amount: effectiveCabFare,
             paymentStatus: effectivePaymentStatus === "Fully Paid" ? "Paid" : effectivePaymentStatus === "Advance Paid" ? "Advance Paid" : "Pending",
             paymentMethod: effectiveMethod,
             pnr: pnrNumber,
@@ -509,7 +518,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
       boardingPoint: boardingPoint || "—",
       boardingAddress: boardingAddress || "—",
       serviceType: "CAB",
-      fareAmount: calculatedFare,
+      fareAmount: effectiveCabFare,
       paymentStatus: paymentStatusText,
     });
     toast.success("Ticket PDF downloaded successfully!");
@@ -1252,6 +1261,41 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
               </button>
             </div>
 
+            {/* Manual Ticket Fare Amount Override */}
+            <div className="bg-[#111c3a]/90 border border-amber-400/40 rounded-2xl p-4 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Banknote className="w-4 h-4 text-amber-400" /> Ticket Fare / Manual Mode Amount (₹)
+                  </span>
+                  <span className="bg-amber-400/20 text-amber-300 border border-amber-400/40 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    Editable Manual Amount
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300">
+                  Enter or adjust the custom ticket amount. This exact amount reflects immediately on journey tickets, payment vouchers, and accounting reports.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-white font-black text-base">₹</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={manualFareAmount || ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setManualFareAmount(val);
+                    if (paymentChoice === "full") {
+                      setAdvanceOption(Number(val) || calculatedFare);
+                    }
+                  }}
+                  placeholder={String(effectiveCabFare)}
+                  className="w-36 bg-[#0B132B] border border-amber-400/60 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30 text-white font-black text-base px-3 py-1.5 rounded-xl outline-none"
+                />
+              </div>
+            </div>
+
             {/* Payment Options */}
             <div className="space-y-4">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-300 block">
@@ -1288,7 +1332,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                   type="button"
                   onClick={() => {
                     setPaymentChoice("full");
-                    setAdvanceOption(calculatedFare);
+                    setAdvanceOption(effectiveCabFare);
                   }}
                   className={`p-4 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
                     paymentChoice === "full"
@@ -1305,14 +1349,14 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                     </span>
                   </div>
                   <p className="text-xs text-slate-300">
-                    100% full amount (₹{calculatedFare.toLocaleString("en-IN")}) by manual cash/bank or automatically via UPI.
+                    100% full amount (₹{effectiveCabFare.toLocaleString("en-IN")}) by manual cash/bank or automatically via UPI.
                   </p>
                   <div className="mt-2.5 flex items-center gap-1.5">
                     <span
                       onClick={(e) => {
                         e.stopPropagation();
                         setPaymentChoice("full");
-                        setAdvanceOption(calculatedFare);
+                        setAdvanceOption(effectiveCabFare);
                         setFullPaymentType("AUTOMATIC");
                       }}
                       className={`text-[10px] font-black px-2 py-0.5 rounded-md transition-all ${
@@ -1327,7 +1371,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                       onClick={(e) => {
                         e.stopPropagation();
                         setPaymentChoice("full");
-                        setAdvanceOption(calculatedFare);
+                        setAdvanceOption(effectiveCabFare);
                         setFullPaymentType("MANUAL");
                       }}
                       className={`text-[10px] font-black px-2 py-0.5 rounded-md transition-all ${
@@ -1379,7 +1423,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                           Scan &amp; Pay via PhonePe / Any UPI App
                         </h3>
                         <p className="text-[11px] text-purple-200">
-                          Collect ₹100 Token Advance to confirm and generate offline ticket copy (Balance ₹{(Math.max(0, calculatedFare - 100)).toLocaleString("en-IN")} on boarding)
+                          Collect ₹100 Token Advance to confirm and generate offline ticket copy (Balance ₹{(Math.max(0, effectiveCabFare - 100)).toLocaleString("en-IN")} on boarding)
                         </p>
                       </div>
                     </div>
@@ -1479,7 +1523,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                           <CreditCard className="w-5 h-5 text-amber-400" /> Full Payment Method:
                         </span>
                         <span className="text-xs font-mono font-black text-amber-300 bg-amber-400/15 px-3 py-1 rounded-lg border border-amber-400/30">
-                          100% Fare: ₹{calculatedFare.toLocaleString("en-IN")}
+                          100% Fare: ₹{effectiveCabFare.toLocaleString("en-IN")}
                         </span>
                       </div>
                       <p className="text-xs text-slate-300 mt-0.5">
@@ -1527,12 +1571,12 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                               Automatic Full Fare Payment via PhonePe / UPI
                             </h4>
                             <p className="text-[11px] text-purple-200">
-                              Collect full fare of ₹{calculatedFare.toLocaleString("en-IN")} via QR scan to mark booking 100% settled
+                              Collect full fare of ₹{effectiveCabFare.toLocaleString("en-IN")} via QR scan to mark booking 100% settled
                             </p>
                           </div>
                         </div>
                         <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-950/80 border border-emerald-500/30 px-2.5 py-1 rounded-full">
-                          Full Amount ₹{calculatedFare.toLocaleString("en-IN")}
+                          Full Amount ₹{effectiveCabFare.toLocaleString("en-IN")}
                         </span>
                       </div>
 
@@ -1581,14 +1625,14 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
 
                           <div className="space-y-1.5">
                             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                              Fast Pay Full Amount (₹{calculatedFare.toLocaleString("en-IN")}) With UPI App
+                              Fast Pay Full Amount (₹{effectiveCabFare.toLocaleString("en-IN")}) With UPI App
                             </div>
                             <div className="flex flex-wrap gap-2">
                               {[
-                                { name: "PhonePe", link: `phonepe://pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=${calculatedFare}&cu=INR`, color: "bg-[#5f259f] text-white hover:bg-purple-800 border-purple-400/30" },
-                                { name: "Google Pay", link: `tez://upi/pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=${calculatedFare}&cu=INR`, color: "bg-blue-600 text-white hover:bg-blue-700 border-blue-400/30" },
-                                { name: "Paytm", link: `paytmmp://upi/pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=${calculatedFare}&cu=INR`, color: "bg-sky-600 text-white hover:bg-sky-700 border-sky-400/30" },
-                                { name: "Any UPI App", link: `upi://pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=${calculatedFare}&cu=INR&tn=Full%20Payment%20Fortune%20Tourism`, color: "bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-400/30" },
+                                { name: "PhonePe", link: `phonepe://pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=${effectiveCabFare}&cu=INR`, color: "bg-[#5f259f] text-white hover:bg-purple-800 border-purple-400/30" },
+                                { name: "Google Pay", link: `tez://upi/pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=${effectiveCabFare}&cu=INR`, color: "bg-blue-600 text-white hover:bg-blue-700 border-blue-400/30" },
+                                { name: "Paytm", link: `paytmmp://upi/pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=${effectiveCabFare}&cu=INR`, color: "bg-sky-600 text-white hover:bg-sky-700 border-sky-400/30" },
+                                { name: "Any UPI App", link: `upi://pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=${effectiveCabFare}&cu=INR&tn=Full%20Payment%20Fortune%20Tourism`, color: "bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-400/30" },
                               ].map((app) => (
                                 <a
                                   key={app.name}
@@ -1631,13 +1675,43 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                               Record Full Manual Payment
                             </h4>
                             <p className="text-[11px] text-amber-200">
-                              Collect ₹{calculatedFare.toLocaleString("en-IN")} via Cash, Bank Transfer, POS Card or Cheque
+                              Collect ₹{effectiveCabFare.toLocaleString("en-IN")} via Cash, Bank Transfer, POS Card or Cheque
                             </p>
                           </div>
                         </div>
                         <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 bg-amber-950/80 border border-amber-500/40 px-2.5 py-1 rounded-full">
                           Manual Payment Mode
                         </span>
+                      </div>
+
+                      {/* Manual Payment Amount Field */}
+                      <div className="bg-[#111c3a] border-2 border-amber-400/60 rounded-xl p-3.5 space-y-1.5 shadow-inner">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <Banknote className="w-4 h-4 text-amber-400" /> Manual Payment / Total Fare Amount (₹) *
+                          </label>
+                          <span className="text-[10px] font-bold text-amber-300 bg-amber-400/20 px-2 py-0.5 rounded border border-amber-400/30">
+                            Prints on Ticket &amp; Reports
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white font-black text-base">₹</span>
+                          <input
+                            type="number"
+                            min={1}
+                            value={manualFareAmount || effectiveCabFare}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setManualFareAmount(val);
+                              setAdvanceOption(Number(val) || 0);
+                            }}
+                            placeholder={String(effectiveCabFare)}
+                            className="w-full bg-[#0B132B] border border-amber-400 focus:border-amber-300 focus:ring-2 focus:ring-amber-400/40 rounded-xl pl-8 pr-4 py-2.5 text-base font-black text-amber-300 placeholder:text-slate-500 outline-none"
+                          />
+                        </div>
+                        <p className="text-[11px] text-slate-300">
+                          Enter the manual amount collected for this booking. This exact amount will be displayed on the generated ticket, confirmation voucher, and all accounting reports.
+                        </p>
                       </div>
 
                       {/* Manual Payment Method Selector */}
@@ -1715,7 +1789,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                         <div className="flex items-center gap-2">
                           <CheckCircle2 className="w-4 h-4 text-[#00c58e]" />
                           <span className="text-xs font-bold text-emerald-200">
-                            Full Amount of ₹{calculatedFare.toLocaleString("en-IN")} marked as 100% Collected &amp; Confirmed
+                            Full Amount of ₹{effectiveCabFare.toLocaleString("en-IN")} marked as 100% Collected &amp; Confirmed
                           </span>
                         </div>
                         <span className="text-[10px] font-black uppercase text-emerald-300 bg-emerald-900/60 px-2 py-0.5 rounded border border-emerald-500/30">
@@ -1739,12 +1813,12 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                         Zero Advance Selected (Pay on Boarding)
                       </h4>
                       <p className="text-xs text-slate-400">
-                        Passenger will pay the full journey fare of <strong>₹{calculatedFare.toLocaleString("en-IN")}</strong> directly to the driver upon boarding.
+                        Passenger will pay the full journey fare of <strong>₹{effectiveCabFare.toLocaleString("en-IN")}</strong> directly to the driver upon boarding.
                       </p>
                     </div>
                   </div>
                   <span className="text-xs font-black text-amber-400 bg-amber-950/60 border border-amber-500/30 px-3 py-1 rounded-xl shrink-0">
-                    Due: ₹{calculatedFare.toLocaleString("en-IN")}
+                    Due: ₹{effectiveCabFare.toLocaleString("en-IN")}
                   </span>
                 </div>
               )}
@@ -1838,7 +1912,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
 
                 <a
                   href={buildWhatsAppUrl(
-                    `Hello Fortune Tourism! New offline cab reservation booked.\n\n*Ticket No:* ${ticketNumber}\n*PNR:* ${pnrNumber}\n*Passenger:* ${passengerName || "GUEST"}\n*Phone:* ${passengerPhone || "9964600247"}\n*From:* ${fromLocationDisplay}\n*To:* ${toLocationDisplay}\n*Date:* ${departureDateFormatted}\n*Vehicle:* ${vehicleDisplay}\n*Fare:* ₹${calculatedFare}`
+                    `Hello Fortune Tourism! New offline cab reservation booked.\n\n*Ticket No:* ${ticketNumber}\n*PNR:* ${pnrNumber}\n*Passenger:* ${passengerName || "GUEST"}\n*Phone:* ${passengerPhone || "9964600247"}\n*From:* ${fromLocationDisplay}\n*To:* ${toLocationDisplay}\n*Date:* ${departureDateFormatted}\n*Vehicle:* ${vehicleDisplay}\n*Fare:* ₹${effectiveCabFare}`
                   )}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -1894,7 +1968,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                     <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
                       TOTAL FARE :
                       <strong className="font-mono font-black text-emerald-800 text-sm sm:text-base tracking-wider bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-400 shadow-2xs">
-                        ₹{Number(calculatedFare || 0).toLocaleString("en-IN")}
+                        ₹{Number(effectiveCabFare || 0).toLocaleString("en-IN")}
                       </strong>
                     </span>
                   </div>
@@ -1998,8 +2072,24 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                       <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
                         Fare Amount:
                       </td>
-                      <td className="p-2.5 font-black text-emerald-700 uppercase">
-                        ₹{Number(calculatedFare || 0).toLocaleString("en-IN")}
+                      <td className="p-2.5 font-black uppercase">
+                        <div className="flex items-center gap-1">
+                          <span className="text-emerald-700 font-black">₹</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={manualFareAmount || effectiveCabFare}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setManualFareAmount(val);
+                              if (paymentChoice === "full") {
+                                setAdvanceOption(Number(val) || 0);
+                              }
+                            }}
+                            className="w-28 bg-transparent border-b border-dashed border-slate-400 hover:border-slate-800 focus:border-emerald-600 focus:bg-emerald-50/40 px-1 py-0.5 text-xs sm:text-sm font-black text-emerald-800 outline-none transition"
+                            title="Click to edit journey fare amount on ticket copy"
+                          />
+                        </div>
                       </td>
                     </tr>
 
@@ -2009,7 +2099,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                         Total Fare Amount:
                       </td>
                       <td className="p-2.5 font-black text-emerald-800 text-sm sm:text-base">
-                        ₹{Number(calculatedFare || 0).toLocaleString("en-IN")}
+                        ₹{Number(effectiveCabFare || 0).toLocaleString("en-IN")}
                       </td>
                       <td className="p-2.5 font-bold text-slate-900 bg-emerald-100/70 whitespace-nowrap">
                         Payment Status:

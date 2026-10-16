@@ -229,6 +229,9 @@ export function AdminTourBookingFlow({
         ]
           .filter(Boolean)
           .join(" | "),
+        total_amount: Number(effectiveFareAmount || 0),
+        fare: Number(effectiveFareAmount || 0),
+        advance_amount: Number(effectiveFareAmount || 0),
         client_token: `FT-ADMIN-TOUR-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       };
 
