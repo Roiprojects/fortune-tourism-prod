@@ -21,6 +21,7 @@ import {
   QrCode,
   Building2,
   Wallet,
+  Gauge,
 } from "lucide-react";
 import { LocationSearchInput } from "@/components/booking/LocationSearchInput";
 import { generateTicketNumber, generatePNR } from "@/lib/booking-utils";
@@ -198,6 +199,9 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
   const [cabReturnDate, setCabReturnDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [cabTime, setCabTime] = useState("07:00");
   const [localPackage, setLocalPackage] = useState<"4hr_40km" | "8hr_80km" | "12hr_120km">("4hr_40km");
+  const [cabOneWayKm, setCabOneWayKm] = useState<number>(145);
+  const [cabRoundTripKm, setCabRoundTripKm] = useState<number>(290);
+  const [isCustomKm, setIsCustomKm] = useState<boolean>(false);
   const [airportTripType, setAirportTripType] = useState<"Drop to Airport" | "Pickup from Airport">("Drop to Airport");
   const [airportName, setAirportName] = useState("Terminal 1, Kempegowda International Airport (BLR)");
 
@@ -254,11 +258,20 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
     return fleetOptions.find((f) => f.id === selectedFleetId) || fleetOptions[1] || fleetOptions[0];
   }, [fleetOptions, selectedFleetId]);
 
-  // Dynamic Fare calculation
+  // Dynamic Fare calculation based on Trip Type & Selected Kilometers
   const calculatedFare = useMemo(() => {
     let base = selectedFleet.basePriceOneWay;
-    if (cabTripType === "ROUND TRIP") {
+    if (cabTripType === "ONE WAY") {
+      base = selectedFleet.basePriceOneWay;
+      if (cabOneWayKm > selectedFleet.includedKms) {
+        base += (cabOneWayKm - selectedFleet.includedKms) * selectedFleet.postLimitRate;
+      }
+    } else if (cabTripType === "ROUND TRIP") {
       base = selectedFleet.basePriceRoundTrip;
+      const baseRtKm = selectedFleet.includedKms * 2;
+      if (cabRoundTripKm > baseRtKm) {
+        base += (cabRoundTripKm - baseRtKm) * selectedFleet.postLimitRate;
+      }
     } else if (cabTripType === "AIRPORT") {
       base = selectedFleet.basePriceAirport;
     } else if (cabTripType === "LOCAL" || cabTripType === "HOURLY PACKAGE") {
@@ -266,8 +279,8 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
       else if (localPackage === "8hr_80km") base = selectedFleet.basePriceLocal8hr;
       else base = selectedFleet.basePriceLocal12hr;
     }
-    return withLuggageCarrier ? base + roofLuggageRate : base;
-  }, [cabTripType, selectedFleet, localPackage, withLuggageCarrier, roofLuggageRate]);
+    return withLuggageCarrier ? Math.round(base + roofLuggageRate) : Math.round(base);
+  }, [cabTripType, selectedFleet, cabOneWayKm, cabRoundTripKm, localPackage, withLuggageCarrier, roofLuggageRate]);
 
   // Effective Cab Fare prioritizing manual amount entered by user
   const effectiveCabFare = useMemo(() => {
@@ -384,6 +397,8 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
       const effectivePaymentStatus = paymentChoice === "full" ? "Fully Paid" : paymentChoice === "token_100" ? "Advance Paid" : "Pending";
       const effectiveMethod = paymentChoice === "full" ? (fullPaymentType === "AUTOMATIC" ? "UPI" : `MANUAL_${manualMethod}`) : paymentChoice === "token_100" ? "UPI" : "PAY_ON_ARRIVAL";
 
+      const totalKm = cabTripType === "ROUND TRIP" ? cabRoundTripKm : (cabTripType === "ONE WAY" ? cabOneWayKm : (selectedFleet.includedKms || 145));
+
       const payload = {
         name: passengerName.trim(),
         phone: passengerPhone.trim(),
@@ -395,6 +410,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
         pickup: fromLocationDisplay,
         destination: toLocationDisplay,
         date: cabDate || today,
+        return_date: cabTripType === "ROUND TRIP" ? cabReturnDate : null,
         time: cabTime || "07:00",
         passengers: String(selectedFleet.seats),
         trip_type: cabTripType,
@@ -402,6 +418,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
         vehicle_type: vehicleDisplay,
         hours_package: hourlyHoursStr,
         hours: hourlyLabel,
+        distance_km: totalKm,
         boarding_point: boardingPoint,
         boarding_address: boardingAddress,
         ticket_number: ticketNumber,
@@ -419,6 +436,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
           `Ticket No: ${ticketNumber}`,
           `PNR: ${pnrNumber}`,
           `Fleet: ${vehicleDisplay}`,
+          cabTripType === "ROUND TRIP" ? `Round Trip (${cabRoundTripKm} km)` : cabTripType === "ONE WAY" ? `One Way (${cabOneWayKm} km)` : null,
           isHourly ? `Rental Package: ${hourlyLabel || "Hourly"} (${fromLocationDisplay})` : null,
           `Fare: ₹${effectiveCabFare}`,
           paymentChoice === "full"
@@ -646,152 +664,302 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
               </div>
             )}
 
+            {/* KILOMETER SELECTOR BUTTONS (For ONE WAY) */}
+            {cabTripType === "ONE WAY" && (
+              <div className="flex flex-col items-center justify-center gap-1.5 pt-2 pb-1 animate-in fade-in duration-200">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <Gauge className="w-3.5 h-3.5 text-[#00c58e]" /> SELECT JOURNEY KILOMETERS (KM)
+                  <span className="text-[10px] text-emerald-400 bg-emerald-950/70 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
+                    Base Included: 145 km
+                  </span>
+                </div>
+                <div className="inline-flex flex-wrap items-center justify-center rounded-xl border border-white/15 overflow-hidden text-xs sm:text-sm font-bold bg-[#111c3a]/90 p-1 gap-1 shadow-inner">
+                  {[100, 145, 150, 200, 250, 300, 400].map((km) => {
+                    const isSelected = cabOneWayKm === km && !isCustomKm;
+                    return (
+                      <button
+                        key={km}
+                        type="button"
+                        onClick={() => {
+                          setCabOneWayKm(km);
+                          setIsCustomKm(false);
+                        }}
+                        className={`px-3 sm:px-4 py-2 transition-all uppercase tracking-wider rounded-lg font-black cursor-pointer ${
+                          isSelected
+                            ? "bg-[#00c58e] text-white shadow-md shadow-[#00c58e]/30 scale-[1.02]"
+                            : "text-slate-300 hover:text-white hover:bg-white/10"
+                        }`}
+                      >
+                        {km} Km {km === 145 ? "★" : ""}
+                      </button>
+                    );
+                  })}
+                  {/* Custom Km Button / Input */}
+                  <div
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition-all ${
+                      isCustomKm
+                        ? "bg-[#00c58e]/20 border-[#00c58e] text-white"
+                        : "border-white/10 text-slate-300 hover:bg-white/5"
+                    }`}
+                  >
+                    <span className="text-[11px] font-bold">Custom:</span>
+                    <input
+                      type="number"
+                      min={10}
+                      max={5000}
+                      value={cabOneWayKm}
+                      onFocus={() => setIsCustomKm(true)}
+                      onChange={(e) => {
+                        setIsCustomKm(true);
+                        setCabOneWayKm(Math.max(1, Number(e.target.value) || 0));
+                      }}
+                      className="w-16 bg-[#0b1329] border border-white/20 focus:border-[#00c58e] px-1.5 py-0.5 rounded text-xs font-black text-white text-center outline-none"
+                    />
+                    <span className="text-[11px] font-bold">Km</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* KILOMETER SELECTOR BUTTONS (For ROUND TRIP) */}
+            {cabTripType === "ROUND TRIP" && (
+              <div className="flex flex-col items-center justify-center gap-1.5 pt-2 pb-1 animate-in fade-in duration-200">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <Gauge className="w-3.5 h-3.5 text-[#00c58e]" /> SELECT ROUND TRIP KILOMETERS (2-WAY RETURN)
+                  <span className="text-[10px] text-emerald-400 bg-emerald-950/70 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
+                    Base Included: 290 km (145 km × 2)
+                  </span>
+                </div>
+                <div className="inline-flex flex-wrap items-center justify-center rounded-xl border border-white/15 overflow-hidden text-xs sm:text-sm font-bold bg-[#111c3a]/90 p-1 gap-1 shadow-inner">
+                  {[200, 290, 300, 400, 500, 600, 800].map((km) => {
+                    const isSelected = cabRoundTripKm === km && !isCustomKm;
+                    return (
+                      <button
+                        key={km}
+                        type="button"
+                        onClick={() => {
+                          setCabRoundTripKm(km);
+                          setIsCustomKm(false);
+                        }}
+                        className={`px-3 sm:px-4 py-2 transition-all uppercase tracking-wider rounded-lg font-black cursor-pointer ${
+                          isSelected
+                            ? "bg-[#00c58e] text-white shadow-md shadow-[#00c58e]/30 scale-[1.02]"
+                            : "text-slate-300 hover:text-white hover:bg-white/10"
+                        }`}
+                      >
+                        {km} Km {km === 290 ? "★" : ""}
+                      </button>
+                    );
+                  })}
+                  {/* Custom Km Button / Input */}
+                  <div
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition-all ${
+                      isCustomKm
+                        ? "bg-[#00c58e]/20 border-[#00c58e] text-white"
+                        : "border-white/10 text-slate-300 hover:bg-white/5"
+                    }`}
+                  >
+                    <span className="text-[11px] font-bold">Custom:</span>
+                    <input
+                      type="number"
+                      min={20}
+                      max={10000}
+                      value={cabRoundTripKm}
+                      onFocus={() => setIsCustomKm(true)}
+                      onChange={(e) => {
+                        setIsCustomKm(true);
+                        setCabRoundTripKm(Math.max(1, Number(e.target.value) || 0));
+                      }}
+                      className="w-16 bg-[#0b1329] border border-white/20 focus:border-[#00c58e] px-1.5 py-0.5 rounded text-xs font-black text-white text-center outline-none"
+                    />
+                    <span className="text-[11px] font-bold">Km</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* INPUT FIELDS ROW */}
             <div className="pt-2">
               {/* ONE WAY */}
               {cabTripType === "ONE WAY" && (
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                  {/* FROM + SWAP + TO */}
-                  <div className="md:col-span-6 flex items-end gap-2">
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-                        FROM
-                      </label>
-                      <LocationSearchInput
-                        value={cabFrom}
-                        onChange={setCabFrom}
-                        placeholder="Enter Pickup Location"
-                        dark={true}
-                      />
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between pb-1 border-b border-white/10 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-black text-xs uppercase tracking-wider">
+                        ONE WAY TRIP
+                      </span>
+                      <span className="text-xs text-slate-300 font-bold">
+                        POINT TO POINT JOURNEY
+                      </span>
                     </div>
-
-                    <div className="flex-shrink-0 pb-1">
-                      <button
-                        type="button"
-                        onClick={swapLocations}
-                        className="w-9 h-9 rounded-full bg-[#111c3a] border border-white/20 hover:border-[#00c58e] hover:bg-[#16254c] flex items-center justify-center text-slate-300 transition-all shadow-md hover:scale-105 cursor-pointer"
-                        title="Swap Locations"
-                      >
-                        <ArrowLeftRight className="w-4 h-4 text-[#00c58e]" />
-                      </button>
-                    </div>
-
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-                        TO
-                      </label>
-                      <LocationSearchInput
-                        value={cabTo}
-                        onChange={setCabTo}
-                        placeholder="Enter Drop Location"
-                        dark={true}
-                      />
+                    <div className="text-[11px] text-slate-300 flex items-center gap-2 flex-wrap">
+                      <span className="bg-emerald-950/70 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-emerald-300 font-bold flex items-center gap-1">
+                        <Gauge className="w-3 h-3 text-[#00c58e]" /> Distance: {cabOneWayKm} km
+                      </span>
                     </div>
                   </div>
 
-                  <div className="md:col-span-3 space-y-1">
-                    <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-                      PICK UP DATE
-                    </label>
-                    <input
-                      type="date"
-                      min={today}
-                      value={cabDate}
-                      onChange={(e) => setCabDate(e.target.value)}
-                      className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
-                    />
-                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                    {/* FROM + SWAP + TO */}
+                    <div className="md:col-span-6 flex items-end gap-2">
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
+                          FROM
+                        </label>
+                        <LocationSearchInput
+                          value={cabFrom}
+                          onChange={setCabFrom}
+                          placeholder="Enter Pickup Location"
+                          dark={true}
+                        />
+                      </div>
 
-                  <div className="md:col-span-3 space-y-1">
-                    <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-                      PICK UP TIME
-                    </label>
-                    <input
-                      type="time"
-                      value={cabTime}
-                      onChange={(e) => setCabTime(e.target.value)}
-                      className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
-                    />
+                      <div className="flex-shrink-0 pb-1">
+                        <button
+                          type="button"
+                          onClick={swapLocations}
+                          className="w-9 h-9 rounded-full bg-[#111c3a] border border-white/20 hover:border-[#00c58e] hover:bg-[#16254c] flex items-center justify-center text-slate-300 transition-all shadow-md hover:scale-105 cursor-pointer"
+                          title="Swap Locations"
+                        >
+                          <ArrowLeftRight className="w-4 h-4 text-[#00c58e]" />
+                        </button>
+                      </div>
+
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
+                          TO
+                        </label>
+                        <LocationSearchInput
+                          value={cabTo}
+                          onChange={setCabTo}
+                          placeholder="Enter Drop Location"
+                          dark={true}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-3 space-y-1">
+                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
+                        PICK UP DATE
+                      </label>
+                      <input
+                        type="date"
+                        min={today}
+                        value={cabDate}
+                        onChange={(e) => setCabDate(e.target.value)}
+                        className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
+                      />
+                    </div>
+
+                    <div className="md:col-span-3 space-y-1">
+                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
+                        PICK UP TIME
+                      </label>
+                      <input
+                        type="time"
+                        value={cabTime}
+                        onChange={(e) => setCabTime(e.target.value)}
+                        className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
+                      />
+                    </div>
                   </div>
                 </div>
               )}
 
               {/* ROUND TRIP */}
               {cabTripType === "ROUND TRIP" && (
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                  <div className="md:col-span-5 flex items-end gap-2">
-                    <div className="flex-1 min-w-0 space-y-1">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between pb-1 border-b border-white/10 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-black text-xs uppercase tracking-wider">
+                        ROUND TRIP
+                      </span>
+                      <span className="text-xs text-slate-300 font-bold">
+                        ORIGIN ⇄ DESTINATION (RETURN)
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-300 flex items-center gap-2.5 flex-wrap">
+                      <span className="bg-emerald-950/70 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-emerald-300 font-bold flex items-center gap-1">
+                        <Gauge className="w-3 h-3 text-[#00c58e]" /> {cabRoundTripKm} km 2-Way Total
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                    <div className="md:col-span-5 flex items-end gap-2">
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
+                          FROM
+                        </label>
+                        <LocationSearchInput
+                          value={cabFrom}
+                          onChange={setCabFrom}
+                          placeholder="Enter Pickup Location"
+                          dark={true}
+                        />
+                      </div>
+
+                      <div className="flex-shrink-0 pb-1">
+                        <button
+                          type="button"
+                          onClick={swapLocations}
+                          className="w-9 h-9 rounded-full bg-[#111c3a] border border-white/20 hover:border-[#00c58e] hover:bg-[#16254c] flex items-center justify-center text-slate-300 transition-all shadow-md hover:scale-105 cursor-pointer"
+                          title="Swap Locations"
+                        >
+                          <ArrowLeftRight className="w-4 h-4 text-[#00c58e]" />
+                        </button>
+                      </div>
+
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
+                          TO
+                        </label>
+                        <LocationSearchInput
+                          value={cabTo}
+                          onChange={setCabTo}
+                          placeholder="Enter Drop Location"
+                          dark={true}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-3 space-y-1">
                       <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-                        FROM
+                        PICK UP DATE
                       </label>
-                      <LocationSearchInput
-                        value={cabFrom}
-                        onChange={setCabFrom}
-                        placeholder="Enter Pickup Location"
-                        dark={true}
+                      <input
+                        type="date"
+                        min={today}
+                        value={cabDate}
+                        onChange={(e) => setCabDate(e.target.value)}
+                        className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
                       />
                     </div>
 
-                    <div className="flex-shrink-0 pb-1">
-                      <button
-                        type="button"
-                        onClick={swapLocations}
-                        className="w-9 h-9 rounded-full bg-[#111c3a] border border-white/20 hover:border-[#00c58e] hover:bg-[#16254c] flex items-center justify-center text-slate-300 transition-all shadow-md hover:scale-105 cursor-pointer"
-                        title="Swap Locations"
-                      >
-                        <ArrowLeftRight className="w-4 h-4 text-[#00c58e]" />
-                      </button>
-                    </div>
-
-                    <div className="flex-1 min-w-0 space-y-1">
+                    <div className="md:col-span-2 space-y-1">
                       <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-                        TO
+                        RETURN DATE
                       </label>
-                      <LocationSearchInput
-                        value={cabTo}
-                        onChange={setCabTo}
-                        placeholder="Enter Drop Location"
-                        dark={true}
+                      <input
+                        type="date"
+                        min={cabDate || today}
+                        value={cabReturnDate}
+                        onChange={(e) => setCabReturnDate(e.target.value)}
+                        className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
                       />
                     </div>
-                  </div>
 
-                  <div className="md:col-span-3 space-y-1">
-                    <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-                      PICK UP DATE
-                    </label>
-                    <input
-                      type="date"
-                      min={today}
-                      value={cabDate}
-                      onChange={(e) => setCabDate(e.target.value)}
-                      className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2 space-y-1">
-                    <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-                      RETURN DATE
-                    </label>
-                    <input
-                      type="date"
-                      min={cabDate || today}
-                      value={cabReturnDate}
-                      onChange={(e) => setCabReturnDate(e.target.value)}
-                      className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2 space-y-1">
-                    <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-                      TIME
-                    </label>
-                    <input
-                      type="time"
-                      value={cabTime}
-                      onChange={(e) => setCabTime(e.target.value)}
-                      className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
-                    />
+                    <div className="md:col-span-2 space-y-1">
+                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
+                        TIME
+                      </label>
+                      <input
+                        type="time"
+                        value={cabTime}
+                        onChange={(e) => setCabTime(e.target.value)}
+                        className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
+                      />
+                    </div>
                   </div>
                 </div>
               )}
@@ -980,13 +1148,26 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
               {fleetOptions.map((fleet) => {
                 const isSelected = selectedFleetId === fleet.id;
                 let price = fleet.basePriceOneWay;
-                if (cabTripType === "ROUND TRIP") price = fleet.basePriceRoundTrip;
+                if (cabTripType === "ONE WAY") {
+                  price = fleet.basePriceOneWay;
+                  if (cabOneWayKm > fleet.includedKms) {
+                    price += (cabOneWayKm - fleet.includedKms) * fleet.postLimitRate;
+                  }
+                }
+                if (cabTripType === "ROUND TRIP") {
+                  price = fleet.basePriceRoundTrip;
+                  const baseRtKm = fleet.includedKms * 2;
+                  if (cabRoundTripKm > baseRtKm) {
+                    price += (cabRoundTripKm - baseRtKm) * fleet.postLimitRate;
+                  }
+                }
                 if (cabTripType === "AIRPORT") price = fleet.basePriceAirport;
                 if (cabTripType === "LOCAL" || cabTripType === "HOURLY PACKAGE") {
                   if (localPackage === "4hr_40km") price = fleet.basePriceLocal4hr;
                   else if (localPackage === "8hr_80km") price = fleet.basePriceLocal8hr;
                   else price = fleet.basePriceLocal12hr;
                 }
+                price = Math.round(price);
 
                 return (
                   <div
@@ -1030,13 +1211,28 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                           </span>
                         </div>
 
+                        {cabTripType === "ONE WAY" && (
+                          <div className="flex flex-wrap items-center gap-2 pt-1.5 text-[11px]">
+                            <span className="bg-[#00c58e]/20 text-[#00c58e] border border-[#00c58e]/30 px-2 py-0.5 rounded-lg font-bold flex items-center gap-1">
+                              🛣️ {cabOneWayKm} Km Journey
+                            </span>
+                            <span className="text-slate-300 font-medium">
+                              {cabOneWayKm <= fleet.includedKms
+                                ? `${fleet.includedKms} km standard base included`
+                                : `Base ₹${fleet.basePriceOneWay.toLocaleString()} (${fleet.includedKms} km) + ${cabOneWayKm - fleet.includedKms} extra km @ ₹${fleet.postLimitRate}/km`}
+                            </span>
+                          </div>
+                        )}
+
                         {cabTripType === "ROUND TRIP" && (
                           <div className="flex flex-wrap items-center gap-2 pt-1.5 text-[11px]">
                             <span className="bg-[#00c58e]/20 text-[#00c58e] border border-[#00c58e]/30 px-2 py-0.5 rounded-lg font-bold flex items-center gap-1">
-                              🔄 2-Way Return ({fleet.includedKms * 2} km incl.)
+                              🔄 2-Way Return ({cabRoundTripKm} km total)
                             </span>
                             <span className="text-slate-300 font-medium">
-                              Onward: ₹{fleet.basePriceOneWay.toLocaleString()} + Return: ₹{(price - fleet.basePriceOneWay).toLocaleString()} · Ret: {cabReturnDate}
+                              {cabRoundTripKm <= fleet.includedKms * 2
+                                ? `Onward: ₹${fleet.basePriceOneWay.toLocaleString()} + Return: ₹${(price - fleet.basePriceOneWay).toLocaleString()} · Ret: ${cabReturnDate}`
+                                : `2-Way Base ₹${fleet.basePriceRoundTrip.toLocaleString()} (${fleet.includedKms * 2} km) + ${cabRoundTripKm - fleet.includedKms * 2} extra km @ ₹${fleet.postLimitRate}/km · Ret: ${cabReturnDate}`}
                             </span>
                           </div>
                         )}
@@ -2080,7 +2276,9 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                       </td>
                       <td className="p-2.5 font-bold text-slate-900 uppercase">
                         {cabTripType === "ROUND TRIP"
-                          ? "ROUND TRIP (2-WAY)"
+                          ? `ROUND TRIP (2-WAY · ${cabRoundTripKm} KM)`
+                          : cabTripType === "ONE WAY"
+                          ? `ONE WAY (${cabOneWayKm} KM)`
                           : cabTripType === "HOURLY PACKAGE"
                           ? `HOURLY PACKAGE (${localPackage === "4hr_40km" ? "4 HRS / 40 KM" : localPackage === "8hr_80km" ? "8 HRS / 80 KM" : "12 HRS / 120 KM"})`
                           : cabTripType}
@@ -2129,7 +2327,12 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                         ₹{Number(effectiveCabFare || 0).toLocaleString("en-IN")}
                         {cabTripType === "ROUND TRIP" && (
                           <span className="text-[10px] font-bold text-emerald-700 ml-2">
-                            (Includes Full 2-Way Return Circuit)
+                            (Includes Full 2-Way Return Circuit · {cabRoundTripKm} Km)
+                          </span>
+                        )}
+                        {cabTripType === "ONE WAY" && (
+                          <span className="text-[10px] font-bold text-emerald-700 ml-2">
+                            ({cabOneWayKm} Km Journey)
                           </span>
                         )}
                         {(cabTripType === "HOURLY PACKAGE" || cabTripType === "LOCAL") && (
