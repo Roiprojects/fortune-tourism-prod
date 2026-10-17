@@ -370,8 +370,8 @@ export async function ensureBusinessColumns() {
     // Keep sequences ahead of any manually assigned numbers
     const seqSync = await pool.query(`
       SELECT
-        (SELECT COALESCE(MAX(NULLIF(REGEXP_REPLACE(enquiry_number, '^ENQ-[0-9]{4}-', ''), '')::bigint, 0)) FROM enquiries WHERE enquiry_number LIKE 'ENQ-%') AS max_enq,
-        (SELECT COALESCE(MAX(NULLIF(REGEXP_REPLACE(booking_number, '^BK-[0-9]{4}-', ''), '')::bigint, 0)) FROM bookings WHERE booking_number LIKE 'BK-%') AS max_bk,
+        (SELECT COALESCE(MAX(NULLIF(REGEXP_REPLACE(enquiry_number, '^ENQ-[0-9]{4}-', ''), '')::bigint), 0) FROM enquiries WHERE enquiry_number LIKE 'ENQ-%') AS max_enq,
+        (SELECT COALESCE(MAX(NULLIF(REGEXP_REPLACE(booking_number, '^BK-[0-9]{4}-', ''), '')::bigint), 0) FROM bookings WHERE booking_number LIKE 'BK-%') AS max_bk,
         (SELECT last_value FROM enquiry_number_seq) AS cur_enq,
         (SELECT last_value FROM booking_number_seq) AS cur_bk
     `);

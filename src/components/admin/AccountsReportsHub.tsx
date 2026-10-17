@@ -42,6 +42,7 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { ReportFolderModal } from "./ReportFolderModal";
+import { getSavedExpenseReports, EXPENSES_UPDATED_EVENT } from "@/lib/expense-reports";
 
 export type AccountReportKey =
   | "reports"
@@ -280,6 +281,12 @@ export interface TransactionRecord {
   phone?: string;
   notes?: string;
   supplier?: string;
+  total_amount?: number;
+  amount_paid?: number;
+  pending_amount?: number;
+  due_date?: string;
+  entry_type?: "inflow" | "outflow" | "due";
+  flow_category?: string;
 }
 
 export function extractSupplier(particulars?: string, category?: string, notes?: string, supplier?: string): string {
@@ -1046,8 +1053,10 @@ export function AccountsReportsHub({
   const [loading, setLoading] = useState(false);
 
   // Day Filter Mode: "today" | "yesterday" | "single_day" | "range" | "all"
-  // Default is "today" so 1st page immediately displays whole day details of today!
-  const [dayFilterMode, setDayFilterMode] = useState<"today" | "yesterday" | "single_day" | "range" | "all">("today");
+  // Default is "all" for dues and cash_flow so all outstanding dues and cash transactions show immediately!
+  const [dayFilterMode, setDayFilterMode] = useState<"today" | "yesterday" | "single_day" | "range" | "all">(() => {
+    return initialReport === "dues" || initialReport === "cash_flow" ? "all" : "today";
+  });
   const [selectedDay, setSelectedDay] = useState<string>(() => getLocalDateString());
 
   // Pagination states
@@ -1311,68 +1320,81 @@ export function AccountsReportsHub({
         "Date",
         "Particulars",
         "Voucher Ref",
-        "Payment Channel",
-        "Status",
-        "Physical Cash Inflow (₹)",
-        "Online / Bank Inflow (₹)",
-        "Total Inflow (₹)",
-        "Customer",
+        "Category",
+        "Party / Payee",
+        "Method",
+        "Flow Type",
+        "Cash Inflow (₹)",
+        "Cash Outflow (₹)",
+        "Net Cash Flow (₹)",
         "Notes",
       ];
       rows = filteredTransactions.map((t) => {
-        const isCash = t.payment_method === "CASH";
+        const isExp = t.expense > 0;
         return [
           t.id,
           `"${new Date(t.date).toLocaleDateString("en-IN")}"`,
           `"${(t.particulars || "").replace(/"/g, '""')}"`,
           `"${t.ref_number}"`,
+          t.flow_category || t.category,
+          `"${(t.customer_name || t.supplier || "").replace(/"/g, '""')}"`,
           t.payment_method,
-          t.status,
-          isCash ? t.income : 0,
-          !isCash ? t.income : 0,
-          t.income,
-          `"${(t.customer_name || "").replace(/"/g, '""')}"`,
+          isExp ? "OUTFLOW" : "INFLOW",
+          t.income > 0 ? t.income : 0,
+          t.expense > 0 ? t.expense : 0,
+          t.income - t.expense,
           `"${(t.notes || "").replace(/"/g, '""')}"`,
         ];
       });
       rows.push([
         "",
         "",
-        `"TOTAL INFLOW"`,
+        `"TOTAL SUMMARY"`,
         "",
         "",
         "",
-        metrics.totalCash,
-        metrics.totalOnline,
+        "",
+        `"NET"`,
         metrics.totalIncome,
-        "",
+        metrics.totalExpenses,
+        metrics.netBalance,
         "",
       ]);
     } else if (reportKey === "dues") {
       headers = [
         "Transaction ID",
         "Date",
-        "Booking Ref / Voucher",
+        "Booking Ref / PNR",
+        "Particulars / Details",
+        "Sector",
         "Customer Name",
         "Phone Number",
-        "Service Sector",
-        "Particulars",
+        "Payment Status",
+        "Total Fare (₹)",
+        "Amount Paid (₹)",
         "Outstanding Due (₹)",
-        "Recovery Status",
         "Notes",
       ];
-      rows = filteredTransactions.map((t) => [
-        t.id,
-        `"${new Date(t.date).toLocaleDateString("en-IN")}"`,
-        `"${t.ref_number}"`,
-        `"${(t.customer_name || "").replace(/"/g, '""')}"`,
-        `"${t.phone || ""}"`,
-        t.category,
-        `"${(t.particulars || "").replace(/"/g, '""')}"`,
-        t.income,
-        "PENDING RECOVERY",
-        `"${(t.notes || "").replace(/"/g, '""')}"`,
-      ]);
+      rows = filteredTransactions.map((t) => {
+        const total = Number(t.total_amount ?? (Number(t.income || 0) + Number(t.pending_amount || 0)));
+        const paid = Number(t.amount_paid ?? (t.status === "PAID" ? t.income : 0));
+        const due = Number(t.pending_amount !== undefined ? t.pending_amount : (t.status === "PENDING" ? t.income : 0));
+
+        return [
+          t.id,
+          `"${new Date(t.date).toLocaleDateString("en-IN")}"`,
+          `"${t.ref_number}"`,
+          `"${(t.particulars || "").replace(/"/g, '""')}"`,
+          t.category,
+          `"${(t.customer_name || "").replace(/"/g, '""')}"`,
+          `"${t.phone || ""}"`,
+          "PENDING DUE",
+          total,
+          paid,
+          due,
+          `"${(t.notes || "").replace(/"/g, '""')}"`,
+        ];
+      });
       rows.push([
         "",
         "",
@@ -1381,8 +1403,10 @@ export function AccountsReportsHub({
         "",
         "",
         "",
-        metrics.totalPending || metrics.totalIncome,
-        "PENDING RECOVERY",
+        "",
+        metrics.totalPending + metrics.totalIncome,
+        metrics.totalIncome,
+        metrics.totalPending,
         "",
       ]);
     } else if (reportKey === "profit_loss") {
@@ -1747,6 +1771,9 @@ export function AccountsReportsHub({
     }
     if (initialReport) {
       setActiveReport(initialReport);
+      if (initialReport === "dues" || initialReport === "cash_flow") {
+        setDayFilterMode("all");
+      }
     }
   }, [initialReport, onNavigateToDayBook]);
 
@@ -1758,6 +1785,9 @@ export function AccountsReportsHub({
       return;
     }
     setActiveReport(key);
+    if (key === "dues" || key === "cash_flow") {
+      setDayFilterMode("all");
+    }
     resetPage();
     if (onSelectReport) {
       onSelectReport(key);
@@ -1776,10 +1806,11 @@ export function AccountsReportsHub({
         "Admin@fortunetourism2026";
       const headers: Record<string, string> = { "x-admin-key": adminKey };
 
-      const [dbRes, bkgRes, hourlyRes] = await Promise.all([
+      const [dbRes, bkgRes, hourlyRes, expensesRes] = await Promise.all([
         fetch("/api/business/day_book_entries?limit=500", { headers }).catch(() => null),
         fetch("/api/bookings?limit=500").catch(() => null),
         fetch("/api/business/hourly_bookings?limit=500", { headers }).catch(() => null),
+        fetch("/api/business/expenses?limit=1000", { headers }).catch(() => null),
       ]);
 
       const pnrByPhone = new Map<string, string>();
@@ -1812,6 +1843,7 @@ export function AccountsReportsHub({
       // Map day book entries
       let liveDaily: DailyReportRecord[] = [];
       const matchedBkgIds = new Set<string>();
+      const dayBookTxns: TransactionRecord[] = [];
 
       if (dbRes && dbRes.ok) {
         const dbData = await dbRes.json();
@@ -1890,6 +1922,45 @@ export function AccountsReportsHub({
               status: isFullyPaid ? "Paid" : isAdvPaid ? "Advance Paid" : "Pending",
               notes: r.notes || matchingBkg?.notes || "",
             };
+          });
+
+          // Also map unlinked Day Book entries with balances or bookings into dayBookTxns
+          dbData.rows.forEach((r: any) => {
+            const rawBookingAmt = Number(r.booking_amount || r.total_amount || 0);
+            const rawAdvAmt = Number(r.office_advance || 0);
+            const rawDue = r.due_amount !== null && r.due_amount !== undefined ? Number(r.due_amount) : Math.max(0, rawBookingAmt - rawAdvAmt);
+            const isFullyPaid = (rawDue === 0 && rawBookingAmt > 0) || (r.status || "").toUpperCase() === "PAID";
+            const amountPaid = isFullyPaid ? rawBookingAmt : rawAdvAmt;
+            const pendingAmount = isFullyPaid ? 0 : rawDue;
+
+            if (rawBookingAmt > 0 || pendingAmount > 0 || amountPaid > 0) {
+              const tCat = (r.travel_by || "CAR").toUpperCase();
+              let cat: TransactionRecord["category"] = "CAR";
+              if (tCat.includes("FLIGHT")) cat = "FLIGHT";
+              else if (tCat.includes("BUS")) cat = "BUS";
+              else if (tCat.includes("TRAIN")) cat = "TRAIN";
+              else if (tCat.includes("TOUR")) cat = "TOUR";
+
+              dayBookTxns.push({
+                id: `DB-TXN-${r.id}`,
+                date: r.booking_date || r.created_at || new Date().toISOString(),
+                ref_number: r.serial_number || r.pnr || `SB-${r.id}`,
+                particulars: `${tCat}: ${r.passenger_name || "Customer"}${r.from_location && r.to_location ? ` (${r.from_location} → ${r.to_location})` : ""}`,
+                category: cat,
+                payment_method: "CASH",
+                status: isFullyPaid ? "PAID" : "PENDING",
+                income: amountPaid,
+                expense: 0,
+                balance: amountPaid,
+                customer_name: r.passenger_name || "Customer",
+                phone: r.passenger_phone || "",
+                notes: r.notes || (pendingAmount > 0 ? `Outstanding Due: ₹${pendingAmount}` : "Settled"),
+                total_amount: rawBookingAmt,
+                amount_paid: amountPaid,
+                pending_amount: pendingAmount,
+                entry_type: pendingAmount > 0 ? "due" : "inflow",
+              });
+            }
           });
         }
       }
@@ -2024,12 +2095,16 @@ export function AccountsReportsHub({
                 particulars: `Hourly Package (${hr.hours || 8} Hrs): ${hr.passenger_name || "Customer"} (${hr.from_location || "Local"} → ${hr.to_location || "Local"})`,
                 category: "CAR" as const,
                 payment_method: "UPI" as const,
-                status: isPaid ? "PAID" as const : "PENDING" as const,
-                income: amt,
+                status: isPaid ? ("PAID" as const) : ("PENDING" as const),
+                income: isPaid ? amt : 0,
                 expense: 0,
-                balance: amt,
+                balance: isPaid ? amt : 0,
                 customer_name: hr.passenger_name || "Customer",
                 phone: hr.phone || "",
+                total_amount: amt,
+                amount_paid: isPaid ? amt : 0,
+                pending_amount: isPaid ? 0 : amt,
+                entry_type: isPaid ? "inflow" : "due",
                 notes: isPaid ? "100% Fully Settled" : `Pending Settlement: ₹${amt}`,
               };
             });
@@ -2049,6 +2124,8 @@ export function AccountsReportsHub({
               if (!existingHrKeys.has(refNo.toLowerCase()) && (amt > 0 || h.paymentStatus)) {
                 const isPaid = (h.paymentStatus || "").toLowerCase() === "paid";
                 const isAdv = (h.paymentStatus || "").toLowerCase().includes("advance");
+                const paidAmt = isPaid ? amt : isAdv ? 100 : 0;
+                const dueAmt = isPaid ? 0 : isAdv ? Math.max(0, amt - 100) : amt;
                 mappedHourly.push({
                   id: `HR-${h.id}`,
                   date: h.date || new Date().toISOString(),
@@ -2057,11 +2134,15 @@ export function AccountsReportsHub({
                   category: "CAR" as const,
                   payment_method: "UPI" as const,
                   status: isPaid ? ("PAID" as const) : ("PENDING" as const),
-                  income: isPaid ? amt : isAdv ? 100 : amt,
+                  income: paidAmt,
                   expense: 0,
-                  balance: isPaid ? amt : isAdv ? 100 : amt,
+                  balance: paidAmt,
                   customer_name: h.paxName || "Customer",
                   phone: h.phNumber || "",
+                  total_amount: amt,
+                  amount_paid: paidAmt,
+                  pending_amount: dueAmt,
+                  entry_type: dueAmt > 0 ? "due" : "inflow",
                   notes: isPaid ? "100% Fully Settled" : isAdv ? `Advance Paid: ₹100 | Remaining Due: ₹${Math.max(0, amt - 100)}` : `Pending Settlement: ₹${amt}`,
                 });
               }
@@ -2097,11 +2178,14 @@ export function AccountsReportsHub({
           (b.booking_status || "").toUpperCase().includes("REFUND") ||
           rawPayStatus.includes("REFUND");
 
+        const amountPaid = isPaid ? total : (adv > 0 ? adv : 0);
+        const pendingAmount = isPaid ? 0 : (rem > 0 ? rem : Math.max(0, total - amountPaid));
+
         let status: TransactionRecord["status"] = "PENDING";
         if (isRefunded) status = "REFUNDED";
         else if (isCancelled) status = "CANCELLED";
-        else if (isPaid) status = "PAID";
-        else if (isAdvPaid) status = "PAID"; // The collected advance is recorded as cash inflow/income
+        else if (isPaid || (pendingAmount === 0 && total > 0)) status = "PAID";
+        else status = "PENDING";
 
         let method: TransactionRecord["payment_method"] = "UPI";
         if (pMode.includes("CASH")) method = "CASH";
@@ -2135,18 +2219,194 @@ export function AccountsReportsHub({
           particulars: `${particularHeader}: ${b.passenger_name || "Guest"}${fromTo}${pnrSnippet}`,
           category: cat,
           payment_method: method,
-          status: isPaid ? "PAID" : isAdvPaid ? (rem > 0 ? "PENDING" : "PAID") : "PENDING",
-          income: isPaid ? total : adv > 0 ? adv : total,
+          status,
+          income: amountPaid, // Real received cash inflow (unpaid bookings do NOT count as received cash!)
           expense: 0,
-          balance: isPaid ? total : adv > 0 ? adv : total,
+          balance: amountPaid,
           customer_name: b.passenger_name || "Direct Customer",
           phone: b.passenger_phone || "",
-          notes: isPaid ? "100% Fully Settled" : isAdvPaid ? `Advance Paid: ₹${adv} | Remaining Due: ₹${rem}` : `Pay on Boarding: Due ₹${total}`,
+          notes: isPaid ? "100% Fully Settled" : isAdvPaid ? `Advance Paid: ₹${adv} | Remaining Due: ₹${pendingAmount}` : `Pay on Boarding: Due ₹${pendingAmount}`,
           supplier: supplierName,
+          total_amount: total,
+          amount_paid: amountPaid,
+          pending_amount: pendingAmount,
+          entry_type: pendingAmount > 0 ? "due" : "inflow",
         };
       });
 
-      const allCombinedTxns = [...bookingTxns, ...mappedHourly];
+      // 3. Map Real Expenses from PostgreSQL Database
+      const dbExpenseTxns: TransactionRecord[] = [];
+      const knownExpenseRefs = new Set<string>();
+
+      if (expensesRes && expensesRes.ok) {
+        try {
+          const expData = await expensesRes.json();
+          if (expData.success && Array.isArray(expData.rows)) {
+            expData.rows.forEach((exp: any) => {
+              const amt = Number(exp.amount || 0);
+              if (amt <= 0) return;
+              const refStr = exp.reference || `EXP-${exp.id}`;
+              knownExpenseRefs.add(refStr.toLowerCase());
+
+              const catStr = String(exp.category || "").toUpperCase();
+              let cat: TransactionRecord["category"] = "OFFICE";
+              if (
+                catStr.includes("FUEL") ||
+                catStr.includes("PETROL") ||
+                catStr.includes("DIESEL") ||
+                catStr.includes("DRIVER") ||
+                catStr.includes("TOLL") ||
+                catStr.includes("REPAIR") ||
+                catStr.includes("VEHICLE")
+              ) {
+                cat = "CAR";
+              } else if (catStr.includes("FLIGHT")) {
+                cat = "FLIGHT";
+              } else if (catStr.includes("BUS")) {
+                cat = "BUS";
+              } else if (catStr.includes("TRAIN")) {
+                cat = "TRAIN";
+              } else if (catStr.includes("TOUR")) {
+                cat = "TOUR";
+              } else if (catStr.includes("UTILITY")) {
+                cat = "UTILITY";
+              }
+
+              const pm = String(exp.payment_method || "UPI").toUpperCase();
+              let method: TransactionRecord["payment_method"] = "UPI";
+              if (pm.includes("CASH")) method = "CASH";
+              else if (pm.includes("CARD")) method = "CARD";
+              else if (pm.includes("NET") || pm.includes("BANK")) method = "NETBANKING";
+              else if (pm.includes("RAZORPAY")) method = "RAZORPAY";
+
+              dbExpenseTxns.push({
+                id: `EXP-DB-${exp.id}`,
+                date: exp.expense_date || exp.created_at || new Date().toISOString(),
+                ref_number: refStr,
+                particulars: exp.description || `${exp.category || "General"} Expense`,
+                category: cat,
+                payment_method: method,
+                status: "PAID",
+                income: 0,
+                expense: amt,
+                balance: -amt,
+                customer_name: exp.paid_to || exp.category || "Payee / Vendor",
+                phone: "",
+                notes: exp.notes || exp.description || "",
+                supplier: exp.paid_to || exp.category || "Vendor",
+                total_amount: amt,
+                amount_paid: amt,
+                pending_amount: 0,
+                entry_type: "outflow",
+                flow_category: exp.category || "Expense",
+              });
+            });
+          }
+        } catch (e) {
+          console.warn("Error parsing expenses from DB:", e);
+        }
+      }
+
+      // 4. Map Expenses from Expense Report module (localStorage / initial defaults)
+      const localExpenseTxns: TransactionRecord[] = [];
+      try {
+        const savedExpenses = getSavedExpenseReports();
+        savedExpenses.forEach((item) => {
+          const refStr = item.id;
+          if (knownExpenseRefs.has(refStr.toLowerCase())) return;
+
+          if (item.entryType === "outflow") {
+            const totalOutflow =
+              (Number(item.repairs) || 0) +
+              (Number(item.miscellaneous) || 0) +
+              (Number(item.credit) || 0) +
+              (Number(item.supplierAmount) || 0) +
+              (Number(item.agencyAmount) || 0) +
+              (Number(item.driverAmount) || 0);
+
+            if (totalOutflow > 0) {
+              const pm = String(item.paymentMethod || "UPI").toUpperCase();
+              let method: TransactionRecord["payment_method"] = "UPI";
+              if (pm.includes("CASH")) method = "CASH";
+              else if (pm.includes("CARD")) method = "CARD";
+              else if (pm.includes("BANK") || pm.includes("NET")) method = "NETBANKING";
+
+              const payee = item.supplierName || item.agencyName || item.driverName || "Vendor";
+              const catLabel =
+                item.repairs > 0
+                  ? "Repairs"
+                  : item.supplierAmount > 0
+                  ? "Supplier"
+                  : item.driverAmount > 0
+                  ? "Driver"
+                  : "Miscellaneous";
+
+              localExpenseTxns.push({
+                id: `EXP-LOC-${item.id}`,
+                date: item.dateFrom || item.createdAt || new Date().toISOString(),
+                ref_number: item.id,
+                particulars: item.reason || `${catLabel} Outflow Expense`,
+                category: "OFFICE",
+                payment_method: method,
+                status: "PAID",
+                income: 0,
+                expense: totalOutflow,
+                balance: -totalOutflow,
+                customer_name: payee,
+                phone: "",
+                notes: item.reason || "",
+                supplier: payee,
+                total_amount: totalOutflow,
+                amount_paid: totalOutflow,
+                pending_amount: 0,
+                entry_type: "outflow",
+                flow_category: catLabel,
+              });
+            }
+          } else if (item.entryType === "inflow") {
+            const inflowAmt = Number(item.inflowAmount || 0);
+            if (inflowAmt > 0) {
+              const pm = String(item.paymentMethod || "CASH").toUpperCase();
+              let method: TransactionRecord["payment_method"] = "CASH";
+              if (pm.includes("UPI")) method = "UPI";
+              else if (pm.includes("CARD")) method = "CARD";
+              else if (pm.includes("BANK")) method = "NETBANKING";
+
+              localExpenseTxns.push({
+                id: `INF-LOC-${item.id}`,
+                date: item.dateFrom || item.createdAt || new Date().toISOString(),
+                ref_number: item.bookingNumber || item.id,
+                particulars: item.reason || "Counter Cash Inflow Collection",
+                category: "CAR",
+                payment_method: method,
+                status: "PAID",
+                income: inflowAmt,
+                expense: 0,
+                balance: inflowAmt,
+                customer_name: item.customerName || "Customer",
+                phone: item.customerPhone || "",
+                total_amount: inflowAmt,
+                amount_paid: inflowAmt,
+                pending_amount: 0,
+                entry_type: "inflow",
+                flow_category: "Cash Inflow",
+                notes: item.reason || "",
+              });
+            }
+          }
+        });
+      } catch (e) {
+        console.warn("Error processing local expenses:", e);
+      }
+
+      // Combine all bookings, day book entries, hourly tours, and expenses!
+      const allCombinedTxns = [
+        ...bookingTxns,
+        ...dayBookTxns,
+        ...mappedHourly,
+        ...dbExpenseTxns,
+        ...localExpenseTxns,
+      ];
 
       if (isCleared) {
         setTransactions(allCombinedTxns);
@@ -2168,9 +2428,11 @@ export function AccountsReportsHub({
       fetchLiveTransactions();
     };
     window.addEventListener("fortune_booking_created", handleUpdate);
+    window.addEventListener(EXPENSES_UPDATED_EVENT, handleUpdate);
     window.addEventListener("storage", handleUpdate);
     return () => {
       window.removeEventListener("fortune_booking_created", handleUpdate);
+      window.removeEventListener(EXPENSES_UPDATED_EVENT, handleUpdate);
       window.removeEventListener("storage", handleUpdate);
     };
   }, []);
@@ -2717,11 +2979,16 @@ export function AccountsReportsHub({
 
       // Report-specific filtering
       if (activeReport === "dues") {
-        if (t.status !== "PENDING") return false;
+        if (t.status === "CANCELLED" || t.status === "REFUNDED") return false;
+        const dueAmt = t.pending_amount !== undefined ? t.pending_amount : (t.status === "PENDING" ? t.income : 0);
+        if (dueAmt <= 0) return false;
+      } else if (activeReport === "cash_flow") {
+        // Cash flow report displays all verified cash movements (inflows and expenses)
+        if (t.income <= 0 && t.expense <= 0) return false;
       } else if (activeReport === "final") {
         if (t.status !== "PAID") return false;
       } else if (activeReport === "profit_loss") {
-        if (t.status !== "PAID") return false;
+        if (t.income <= 0 && t.expense <= 0) return false;
       }
 
       return true;
@@ -2751,25 +3018,29 @@ export function AccountsReportsHub({
     let totalPending = 0;
     let totalOnline = 0;
     let totalCash = 0;
+    let totalFare = 0;
 
     filteredTransactions.forEach((t) => {
       const inc = Number(t.income || 0);
       const exp = Number(t.expense || 0);
-      if (t.status === "PAID") {
+      const due = Number(t.pending_amount !== undefined ? t.pending_amount : (t.status === "PENDING" ? inc : 0));
+      const fare = Number(t.total_amount ?? (inc + due));
+
+      totalFare += fare;
+
+      if (inc > 0) {
         totalIncome += inc;
-        totalExpenses += exp;
         if (t.payment_method === "CASH") {
           totalCash += inc;
         } else {
           totalOnline += inc;
         }
-      } else if (t.status === "PENDING") {
-        totalPending += inc;
-      } else {
-        const advMatch = t.notes?.match(/Advance Paid:\s*₹?(\d+)/i);
-        const remMatch = t.notes?.match(/Remaining Due:\s*₹?(\d+)/i);
-        if (advMatch) totalIncome += Number(advMatch[1]);
-        if (remMatch) totalPending += Number(remMatch[1]);
+      }
+      if (exp > 0) {
+        totalExpenses += exp;
+      }
+      if (due > 0 && t.status !== "CANCELLED" && t.status !== "REFUNDED") {
+        totalPending += due;
       }
     });
 
@@ -2783,6 +3054,7 @@ export function AccountsReportsHub({
       netBalance,
       totalOnline,
       totalCash,
+      totalFare,
       profitMargin,
       count: filteredTransactions.length,
     };
@@ -2848,6 +3120,8 @@ export function AccountsReportsHub({
     let balance = 0;
     let cashInflow = 0;
     let onlineInflow = 0;
+    let totalFare = 0;
+    let amountPaid = 0;
     let received = 0;
     let pending = 0;
 
@@ -2855,29 +3129,25 @@ export function AccountsReportsHub({
       const inc = Number(t.income || 0);
       const exp = Number(t.expense || 0);
       const bal = Number(t.balance || 0);
+      const due = Number(t.pending_amount !== undefined ? t.pending_amount : (t.status === "PENDING" ? inc : 0));
+      const paid = Number(t.amount_paid !== undefined ? t.amount_paid : (t.status === "PAID" ? inc : 0));
+      const fare = Number(t.total_amount ?? (inc + due));
+
       income += inc;
       expense += exp;
       balance += bal;
+      totalFare += fare;
+      amountPaid += paid;
+      received += paid > 0 ? paid : inc;
+      pending += due;
 
       if (t.payment_method === "CASH") {
         cashInflow += inc;
       } else {
         onlineInflow += inc;
       }
-
-      if (t.status === "PAID") {
-        received += inc;
-      } else if (t.status === "PENDING") {
-        pending += inc;
-      } else {
-        const advMatch = t.notes?.match(/Advance Paid:\s*₹?(\d+)/i);
-        const remMatch = t.notes?.match(/Remaining Due:\s*₹?(\d+)/i);
-        const adv = advMatch ? Number(advMatch[1]) : 0;
-        const rem = remMatch ? Number(remMatch[1]) : 0;
-        received += adv;
-        pending += rem > 0 ? rem : inc;
-      }
     });
+
     return {
       income,
       expense,
@@ -2885,6 +3155,8 @@ export function AccountsReportsHub({
       cashInflow,
       onlineInflow,
       totalInflow: cashInflow + onlineInflow,
+      totalFare,
+      amountPaid,
       received,
       pending,
     };
@@ -3026,77 +3298,232 @@ export function AccountsReportsHub({
       {/* 4 Key Metric Cards (Hidden on Daily Reports) */}
       {activeReport !== "daily" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Total Income / Total Booking */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Total Income
-              </p>
-              <p className="text-2xl font-black text-emerald-600 mt-1">
-                ₹{metrics.totalIncome.toLocaleString("en-IN")}
-              </p>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Online: ₹{metrics.totalOnline.toLocaleString("en-IN")} · Cash: ₹{metrics.totalCash.toLocaleString("en-IN")}
-              </p>
-            </div>
-            <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
-              <ArrowDownLeft className="w-6 h-6" />
-            </div>
-          </div>
+          {activeReport === "dues" ? (
+            <>
+              {/* Outstanding Dues */}
+              <div className="bg-white rounded-2xl border border-rose-200 p-5 shadow-xs flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-rose-600">
+                    Outstanding Dues
+                  </p>
+                  <p className="text-2xl font-black text-rose-600 mt-1">
+                    ₹{metrics.totalPending.toLocaleString("en-IN")}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {filteredTransactions.length} pending receivables
+                  </p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+              </div>
 
-          {/* Total Expenses */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Total Expenses
-              </p>
-              <p className="text-2xl font-black text-blue-600 mt-1">
-                ₹{metrics.totalExpenses.toLocaleString("en-IN")}
-              </p>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Disbursed supplier &amp; fleet costs
-              </p>
-            </div>
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
-              <ArrowUpRight className="w-6 h-6" />
-            </div>
-          </div>
+              {/* Total Billed */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Total Billed
+                  </p>
+                  <p className="text-2xl font-black text-indigo-700 mt-1">
+                    ₹{(metrics.totalFare || (metrics.totalPending + metrics.totalIncome)).toLocaleString("en-IN")}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Total booking amount billed
+                  </p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
+                  <IndianRupee className="w-6 h-6" />
+                </div>
+              </div>
 
-          {/* Pending Dues */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Pending Dues
-              </p>
-              <p className="text-2xl font-black text-rose-600 mt-1">
-                ₹{metrics.totalPending.toLocaleString("en-IN")}
-              </p>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Awaiting customer collection
-              </p>
-            </div>
-            <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
-              <AlertCircle className="w-6 h-6" />
-            </div>
-          </div>
+              {/* Advance Collected */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Advance Collected
+                  </p>
+                  <p className="text-2xl font-black text-emerald-600 mt-1">
+                    ₹{metrics.totalIncome.toLocaleString("en-IN")}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Paid advance &amp; partial receipts
+                  </p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+                  <ArrowDownLeft className="w-6 h-6" />
+                </div>
+              </div>
 
-          {/* Net Balance */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Net Balance
-              </p>
-              <p className={`text-2xl font-black mt-1 ${metrics.netBalance >= 0 ? "text-indigo-600" : "text-rose-600"}`}>
-                ₹{metrics.netBalance.toLocaleString("en-IN")}
-              </p>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Operating margin: <span className="font-bold text-emerald-600">{metrics.profitMargin}%</span>
-              </p>
-            </div>
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
-              <IndianRupee className="w-6 h-6" />
-            </div>
-          </div>
+              {/* Collection Rate */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Collection Rate
+                  </p>
+                  <p className="text-2xl font-black text-blue-600 mt-1">
+                    {(metrics.totalFare || (metrics.totalPending + metrics.totalIncome)) > 0
+                      ? Math.round((metrics.totalIncome / (metrics.totalFare || (metrics.totalPending + metrics.totalIncome))) * 100)
+                      : 0}
+                    %
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    ₹{metrics.totalIncome.toLocaleString("en-IN")} collected
+                  </p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
+                  <FileCheck className="w-6 h-6" />
+                </div>
+              </div>
+            </>
+          ) : activeReport === "cash_flow" ? (
+            <>
+              {/* Total Cash Inflow */}
+              <div className="bg-white rounded-2xl border border-emerald-200 p-5 shadow-xs flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+                    Cash Inflow
+                  </p>
+                  <p className="text-2xl font-black text-emerald-600 mt-1">
+                    ₹{metrics.totalIncome.toLocaleString("en-IN")}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Online: ₹{metrics.totalOnline.toLocaleString("en-IN")} · Cash: ₹{metrics.totalCash.toLocaleString("en-IN")}
+                  </p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+                  <ArrowDownLeft className="w-6 h-6" />
+                </div>
+              </div>
+
+              {/* Total Cash Outflow */}
+              <div className="bg-white rounded-2xl border border-rose-200 p-5 shadow-xs flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-rose-600">
+                    Cash Outflow
+                  </p>
+                  <p className="text-2xl font-black text-rose-600 mt-1">
+                    ₹{metrics.totalExpenses.toLocaleString("en-IN")}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Fleet, suppliers &amp; operating costs
+                  </p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
+                  <ArrowUpRight className="w-6 h-6" />
+                </div>
+              </div>
+
+              {/* Net Cash Flow */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Net Cash Flow
+                  </p>
+                  <p className={`text-2xl font-black mt-1 ${metrics.netBalance >= 0 ? "text-emerald-700" : "text-rose-600"}`}>
+                    ₹{metrics.netBalance.toLocaleString("en-IN")}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Net Cash = Inflow − Outflow
+                  </p>
+                </div>
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${metrics.netBalance >= 0 ? "bg-emerald-50 border border-emerald-200 text-emerald-600" : "bg-rose-50 border border-rose-200 text-rose-600"}`}>
+                  <IndianRupee className="w-6 h-6" />
+                </div>
+              </div>
+
+              {/* Cash Surplus / Breakdown */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Cash Surplus Status
+                  </p>
+                  <p className={`text-2xl font-black mt-1 ${metrics.netBalance >= 0 ? "text-emerald-700" : "text-rose-600"}`}>
+                    {metrics.netBalance >= 0 ? "Surplus" : "Deficit"}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {metrics.netBalance >= 0 ? "Positive liquidity position" : "Requires cash injection"}
+                  </p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
+                  <Banknote className="w-6 h-6" />
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Total Income / Total Booking */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Total Income
+                  </p>
+                  <p className="text-2xl font-black text-emerald-600 mt-1">
+                    ₹{metrics.totalIncome.toLocaleString("en-IN")}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Online: ₹{metrics.totalOnline.toLocaleString("en-IN")} · Cash: ₹{metrics.totalCash.toLocaleString("en-IN")}
+                  </p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+                  <ArrowDownLeft className="w-6 h-6" />
+                </div>
+              </div>
+
+              {/* Total Expenses */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Total Expenses
+                  </p>
+                  <p className="text-2xl font-black text-blue-600 mt-1">
+                    ₹{metrics.totalExpenses.toLocaleString("en-IN")}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Disbursed supplier &amp; fleet costs
+                  </p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
+                  <ArrowUpRight className="w-6 h-6" />
+                </div>
+              </div>
+
+              {/* Pending Dues */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Pending Dues
+                  </p>
+                  <p className="text-2xl font-black text-rose-600 mt-1">
+                    ₹{metrics.totalPending.toLocaleString("en-IN")}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Awaiting customer collection
+                  </p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+              </div>
+
+              {/* Net Balance */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Net Balance
+                  </p>
+                  <p className={`text-2xl font-black mt-1 ${metrics.netBalance >= 0 ? "text-indigo-600" : "text-rose-600"}`}>
+                    ₹{metrics.netBalance.toLocaleString("en-IN")}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Operating margin: <span className="font-bold text-emerald-600">{metrics.profitMargin}%</span>
+                  </p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
+                  <IndianRupee className="w-6 h-6" />
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -3784,13 +4211,15 @@ export function AccountsReportsHub({
                     <tr className="bg-[#107c41] text-white font-black uppercase tracking-wider text-[11px]">
                       <th className="py-2.5 px-3 text-center w-12 border border-[#0d6535] whitespace-nowrap">SL</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">DATE</th>
-                      <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535]">PARTICULARS</th>
-                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">VOUCHER / REF</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535]">BOOKING DETAILS</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">TICKET / PNR</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">SECTOR</th>
                       <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535]">CUSTOMER</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">METHOD</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">STATUS</th>
-                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535] bg-rose-700/70">DUE AMOUNT (₹)</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">TOTAL FARE (₹)</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535] bg-emerald-800/80">AMOUNT PAID (₹)</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535] bg-rose-700/80">OUTSTANDING DUE (₹)</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap w-20 border border-[#0d6535]">ACTION</th>
                     </tr>
                   ) : activeReport === "cash_flow" ? (
@@ -3799,13 +4228,13 @@ export function AccountsReportsHub({
                       <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">DATE</th>
                       <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535]">PARTICULARS</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">VOUCHER / REF</th>
-                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">SECTOR</th>
-                      <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535]">CUSTOMER</th>
-                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">CHANNEL</th>
-                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">STATUS</th>
-                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">CASH INFLOW (₹)</th>
-                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">ONLINE INFLOW (₹)</th>
-                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535]">TOTAL INFLOW (₹)</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">CATEGORY</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap border border-[#0d6535]">PARTY / PAYEE</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">METHOD</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap border border-[#0d6535]">FLOW TYPE</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535] bg-emerald-800/70">CASH INFLOW (₹)</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535] bg-rose-700/70">CASH OUTFLOW (₹)</th>
+                      <th className="py-2.5 px-3 text-right whitespace-nowrap border border-[#0d6535] bg-[#0c592f]">NET CASH FLOW (₹)</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap w-20 border border-[#0d6535]">ACTION</th>
                     </tr>
                   ) : activeReport === "payment" ? (
@@ -3870,12 +4299,32 @@ export function AccountsReportsHub({
                   )}
                 </thead>
                 <tbody className="divide-y divide-slate-200 font-sans">
-                  {filteredTransactions.length === 0 ? (
+                  {loading ? (
                     <tr>
-                      <td colSpan={activeReport === "dues" ? 10 : activeReport === "payment" ? 11 : 12} className="py-12 text-center text-slate-400 bg-white">
+                      <td colSpan={12} className="py-16 text-center text-slate-500 bg-white">
+                        <RefreshCw className="w-8 h-8 mx-auto mb-3 text-emerald-600 animate-spin" />
+                        <p className="font-bold text-sm text-slate-800">Loading {activeDef.title} from database...</p>
+                        <p className="text-xs text-slate-400 mt-1">Fetching live records and computing balances</p>
+                      </td>
+                    </tr>
+                  ) : filteredTransactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={12} className="py-16 text-center text-slate-400 bg-white">
                         <AlertCircle className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                        <p className="font-bold text-sm text-slate-600">No transaction records match the selected filters.</p>
-                        <p className="text-xs text-slate-400 mt-1">Try clearing your search query or selecting another date range.</p>
+                        <p className="font-bold text-sm text-slate-600">
+                          {activeReport === "dues"
+                            ? "No due records found."
+                            : activeReport === "cash_flow"
+                            ? "No cash flow transactions found."
+                            : "No transaction records match the selected filters."}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1">
+                          {activeReport === "dues"
+                            ? "All customer bookings are fully settled. No outstanding dues found."
+                            : activeReport === "cash_flow"
+                            ? "No cash inflows or expense outflows found for this period."
+                            : "Try clearing your search query or selecting another date range."}
+                        </p>
                       </td>
                     </tr>
                   ) : (
@@ -3883,12 +4332,11 @@ export function AccountsReportsHub({
                       const isCash = t.payment_method === "CASH";
                       const isPaid = t.status === "PAID";
                       const isPending = t.status === "PENDING";
-                      const advMatch = t.notes?.match(/Advance Paid:\s*₹?(\d+)/i);
-                      const remMatch = t.notes?.match(/Remaining Due:\s*₹?(\d+)/i);
-                      const adv = advMatch ? Number(advMatch[1]) : 0;
-                      const rem = remMatch ? Number(remMatch[1]) : (isPending ? t.income : 0);
-                      const receivedAmount = isPaid ? t.income : (adv > 0 ? adv : 0);
-                      const pendingAmount = isPaid ? 0 : (rem > 0 ? rem : t.income);
+                      const totalFare = Number(t.total_amount ?? (Number(t.income || 0) + Number(t.pending_amount || 0)));
+                      const amountPaid = Number(t.amount_paid ?? (isPaid ? t.income : 0));
+                      const pendingDue = Number(t.pending_amount !== undefined ? t.pending_amount : (isPending ? t.income : 0));
+                      const receivedAmount = isPaid ? t.income : (amountPaid > 0 ? amountPaid : 0);
+                      const pendingAmount = isPaid ? 0 : (pendingDue > 0 ? pendingDue : t.income);
                       const supplierVendor = t.supplier || extractSupplier(t.particulars, t.category, t.notes);
 
                       return (
@@ -3930,16 +4378,16 @@ export function AccountsReportsHub({
                             {t.ref_number}
                           </td>
 
-                          {/* Sector */}
+                          {/* Sector / Category */}
                           <td className="py-2 px-3 text-center whitespace-nowrap border border-slate-300">
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-800 border border-slate-200">
-                              {t.category}
+                              {t.flow_category || t.category}
                             </span>
                           </td>
 
-                          {/* Customer */}
+                          {/* Customer / Party */}
                           <td className="py-2 px-3 whitespace-nowrap font-bold text-slate-800 border border-slate-300">
-                            <div>{t.customer_name || "Direct Customer"}</div>
+                            <div>{t.customer_name || t.supplier || "Customer / Payee"}</div>
                             {t.phone && <div className="text-[10px] text-slate-500 font-normal">{t.phone}</div>}
                           </td>
 
@@ -3958,40 +4406,79 @@ export function AccountsReportsHub({
                             </span>
                           </td>
 
-                          {/* Status (Paid in bold green, Pending in red) */}
+                          {/* Status / Flow Type */}
                           <td className="py-2 px-3 text-center whitespace-nowrap border border-slate-300">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] ${
-                                isPaid
-                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300 font-black"
-                                  : isPending
-                                  ? "bg-rose-100 text-rose-800 border border-rose-300 font-bold"
-                                  : "bg-red-100 text-red-800 border border-red-300 font-bold"
-                              }`}
-                            >
-                              {isPaid && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
-                              {isPending && <Clock className="w-3 h-3 text-rose-600" />}
-                              {t.status}
-                            </span>
+                            {activeReport === "cash_flow" ? (
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                                  t.expense > 0
+                                    ? "bg-rose-100 text-rose-800 border border-rose-300"
+                                    : "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                }`}
+                              >
+                                {t.expense > 0 ? (
+                                  <>
+                                    <ArrowUpRight className="w-3 h-3 text-rose-600" />
+                                    <span>OUTFLOW</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <ArrowDownLeft className="w-3 h-3 text-emerald-600" />
+                                    <span>INFLOW</span>
+                                  </>
+                                )}
+                              </span>
+                            ) : activeReport === "dues" ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300">
+                                <Clock className="w-3 h-3 text-rose-600" />
+                                <span>PENDING DUE</span>
+                              </span>
+                            ) : (
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] ${
+                                  isPaid
+                                    ? "bg-emerald-100 text-emerald-800 border border-emerald-300 font-black"
+                                    : isPending
+                                    ? "bg-rose-100 text-rose-800 border border-rose-300 font-bold"
+                                    : "bg-red-100 text-red-800 border border-red-300 font-bold"
+                                }`}
+                              >
+                                {isPaid && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
+                                {isPending && <Clock className="w-3 h-3 text-rose-600" />}
+                                {t.status}
+                              </span>
+                            )}
                           </td>
 
                           {/* Dynamic Financial Columns based on Report */}
                           {activeReport === "dues" ? (
-                            /* Dues Report: Only Outstanding Due in red font (NO income column) */
-                            <td className="py-2 px-3 text-right whitespace-nowrap font-bold text-rose-600 border border-slate-300 bg-rose-50/20">
-                              ₹{Number(t.income).toLocaleString("en-IN")}
-                            </td>
-                          ) : activeReport === "cash_flow" ? (
-                            /* Cash Flow Report: Only Inflow columns (NO expense, NO balance) */
+                            /* Dues Report: Total Fare, Amount Paid (in green), and Outstanding Due (bold red) */
                             <>
-                              <td className="py-2 px-3 text-right whitespace-nowrap font-black text-emerald-600 border border-slate-300 bg-emerald-50/20">
-                                {isCash ? `₹${Number(t.income).toLocaleString("en-IN")}` : "—"}
+                              <td className="py-2 px-3 text-right whitespace-nowrap font-bold text-slate-800 border border-slate-300 bg-slate-50/20">
+                                ₹{totalFare.toLocaleString("en-IN")}
                               </td>
-                              <td className="py-2 px-3 text-right whitespace-nowrap font-black text-emerald-600 border border-slate-300 bg-emerald-50/20">
-                                {!isCash ? `₹${Number(t.income).toLocaleString("en-IN")}` : "—"}
+                              <td className="py-2 px-3 text-right whitespace-nowrap font-bold text-emerald-700 border border-slate-300 bg-emerald-50/20">
+                                ₹{amountPaid.toLocaleString("en-IN")}
                               </td>
-                              <td className="py-2 px-3 text-right whitespace-nowrap font-black text-emerald-700 border border-slate-300 bg-emerald-50/30">
-                                ₹{Number(t.income).toLocaleString("en-IN")}
+                              <td className="py-2 px-3 text-right whitespace-nowrap font-black text-rose-700 border border-slate-300 bg-rose-50/40">
+                                ₹{pendingDue.toLocaleString("en-IN")}
+                              </td>
+                            </>
+                          ) : activeReport === "cash_flow" ? (
+                            /* Cash Flow Report: Inflow, Outflow, Net Cash Flow */
+                            <>
+                              <td className="py-2 px-3 text-right whitespace-nowrap font-black text-emerald-700 border border-slate-300 bg-emerald-50/20">
+                                {t.income > 0 ? `+₹${Number(t.income).toLocaleString("en-IN")}` : "—"}
+                              </td>
+                              <td className="py-2 px-3 text-right whitespace-nowrap font-black text-rose-700 border border-slate-300 bg-rose-50/20">
+                                {t.expense > 0 ? `-₹${Number(t.expense).toLocaleString("en-IN")}` : "—"}
+                              </td>
+                              <td
+                                className={`py-2 px-3 text-right whitespace-nowrap font-black border border-slate-300 bg-slate-50/30 ${
+                                  t.income - t.expense >= 0 ? "text-emerald-700" : "text-rose-700"
+                                }`}
+                              >
+                                {t.income - t.expense >= 0 ? "+" : ""}₹{Number(t.income - t.expense).toLocaleString("en-IN")}
                               </td>
                             </>
                           ) : activeReport === "payment" ? (
@@ -4080,19 +4567,27 @@ export function AccountsReportsHub({
                           Page {safeTxnPage} Subtotal ({displayedTransactions.length} items)
                         </td>
                         {activeReport === "dues" ? (
-                          <td className="py-2 px-3 text-right font-bold text-rose-600 whitespace-nowrap text-xs border border-slate-300 bg-rose-50/40">
-                            ₹{pageTxnTotals.pending.toLocaleString("en-IN")}
-                          </td>
+                          <>
+                            <td className="py-2 px-3 text-right font-black text-slate-800 whitespace-nowrap text-xs border border-slate-300 bg-slate-50/40">
+                              ₹{pageTxnTotals.totalFare.toLocaleString("en-IN")}
+                            </td>
+                            <td className="py-2 px-3 text-right font-black text-emerald-700 whitespace-nowrap text-xs border border-slate-300 bg-emerald-50/40">
+                              ₹{pageTxnTotals.amountPaid.toLocaleString("en-IN")}
+                            </td>
+                            <td className="py-2 px-3 text-right font-black text-rose-600 whitespace-nowrap text-xs border border-slate-300 bg-rose-50/40">
+                              ₹{pageTxnTotals.pending.toLocaleString("en-IN")}
+                            </td>
+                          </>
                         ) : activeReport === "cash_flow" ? (
                           <>
                             <td className="py-2 px-3 text-right font-black text-emerald-700 whitespace-nowrap text-xs border border-slate-300 bg-emerald-50/40">
-                              ₹{pageTxnTotals.cashInflow.toLocaleString("en-IN")}
+                              ₹{pageTxnTotals.income.toLocaleString("en-IN")}
                             </td>
-                            <td className="py-2 px-3 text-right font-black text-emerald-700 whitespace-nowrap text-xs border border-slate-300 bg-emerald-50/40">
-                              ₹{pageTxnTotals.onlineInflow.toLocaleString("en-IN")}
+                            <td className="py-2 px-3 text-right font-bold text-rose-600 whitespace-nowrap text-xs border border-slate-300 bg-rose-50/40">
+                              ₹{pageTxnTotals.expense.toLocaleString("en-IN")}
                             </td>
                             <td className="py-2 px-3 text-right font-black text-emerald-800 whitespace-nowrap text-xs border border-slate-300 bg-emerald-50/50">
-                              ₹{pageTxnTotals.totalInflow.toLocaleString("en-IN")}
+                              ₹{(pageTxnTotals.income - pageTxnTotals.expense).toLocaleString("en-IN")}
                             </td>
                           </>
                         ) : activeReport === "payment" ? (
@@ -4138,19 +4633,27 @@ export function AccountsReportsHub({
                         Total Summary ({filteredTransactions.length})
                       </td>
                       {activeReport === "dues" ? (
-                        <td className="py-2.5 px-3 text-right font-black text-rose-700 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
-                          ₹{(metrics.totalPending || metrics.totalIncome).toLocaleString("en-IN")}
-                        </td>
+                        <>
+                          <td className="py-2.5 px-3 text-right font-black text-slate-900 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
+                            ₹{(metrics.totalFare || (metrics.totalPending + metrics.totalIncome)).toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-black text-emerald-800 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
+                            ₹{metrics.totalIncome.toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-black text-rose-700 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
+                            ₹{metrics.totalPending.toLocaleString("en-IN")}
+                          </td>
+                        </>
                       ) : activeReport === "cash_flow" ? (
                         <>
                           <td className="py-2.5 px-3 text-right font-black text-emerald-800 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
-                            ₹{metrics.totalCash.toLocaleString("en-IN")}
+                            ₹{metrics.totalIncome.toLocaleString("en-IN")}
                           </td>
-                          <td className="py-2.5 px-3 text-right font-black text-emerald-800 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
-                            ₹{metrics.totalOnline.toLocaleString("en-IN")}
+                          <td className="py-2.5 px-3 text-right font-black text-rose-700 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
+                            ₹{metrics.totalExpenses.toLocaleString("en-IN")}
                           </td>
                           <td className="py-2.5 px-3 text-right font-black text-emerald-900 whitespace-nowrap text-sm border border-slate-300 bg-[#d9ebd9]/70">
-                            ₹{metrics.totalIncome.toLocaleString("en-IN")}
+                            ₹{metrics.netBalance.toLocaleString("en-IN")}
                           </td>
                         </>
                       ) : activeReport === "payment" ? (

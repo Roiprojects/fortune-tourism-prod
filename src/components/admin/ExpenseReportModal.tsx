@@ -581,6 +581,47 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
       paymentMethod: formPaymentMethod,
     });
 
+    // Also persist to PostgreSQL database via /api/business/expenses
+    try {
+      const adminKey =
+        (typeof window !== "undefined" &&
+          (sessionStorage.getItem("fortune_admin_key") ||
+            localStorage.getItem("fortune_admin_key"))) ||
+        "Admin@fortunetourism2026";
+      const primaryCat =
+        repairsNum > 0
+          ? "Repairs"
+          : supplierNum > 0
+          ? "Supplier"
+          : agencyNum > 0
+          ? "Agency"
+          : driverNum > 0
+          ? "Driver"
+          : "Miscellaneous";
+      const payee =
+        formSupplierName.trim() || formAgencyName.trim() || formDriverName.trim() || "Vendor";
+
+      fetch("/api/business/expenses", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-key": adminKey,
+        },
+        body: JSON.stringify({
+          expense_date: formDateFrom,
+          category: primaryCat,
+          description: formReason.trim() || `${primaryCat} Expense`,
+          paid_to: payee,
+          amount: totalEntry,
+          payment_method: formPaymentMethod,
+          reference: `EXP-${Date.now().toString().slice(-6)}`,
+          notes: formReason.trim(),
+        }),
+      }).catch((err) => console.warn("Background DB expense sync error:", err));
+    } catch (e) {
+      console.warn("Expense DB persist error:", e);
+    }
+
     toast.success("Expense outflow recorded successfully!");
 
     setFormRepairs("");
