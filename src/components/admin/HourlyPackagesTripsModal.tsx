@@ -20,8 +20,13 @@ import {
   User,
   FileSpreadsheet,
   Building,
+  Ticket,
+  CheckCircle2,
+  MessageCircle,
 } from "lucide-react";
 import logoAsset from "@/assets/fortune-tourism-logo.png";
+import { downloadTicketCopyPDF } from "@/lib/ticket-copy-pdf";
+import { buildWhatsAppUrl } from "@/lib/contact";
 
 export interface HourlyPackageTripRecord {
   id: string;
@@ -218,6 +223,9 @@ export function HourlyPackagesTripsModal({
   const [editingRecord, setEditingRecord] = useState<HourlyPackageTripRecord | null>(null);
   const [isNewEntry, setIsNewEntry] = useState(false);
 
+  // Ticket Copy Modal state
+  const [ticketRecord, setTicketRecord] = useState<HourlyPackageTripRecord | null>(null);
+
   // Sync to localStorage
   const saveToStorage = (data: HourlyPackageTripRecord[]) => {
     try {
@@ -230,13 +238,49 @@ export function HourlyPackagesTripsModal({
   // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen && !isEditModalOpen) {
-        onClose();
+      if (e.key === "Escape") {
+        if (ticketRecord) {
+          setTicketRecord(null);
+        } else if (isEditModalOpen) {
+          setIsEditModalOpen(false);
+        } else if (isOpen) {
+          onClose();
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, isEditModalOpen, onClose]);
+  }, [isOpen, isEditModalOpen, ticketRecord, onClose]);
+
+  // Download PDF handler for ticket copy
+  const handleDownloadTicketPDF = (rec: HourlyPackageTripRecord) => {
+    try {
+      const fare = rec.amount || 2400;
+      const ticketNo = `HPT-FT${rec.slNo.toString().padStart(4, "0")}`;
+      const pnrNo = `HPT-FC${rec.slNo.toString().padStart(4, "0")}`;
+      downloadTicketCopyPDF({
+        ticketNumber: ticketNo,
+        pnrNumber: pnrNo,
+        bookingDate: rec.date,
+        passengerName: rec.paxName || "GUEST",
+        passengerPhone: rec.phNumber || "9964600247",
+        tourType: "HOURLY PACKAGE TOUR",
+        fromLocation: rec.from || "BOMMASANDRA",
+        toLocation: rec.to || "BANGALORE LOCAL",
+        departureOn: rec.date,
+        tripType: `HOURLY PACKAGE (${(rec.hours || "8 Hr's").toUpperCase()})`,
+        vehicleOrMode: `${rec.car || "CAB"} (Cab No: ${rec.taxiNo || "KA 51 AC 6052"})`,
+        boardingPoint: rec.boarding || "BOMMASANDRA",
+        boardingAddress: rec.from || "BOMMASANDRA",
+        fareAmount: fare,
+        paymentStatus: rec.paymentStatus || "Paid",
+      });
+      toast.success(`Official Ticket Copy PDF generated & downloaded for ${rec.paxName || "Tour #" + rec.slNo}`);
+    } catch (err: any) {
+      console.error("PDF generation failed:", err);
+      toast.error(`Ticket generation failed: ${err.message}`);
+    }
+  };
 
   // Unique filter values
   const uniqueMonths = useMemo(() => {
@@ -673,7 +717,7 @@ export function HourlyPackagesTripsModal({
                   <th className="py-2.5 px-2 w-16">TOLL</th>
                   <th className="py-2.5 px-3 text-left">BOARDING</th>
                   <th className="py-2.5 px-3 w-28 text-right bg-slate-50 text-slate-800">AMOUNT / STATUS</th>
-                  <th className="py-2.5 px-3 w-24 bg-slate-100 text-slate-700">ACTION</th>
+                  <th className="py-2.5 px-3 w-36 bg-slate-100 text-slate-700">ACTION</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-300 font-medium text-slate-800">
@@ -799,6 +843,22 @@ export function HourlyPackagesTripsModal({
                           {/* ACTION */}
                           <td className="py-2 px-2.5 bg-slate-50">
                             <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setTicketRecord(item)}
+                                className="p-1 rounded bg-emerald-100 hover:bg-emerald-600 hover:text-white text-emerald-800 transition shadow-2xs cursor-pointer"
+                                title={`Generate & View Ticket Copy for Tour #${item.slNo} (${item.paxName})`}
+                              >
+                                <Ticket className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadTicketPDF(item)}
+                                className="p-1 rounded bg-blue-100 hover:bg-blue-600 hover:text-white text-blue-800 transition shadow-2xs cursor-pointer"
+                                title={`Download Official PDF Ticket for Tour #${item.slNo}`}
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => handleOpenEdit(item)}
@@ -938,13 +998,69 @@ export function HourlyPackagesTripsModal({
                   <label className="block font-bold text-[#064e3b] mb-1">HOUR&apos;S</label>
                   <input
                     type="text"
-                    placeholder="e.g. 4 Hr's, 8 Hr's, 10 Hr's"
+                    placeholder="e.g. 4 Hr's, 8 Hr's, 12 Hr's"
                     value={editingRecord.hours}
-                    onChange={(e) =>
-                      setEditingRecord({ ...editingRecord, hours: e.target.value })
-                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      let autoAmt = editingRecord.amount;
+                      const h = val.toLowerCase();
+                      if (h.includes("4")) autoAmt = 1800;
+                      else if (h.includes("8")) autoAmt = 2400;
+                      else if (h.includes("12")) autoAmt = 3200;
+                      else if (h.includes("5")) autoAmt = 2000;
+                      else if (h.includes("10")) autoAmt = 2800;
+                      setEditingRecord({ ...editingRecord, hours: val, amount: autoAmt });
+                    }}
                     className="w-full px-2.5 py-1.5 rounded-lg border border-emerald-300 font-extrabold text-[#064e3b] bg-emerald-50 focus:ring-2 focus:ring-emerald-500 outline-none"
                   />
+                </div>
+              </div>
+
+              {/* Quick Package Selector: 4 Hr's, 8 Hr's, 12 Hr's (Auto-updates Full Fare) */}
+              <div className="bg-emerald-50/70 border border-emerald-200 p-2.5 rounded-xl">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] font-extrabold text-[#064e3b] uppercase flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" /> SELECT HOURLY TOUR PACKAGE (AUTO FULL FARE UPDATE)
+                  </span>
+                  <span className="text-[10px] font-bold text-emerald-800 bg-white px-2 py-0.5 rounded border border-emerald-300">
+                    4h / 8h / 12h Packages
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { label: "4 Hr's (40 Km)", hours: "4 Hr's", fare: 1800, desc: "City Quick Trip" },
+                    { label: "8 Hr's (80 Km)", hours: "8 Hr's", fare: 2400, desc: "Full Day City Tour" },
+                    { label: "12 Hr's (120 Km)", hours: "12 Hr's", fare: 3200, desc: "Extended Day Tour" },
+                    { label: "5 Hr's (50 Km)", hours: "5 Hr's", fare: 2000, desc: "Midday Package" },
+                  ].map((pkg) => {
+                    const isSelected = editingRecord.hours.toLowerCase().includes(pkg.hours.toLowerCase().slice(0, 2));
+                    return (
+                      <button
+                        key={pkg.hours}
+                        type="button"
+                        onClick={() => {
+                          setEditingRecord({
+                            ...editingRecord,
+                            hours: pkg.hours,
+                            amount: pkg.fare,
+                          });
+                        }}
+                        className={`p-2 rounded-lg border text-left transition cursor-pointer ${
+                          isSelected
+                            ? "bg-[#063f2d] text-white border-[#063f2d] shadow-sm font-bold"
+                            : "bg-white text-slate-800 border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/50"
+                        }`}
+                      >
+                        <div className="font-extrabold text-xs">{pkg.label}</div>
+                        <div className={`text-[11px] font-black ${isSelected ? "text-emerald-300" : "text-emerald-700"}`}>
+                          ₹{pkg.fare.toLocaleString()} Full Fare
+                        </div>
+                        <div className={`text-[9.5px] ${isSelected ? "text-emerald-200" : "text-slate-500"}`}>
+                          {pkg.desc}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1115,10 +1231,13 @@ export function HourlyPackagesTripsModal({
               {/* Row 6: AMOUNT (FARE) & PAYMENT STATUS */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-emerald-50/50 p-3 rounded-xl border border-emerald-200">
                 <div>
-                  <label className="block font-bold text-emerald-900 mb-1">AMOUNT / FARE (₹)</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-bold text-emerald-900">AMOUNT / FULL FARE (₹)</label>
+                    <span className="text-[10px] font-extrabold text-emerald-700">Auto-updated from Package</span>
+                  </div>
                   <input
                     type="number"
-                    placeholder="e.g. 1800, 2800, 3200"
+                    placeholder="e.g. 1800, 2400, 3200"
                     value={editingRecord.amount !== undefined ? editingRecord.amount : ""}
                     onChange={(e) =>
                       setEditingRecord({
@@ -1126,8 +1245,31 @@ export function HourlyPackagesTripsModal({
                         amount: Number(e.target.value) || 0,
                       })
                     }
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-emerald-300 font-black text-emerald-950 focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-emerald-300 font-black text-emerald-950 text-base focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
                   />
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                    <span className="text-[10px] font-bold text-slate-600">Quick Full Fares:</span>
+                    {[
+                      { l: "4h", v: 1800 },
+                      { l: "5h", v: 2000 },
+                      { l: "8h", v: 2400 },
+                      { l: "10h", v: 2800 },
+                      { l: "12h", v: 3200 },
+                    ].map((item) => (
+                      <button
+                        key={item.v}
+                        type="button"
+                        onClick={() => setEditingRecord({ ...editingRecord, amount: item.v })}
+                        className={`px-2 py-0.5 rounded text-[10.5px] font-extrabold border cursor-pointer ${
+                          editingRecord.amount === item.v
+                            ? "bg-[#063f2d] text-white border-[#063f2d]"
+                            : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
+                        }`}
+                      >
+                        ₹{item.v.toLocaleString()} ({item.l})
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <label className="block font-bold text-emerald-900 mb-1">PAYMENT STATUS</label>
@@ -1166,6 +1308,293 @@ export function HourlyPackagesTripsModal({
               >
                 <Save className="w-4 h-4" />
                 <span>Save Tour Entry</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Official Ticket Copy Voucher Modal */}
+      {ticketRecord && (
+        <div className="fixed inset-0 z-70 flex items-center justify-center p-3 sm:p-6 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto">
+          <style>{`
+            @media print {
+              body * {
+                visibility: hidden !important;
+              }
+              .hourly-ticket-copy-print-area, .hourly-ticket-copy-print-area * {
+                visibility: visible !important;
+              }
+              .hourly-ticket-copy-print-area {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                box-shadow: none !important;
+                border: 2px solid #000 !important;
+              }
+              .no-print {
+                display: none !important;
+              }
+            }
+          `}</style>
+
+          <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl border-2 border-slate-900 overflow-hidden flex flex-col my-auto max-h-[95vh]">
+            {/* Top Modal Controls (No Print) */}
+            <div className="no-print bg-[#0B132B] text-white px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 border-b border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                  <Ticket className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
+                    Official Ticket Copy
+                    <span className="font-mono text-xs bg-amber-400/20 text-amber-300 border border-amber-400/30 px-2 py-0.5 rounded font-black">
+                      HPT-FT{ticketRecord.slNo.toString().padStart(4, "0")}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-300">
+                    Hourly Package Tour #{ticketRecord.slNo} · {ticketRecord.paxName}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleDownloadTicketPDF(ticketRecord)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#00c58e] hover:bg-[#00a87a] text-white font-extrabold text-xs rounded-xl shadow transition cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" /> Download PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/15 shadow transition cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5 text-amber-400" /> Print
+                </button>
+                <a
+                  href={buildWhatsAppUrl(
+                    `Hello Fortune Tourism! New Hourly Package Tour reservation confirmed.\n\n*Ticket No:* HPT-FT${ticketRecord.slNo.toString().padStart(4, "0")}\n*PNR:* HPT-FC${ticketRecord.slNo.toString().padStart(4, "0")}\n*Passenger:* ${ticketRecord.paxName}\n*Phone:* ${ticketRecord.phNumber}\n*Package:* ${ticketRecord.hours}\n*Route:* ${ticketRecord.from} to ${ticketRecord.to}\n*Car:* ${ticketRecord.car} (${ticketRecord.taxiNo})\n*Driver:* ${ticketRecord.driver} (${ticketRecord.drPhNo})\n*Fare:* ₹${(ticketRecord.amount || 2400).toLocaleString("en-IN")}\n*Status:* ${ticketRecord.paymentStatus || "Paid"}`
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setTicketRecord(null)}
+                  className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition cursor-pointer ml-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Official Printable Ticket Voucher Area */}
+            <div className="hourly-ticket-copy-print-area p-5 sm:p-6 overflow-y-auto space-y-4 bg-white text-slate-900">
+              {/* Brand Header */}
+              <div className="border-b-2 border-slate-900 pb-3">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <img
+                      src="/images/packages/fortune-tourism-full-logo.png"
+                      alt="FORTUNE Tourism"
+                      className="h-8 sm:h-10 w-auto object-contain"
+                    />
+                    <div className="text-[11px] sm:text-xs font-bold text-slate-800">
+                      Address: No.256/A next To Narayana Hospital, Health City, Bommasandra Bangalore.560099
+                    </div>
+                  </div>
+
+                  <div className="text-right sm:self-center">
+                    <div className="text-[11px] font-bold text-slate-900">
+                      Phone No: +91 9740463404
+                    </div>
+                    <div className="text-xs font-bold text-slate-800 mt-0.5">
+                      BOOKING DATE &amp; TIME : <span className="font-extrabold text-slate-950">{ticketRecord.date}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Title & Key Numbers */}
+              <div className="space-y-1.5 text-slate-900 font-sans text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <div className="text-slate-950 font-black tracking-wide text-base sm:text-lg">
+                    Ticket Copy For Your Journey
+                  </div>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                      TICKET NUMBER :
+                      <strong className="font-mono font-black text-amber-700 text-sm sm:text-base tracking-wider bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-300 shadow-2xs">
+                        HPT-FT{ticketRecord.slNo.toString().padStart(4, "0")}
+                      </strong>
+                    </span>
+                    <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                      TOTAL FARE :
+                      <strong className="font-mono font-black text-emerald-800 text-sm sm:text-base tracking-wider bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-400 shadow-2xs">
+                        ₹{(ticketRecord.amount || 2400).toLocaleString("en-IN")}
+                      </strong>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Official 6-Row Spreadsheet Structure */}
+              <div className="overflow-x-auto border-2 border-slate-900">
+                <table className="w-full text-xs text-left border-collapse font-sans">
+                  <tbody>
+                    {/* Row 1: Passenger Name | Passenger Phone No | Tour Type */}
+                    <tr className="border-b border-slate-900 divide-x divide-slate-900">
+                      <td className="p-2.5 font-bold text-slate-900 bg-slate-50 w-36 whitespace-nowrap">
+                        Passenger Name:
+                      </td>
+                      <td className="p-2.5 font-black text-slate-900 uppercase">
+                        {ticketRecord.paxName || "GUEST"}
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900 bg-slate-50 w-40 whitespace-nowrap">
+                        Passenger Phone No.:
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900">
+                        {ticketRecord.phNumber || "9964600247"}
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900 bg-slate-50 w-28 whitespace-nowrap">
+                        Tour Type:
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900 uppercase">
+                        HOURLY PACKAGE TOUR
+                      </td>
+                    </tr>
+
+                    {/* Row 2: FROM | TO */}
+                    <tr className="border-b border-slate-900 divide-x divide-slate-900">
+                      <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
+                        FROM:
+                      </td>
+                      <td colSpan={2} className="p-2.5 font-black text-slate-900 uppercase">
+                        {ticketRecord.from || "BOMMASANDRA"}
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
+                        TO:
+                      </td>
+                      <td colSpan={2} className="p-2.5 font-black text-slate-900 uppercase">
+                        {ticketRecord.to || "BANGALORE LOCAL"}
+                      </td>
+                    </tr>
+
+                    {/* Row 3: Ticket Number | PNR Number | Departure On */}
+                    <tr className="border-b border-slate-900 divide-x divide-slate-900">
+                      <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
+                        Ticket Number:
+                      </td>
+                      <td className="p-2.5 font-black font-mono text-amber-700 text-sm tracking-wider">
+                        HPT-FT{ticketRecord.slNo.toString().padStart(4, "0")}
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
+                        PNR Number:
+                      </td>
+                      <td className="p-2.5 font-black font-mono text-slate-950 text-sm tracking-wider">
+                        HPT-FC{ticketRecord.slNo.toString().padStart(4, "0")}
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
+                        Departure Date:
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900">
+                        {ticketRecord.date}
+                      </td>
+                    </tr>
+
+                    {/* Row 4: Boarding Point | Boarding Address */}
+                    <tr className="border-b border-slate-900 divide-x divide-slate-900">
+                      <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
+                        Boarding Point:
+                      </td>
+                      <td colSpan={2} className="p-2.5 font-bold text-slate-900 uppercase">
+                        {ticketRecord.boarding || "BOMMASANDRA"}
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
+                        Boarding Address:
+                      </td>
+                      <td colSpan={2} className="p-2.5 font-bold text-slate-900">
+                        {ticketRecord.from || "BOMMASANDRA"}
+                      </td>
+                    </tr>
+
+                    {/* Row 5: Trip Type | Type Of Cab | Fare Amount */}
+                    <tr className="border-b border-slate-900 divide-x divide-slate-900">
+                      <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
+                        Trip Type:
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900 uppercase">
+                        HOURLY PACKAGE ({ticketRecord.hours.toUpperCase()})
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
+                        Type Of Cab:
+                      </td>
+                      <td className="p-2.5 font-black text-slate-900 uppercase">
+                        {ticketRecord.car} ({ticketRecord.taxiNo})
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
+                        Package Full Fare:
+                      </td>
+                      <td className="p-2.5 font-black text-emerald-800 text-sm">
+                        ₹{(ticketRecord.amount || 2400).toLocaleString("en-IN")}
+                      </td>
+                    </tr>
+
+                    {/* Row 6: Driver Info | Total Fare Amount | Payment Status */}
+                    <tr className="divide-x divide-slate-900 bg-emerald-50/50">
+                      <td className="p-2.5 font-bold text-slate-900 bg-emerald-100/70 whitespace-nowrap">
+                        Driver &amp; Contact:
+                      </td>
+                      <td colSpan={2} className="p-2.5 font-bold text-slate-900">
+                        {ticketRecord.driver} (Ph: {ticketRecord.drPhNo}) · Toll: {ticketRecord.toll}
+                      </td>
+                      <td className="p-2.5 font-black text-slate-900 bg-emerald-100/70 whitespace-nowrap">
+                        Total Fare Amount:
+                      </td>
+                      <td className="p-2.5 font-black text-emerald-800 text-sm sm:text-base">
+                        ₹{(ticketRecord.amount || 2400).toLocaleString("en-IN")}
+                        <span className="text-[10px] font-bold text-emerald-700 ml-1.5 block">
+                          ({ticketRecord.hours} Full Package Fare)
+                        </span>
+                      </td>
+                      <td className="p-2.5 font-black text-emerald-700 uppercase">
+                        {ticketRecord.paymentStatus || "Paid"}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Terms & Verification Bar */}
+              <div className="border border-slate-300 rounded-xl p-3.5 text-[11px] text-slate-700 space-y-1.5 bg-slate-50/50">
+                <div className="font-extrabold text-slate-900 uppercase text-[10px] tracking-wider mb-1 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Terms &amp; Journey Instructions
+                </div>
+                <div className="space-y-0.5 text-slate-600 text-[10.5px]">
+                  <div>1. Please carry this official Ticket Copy / SMS during your journey.</div>
+                  <div>2. Hourly packages include standard fuel &amp; driver allowance for specified hours/kms. Extra km/hour charged at standard tariffs.</div>
+                  <div>3. Helpline &amp; 24x7 Support: +91 9740463404 / 9964600247.</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Modal Actions */}
+            <div className="no-print bg-slate-50 border-t border-slate-200 px-5 py-3 flex items-center justify-between">
+              <span className="text-xs text-slate-500 font-semibold">
+                Official Fortune Tourism Verified Passenger Voucher
+              </span>
+              <button
+                type="button"
+                onClick={() => setTicketRecord(null)}
+                className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition cursor-pointer"
+              >
+                Close Ticket View
               </button>
             </div>
           </div>

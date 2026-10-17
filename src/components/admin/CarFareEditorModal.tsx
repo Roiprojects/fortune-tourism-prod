@@ -101,14 +101,19 @@ export function CarFareEditorModal({
       const current = prev.vehicles[id] || {
         ...DEFAULT_FLEET_OPTIONS.find((v) => v.id === id)!,
       };
+      const updated: FleetTariff = {
+        ...current,
+        [field]: isNaN(num) ? 0 : num,
+      };
+      // When One Way fare is updated, automatically calculate Return Fare (2-Way Round Trip = One Way * 2)
+      if (field === "basePriceOneWay" && !isNaN(num) && num > 0) {
+        updated.basePriceRoundTrip = Math.round(num * 2);
+      }
       return {
         ...prev,
         vehicles: {
           ...prev.vehicles,
-          [id]: {
-            ...current,
-            [field]: isNaN(num) ? 0 : num,
-          },
+          [id]: updated,
         },
       };
     });
@@ -359,29 +364,54 @@ export function CarFareEditorModal({
               </span>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Round Trip Base Fare */}
-                <div className="bg-[#0b1329]/80 border border-white/10 rounded-xl p-3 flex items-center justify-between">
-                  <div>
-                    <label className="text-[11px] font-bold text-white block">
-                      Round Trip Base (₹)
-                    </label>
-                    <span className="text-[10px] text-slate-400">
-                      Outstation 2-way trip
-                    </span>
+                {/* Round Trip Base Fare (2-Way Return Calculation) */}
+                <div className="bg-[#0b1329]/80 border border-emerald-500/30 rounded-xl p-3 flex flex-col justify-between gap-1.5 sm:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-[11px] font-black text-emerald-300 uppercase tracking-wider block">
+                          🔄 Round Trip Base Fare (₹) — 2-Way Return Included
+                        </label>
+                        <span className="text-[10px] font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                          Onward + Return Leg
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-300">
+                        Outstation 2-way circuit: Onward (₹{selectedVehicle.basePriceOneWay.toLocaleString()}) + Return Leg (₹{selectedVehicle.basePriceOneWay.toLocaleString()}) = ₹{(selectedVehicle.basePriceOneWay * 2).toLocaleString()}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateVehicleFare(
+                            selectedVehicle.id,
+                            "basePriceRoundTrip",
+                            selectedVehicle.basePriceOneWay * 2
+                          )
+                        }
+                        className="text-[10px] font-bold text-emerald-300 bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-500/40 px-2 py-1 rounded-lg transition cursor-pointer"
+                        title="Auto-calculate 2x One-Way Fare for full 2-way return trip"
+                      >
+                        Auto 2-Way (2 × ₹{selectedVehicle.basePriceOneWay})
+                      </button>
+
+                      <input
+                        type="number"
+                        min="0"
+                        value={selectedVehicle.basePriceRoundTrip}
+                        onChange={(e) =>
+                          updateVehicleFare(
+                            selectedVehicle.id,
+                            "basePriceRoundTrip",
+                            e.target.value
+                          )
+                        }
+                        className="w-28 bg-[#111c3a] border border-emerald-400 rounded-lg px-2.5 py-1 text-xs font-black text-emerald-300 text-right font-mono outline-none focus:ring-2 focus:ring-[#00c58e]"
+                      />
+                    </div>
                   </div>
-                  <input
-                    type="number"
-                    min="0"
-                    value={selectedVehicle.basePriceRoundTrip}
-                    onChange={(e) =>
-                      updateVehicleFare(
-                        selectedVehicle.id,
-                        "basePriceRoundTrip",
-                        e.target.value
-                      )
-                    }
-                    className="w-24 bg-[#111c3a] border border-white/20 rounded-lg px-2.5 py-1 text-xs font-black text-white text-right font-mono outline-none focus:border-[#00c58e]"
-                  />
                 </div>
 
                 {/* Airport Transfer Flat Fare */}
@@ -409,14 +439,14 @@ export function CarFareEditorModal({
                   />
                 </div>
 
-                {/* Local 4hr / 40km */}
+                {/* Local Hourly 4hr / 40km */}
                 <div className="bg-[#0b1329]/80 border border-white/10 rounded-xl p-3 flex items-center justify-between">
                   <div>
                     <label className="text-[11px] font-bold text-white block">
-                      Local 4 Hr / 40 Km (₹)
+                      Hourly 4 Hr / 40 Km (₹)
                     </label>
                     <span className="text-[10px] text-slate-400">
-                      Half day city rental
+                      4 Hrs city package full fare
                     </span>
                   </div>
                   <input
@@ -434,14 +464,14 @@ export function CarFareEditorModal({
                   />
                 </div>
 
-                {/* Local 8hr / 80km */}
+                {/* Local Hourly 8hr / 80km */}
                 <div className="bg-[#0b1329]/80 border border-white/10 rounded-xl p-3 flex items-center justify-between">
                   <div>
-                    <label className="text-[11px] font-bold text-white block">
-                      Local 8 Hr / 80 Km (₹)
+                    <label className="text-[11px] font-bold text-emerald-300 block">
+                      Hourly 8 Hr / 80 Km (₹)
                     </label>
                     <span className="text-[10px] text-slate-400">
-                      Full day city package
+                      8 Hrs full day package fare
                     </span>
                   </div>
                   <input
@@ -455,18 +485,18 @@ export function CarFareEditorModal({
                         e.target.value
                       )
                     }
-                    className="w-24 bg-[#111c3a] border border-white/20 rounded-lg px-2.5 py-1 text-xs font-black text-white text-right font-mono outline-none focus:border-[#00c58e]"
+                    className="w-24 bg-[#111c3a] border border-emerald-400/50 rounded-lg px-2.5 py-1 text-xs font-black text-emerald-300 text-right font-mono outline-none focus:border-[#00c58e]"
                   />
                 </div>
 
-                {/* Local 12hr / 120km */}
+                {/* Local Hourly 12hr / 120km */}
                 <div className="bg-[#0b1329]/80 border border-white/10 rounded-xl p-3 flex items-center justify-between">
                   <div>
-                    <label className="text-[11px] font-bold text-white block">
-                      Local 12 Hr / 120 Km (₹)
+                    <label className="text-[11px] font-bold text-emerald-300 block">
+                      Hourly 12 Hr / 120 Km (₹)
                     </label>
                     <span className="text-[10px] text-slate-400">
-                      Extended day package
+                      12 Hrs extended day package fare
                     </span>
                   </div>
                   <input
@@ -480,7 +510,7 @@ export function CarFareEditorModal({
                         e.target.value
                       )
                     }
-                    className="w-24 bg-[#111c3a] border border-white/20 rounded-lg px-2.5 py-1 text-xs font-black text-white text-right font-mono outline-none focus:border-[#00c58e]"
+                    className="w-24 bg-[#111c3a] border border-emerald-400/50 rounded-lg px-2.5 py-1 text-xs font-black text-emerald-300 text-right font-mono outline-none focus:border-[#00c58e]"
                   />
                 </div>
 

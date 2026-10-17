@@ -123,7 +123,7 @@ const FLEET_OPTIONS: FleetOption[] = [
     includedKms: 145,
     postLimitRate: 12,
     basePriceOneWay: 1783,
-    basePriceRoundTrip: 3222,
+    basePriceRoundTrip: 3566,
     basePriceLocal4hr: 1341,
     basePriceLocal8hr: 2200,
     basePriceLocal12hr: 2900,
@@ -139,7 +139,7 @@ const FLEET_OPTIONS: FleetOption[] = [
     includedKms: 145,
     postLimitRate: 14,
     basePriceOneWay: 1950,
-    basePriceRoundTrip: 3296,
+    basePriceRoundTrip: 3900,
     basePriceLocal4hr: 1369,
     basePriceLocal8hr: 2400,
     basePriceLocal12hr: 3200,
@@ -155,7 +155,7 @@ const FLEET_OPTIONS: FleetOption[] = [
     includedKms: 145,
     postLimitRate: 16,
     basePriceOneWay: 2350,
-    basePriceRoundTrip: 3950,
+    basePriceRoundTrip: 4700,
     basePriceLocal4hr: 1650,
     basePriceLocal8hr: 2900,
     basePriceLocal12hr: 3800,
@@ -171,7 +171,7 @@ const FLEET_OPTIONS: FleetOption[] = [
     includedKms: 145,
     postLimitRate: 17,
     basePriceOneWay: 2650,
-    basePriceRoundTrip: 4450,
+    basePriceRoundTrip: 5300,
     basePriceLocal4hr: 1850,
     basePriceLocal8hr: 3200,
     basePriceLocal12hr: 4100,
@@ -187,7 +187,7 @@ const FLEET_OPTIONS: FleetOption[] = [
     includedKms: 145,
     postLimitRate: 19,
     basePriceOneWay: 3100,
-    basePriceRoundTrip: 5100,
+    basePriceRoundTrip: 6200,
     basePriceLocal4hr: 2150,
     basePriceLocal8hr: 3700,
     basePriceLocal12hr: 4700,
@@ -203,7 +203,7 @@ const FLEET_OPTIONS: FleetOption[] = [
     includedKms: 145,
     postLimitRate: 21,
     basePriceOneWay: 3400,
-    basePriceRoundTrip: 5650,
+    basePriceRoundTrip: 6800,
     basePriceLocal4hr: 2400,
     basePriceLocal8hr: 4100,
     basePriceLocal12hr: 5200,
@@ -219,7 +219,7 @@ const FLEET_OPTIONS: FleetOption[] = [
     includedKms: 145,
     postLimitRate: 28,
     basePriceOneWay: 5200,
-    basePriceRoundTrip: 8900,
+    basePriceRoundTrip: 10400,
     basePriceLocal4hr: 3800,
     basePriceLocal8hr: 6500,
     basePriceLocal12hr: 8200,
@@ -235,7 +235,7 @@ const FLEET_OPTIONS: FleetOption[] = [
     includedKms: 145,
     postLimitRate: 45,
     basePriceOneWay: 8500,
-    basePriceRoundTrip: 14500,
+    basePriceRoundTrip: 17000,
     basePriceLocal4hr: 6200,
     basePriceLocal8hr: 10500,
     basePriceLocal12hr: 13500,
@@ -1846,7 +1846,7 @@ function BookingPage() {
                   let price = fleet.basePriceOneWay;
                   if (cabTripType === "ROUND TRIP") price = fleet.basePriceRoundTrip;
                   if (cabTripType === "AIRPORT") price = fleet.basePriceAirport;
-                  if (cabTripType === "LOCAL") {
+                  if (cabTripType === "LOCAL" || cabTripType === "HOURLY PACKAGE") {
                     if (localPackage === "4hr_40km") price = fleet.basePriceLocal4hr;
                     else if (localPackage === "8hr_80km") price = fleet.basePriceLocal8hr;
                     else price = fleet.basePriceLocal12hr;
@@ -1900,7 +1900,15 @@ function BookingPage() {
                                 🔄 2-Way Return ({fleet.includedKms * 2} km incl.)
                               </span>
                               <span className="text-slate-300 font-medium">
-                                Extra km: ₹{fleet.postLimitRate}/km · Return: {cabReturnDateFormatted}
+                                Onward: ₹{fleet.basePriceOneWay.toLocaleString()} + Return: ₹{(price - fleet.basePriceOneWay).toLocaleString()} · Ret: {cabReturnDateFormatted}
+                              </span>
+                            </div>
+                          )}
+
+                          {(cabTripType === "HOURLY PACKAGE" || cabTripType === "LOCAL") && (
+                            <div className="flex flex-wrap items-center gap-2 pt-1.5 text-[11px]">
+                              <span className="bg-[#00c58e]/20 text-[#00c58e] border border-[#00c58e]/30 px-2 py-0.5 rounded-lg font-bold flex items-center gap-1">
+                                ⏰ {localPackage === "4hr_40km" ? "4 Hrs / 40 Kms Full Package Fare" : localPackage === "8hr_80km" ? "8 Hrs / 80 Kms Full Package Fare" : "12 Hrs / 120 Kms Full Package Fare"}
                               </span>
                             </div>
                           )}
@@ -3048,7 +3056,11 @@ function BookingPage() {
                           Trip Type:
                         </td>
                         <td className="p-2.5 font-bold text-slate-900 uppercase">
-                          {cabTripType === "ROUND TRIP" ? "ROUND TRIP (2-WAY)" : cabTripType}
+                          {cabTripType === "ROUND TRIP"
+                            ? "ROUND TRIP (2-WAY)"
+                            : cabTripType === "HOURLY PACKAGE"
+                            ? `HOURLY PACKAGE (${localPackage === "4hr_40km" ? "4 HRS / 40 KM" : localPackage === "8hr_80km" ? "8 HRS / 80 KM" : "12 HRS / 120 KM"})`
+                            : cabTripType}
                         </td>
                         <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
                           {serviceType === "FLIGHT"
@@ -3065,27 +3077,28 @@ function BookingPage() {
                           {vehicleDisplay}
                         </td>
                         <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
-                          {cabTripType === "ROUND TRIP" ? "Return Date:" : "Fare Amount:"}
+                          {cabTripType === "ROUND TRIP" ? "Onward + Return Fare:" : "Fare Amount:"}
                         </td>
                         <td className="p-2.5 font-black uppercase">
-                          {cabTripType === "ROUND TRIP" ? (
-                            <span className="text-emerald-800 font-black">{cabReturnDateFormatted}</span>
-                          ) : (
-                            <div className="flex items-center gap-1">
-                              <span className="text-emerald-700 font-black">₹</span>
-                              <input
-                                type="number"
-                                min={0}
-                                value={otherFormData.fare_amount || displayTotalFare}
-                                onChange={(e) => {
-                                  setOtherFormData((prev: any) => ({ ...prev, fare_amount: e.target.value }));
-                                  try {
-                                    window.dispatchEvent(new Event("fortune_booking_created"));
-                                  } catch {}
-                                }}
-                                className="w-28 bg-transparent border-b border-dashed border-slate-400 hover:border-slate-800 focus:border-emerald-600 focus:bg-emerald-50/40 px-1 py-0.5 text-xs sm:text-sm font-black text-emerald-800 outline-none transition"
-                                title="Click to edit journey fare amount on ticket copy"
-                              />
+                          <div className="flex items-center gap-1">
+                            <span className="text-emerald-700 font-black">₹</span>
+                            <input
+                              type="number"
+                              min={0}
+                              value={otherFormData.fare_amount || displayTotalFare}
+                              onChange={(e) => {
+                                setOtherFormData((prev: any) => ({ ...prev, fare_amount: e.target.value }));
+                                try {
+                                  window.dispatchEvent(new Event("fortune_booking_created"));
+                                } catch {}
+                              }}
+                              className="w-28 bg-transparent border-b border-dashed border-slate-400 hover:border-slate-800 focus:border-emerald-600 focus:bg-emerald-50/40 px-1 py-0.5 text-xs sm:text-sm font-black text-emerald-800 outline-none transition"
+                              title="Click to edit journey fare amount on ticket copy"
+                            />
+                          </div>
+                          {cabTripType === "ROUND TRIP" && (
+                            <div className="text-[10px] text-slate-500 font-bold mt-0.5">
+                              Onward: ₹{Math.round((Number(otherFormData.fare_amount || displayTotalFare)) / 2).toLocaleString("en-IN")} + Return: ₹{Math.round((Number(otherFormData.fare_amount || displayTotalFare)) / 2).toLocaleString("en-IN")}
                             </div>
                           )}
                         </td>
@@ -3098,6 +3111,16 @@ function BookingPage() {
                         </td>
                         <td colSpan={2} className="p-2.5 font-black text-emerald-800 text-sm sm:text-base">
                           ₹{Number(displayTotalFare || 0).toLocaleString("en-IN")}
+                          {cabTripType === "ROUND TRIP" && (
+                            <span className="text-[10px] font-bold text-emerald-700 ml-2">
+                              (Includes Full 2-Way Return Circuit · Return: {cabReturnDateFormatted})
+                            </span>
+                          )}
+                          {(cabTripType === "HOURLY PACKAGE" || cabTripType === "LOCAL") && (
+                            <span className="text-[10px] font-bold text-emerald-700 ml-2">
+                              ({localPackage === "4hr_40km" ? "4 Hrs / 40 Kms Full Fare" : localPackage === "8hr_80km" ? "8 Hrs / 80 Kms Full Fare" : "12 Hrs / 120 Kms Full Fare"})
+                            </span>
+                          )}
                         </td>
                         <td className="p-2.5 font-bold text-slate-900 bg-emerald-100/70 whitespace-nowrap">
                           Payment Status:

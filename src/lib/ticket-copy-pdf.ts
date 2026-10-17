@@ -139,26 +139,39 @@ export function downloadTicketCopyPDF(data: TicketCopyData) {
             styles: { fontStyle: "bold", fillColor: [245, 245, 245] },
           },
           { content: (data.vehicleOrMode || "MARUTI SUZUKI CIAZ").toUpperCase(), styles: { fontStyle: "bold" } },
-          { content: data.returnDate ? "Return Date:" : "Fare Amount:", styles: { fontStyle: "bold", fillColor: [245, 245, 245] } },
           {
-            content: data.returnDate
-              ? data.returnDate
-              : Number(data.fareAmount || 0) > 0
-              ? `INR ${Number(data.fareAmount).toLocaleString("en-IN")}`
-              : data.fareAmount
-              ? `INR ${data.fareAmount}`
-              : "INR 0",
-            styles: { fontStyle: "bold", textColor: data.returnDate ? [10, 10, 10] : [14, 107, 80] },
+            content: data.tripType?.toUpperCase().includes("ROUND") || Boolean(data.returnDate)
+              ? "Onward + Return Fare:"
+              : "Fare Amount:",
+            styles: { fontStyle: "bold", fillColor: [245, 245, 245] },
+          },
+          {
+            content: (() => {
+              const num = Number(data.fareAmount || 0);
+              const fareStr = num > 0 ? `INR ${num.toLocaleString("en-IN")}` : data.fareAmount ? `INR ${data.fareAmount}` : "INR 0";
+              if (data.tripType?.toUpperCase().includes("ROUND") || Boolean(data.returnDate)) {
+                const half = num > 0 ? Math.round(num / 2).toLocaleString("en-IN") : "—";
+                return `${fareStr}\n(Onward: INR ${half} + Return: INR ${half})`;
+              }
+              return fareStr;
+            })(),
+            styles: { fontStyle: "bold", textColor: [14, 107, 80] },
           },
         ],
         [
           { content: "Total Fare Amount:", styles: { fontStyle: "bold", fillColor: [230, 245, 235] } },
           {
-            content: Number(data.fareAmount || 0) > 0
-              ? `INR ${Number(data.fareAmount).toLocaleString("en-IN")}`
-              : data.fareAmount
-              ? `INR ${data.fareAmount}`
-              : "INR 0",
+            content: (() => {
+              const num = Number(data.fareAmount || 0);
+              const fareStr = num > 0 ? `INR ${num.toLocaleString("en-IN")}` : data.fareAmount ? `INR ${data.fareAmount}` : "INR 0";
+              if (data.tripType?.toUpperCase().includes("ROUND") || Boolean(data.returnDate)) {
+                return `${fareStr} (Full 2-Way Return Circuit)`;
+              }
+              if (data.tripType?.toUpperCase().includes("HOURLY")) {
+                return `${fareStr} (Full Package Fare)`;
+              }
+              return fareStr;
+            })(),
             colSpan: 2,
             styles: { fontStyle: "bold", fontSize: 9.5, textColor: [14, 107, 80] },
           },
