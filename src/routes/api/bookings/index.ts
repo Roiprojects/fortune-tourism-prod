@@ -112,8 +112,9 @@ export const Route = createFileRoute("/api/bookings/")({
             conditions.length > 0 ? ` WHERE ${conditions.map((c) => `(${c})`).join(" AND ")}` : "";
 
           const orderMap: Record<string, string> = {
-            travel_date_asc: "b.departure_datetime ASC NULLS LAST",
-            travel_date_desc: "b.departure_datetime DESC NULLS LAST",
+            created_desc: "b.created_at DESC",
+            travel_date_asc: "CASE WHEN b.departure_datetime < '2000-01-01'::date THEN '2099-12-31'::timestamp ELSE b.departure_datetime END ASC NULLS LAST, b.created_at ASC",
+            travel_date_desc: "CASE WHEN b.departure_datetime > '2099-12-31'::date THEN '1970-01-01'::timestamp ELSE b.departure_datetime END DESC NULLS LAST, b.created_at DESC",
             remaining_desc: "remaining_amount DESC",
             customer: "b.passenger_name ASC",
           };

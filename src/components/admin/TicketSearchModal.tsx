@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import {
   X,
@@ -138,6 +138,16 @@ export function TicketSearchModal({
   const [selectedTicket, setSelectedTicket] = useState<TicketRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [isServerSearching, setIsServerSearching] = useState(false);
+
+  // Refs for stable asynchronous tracking & race-condition elimination
+  const selectedTicketRef = useRef<TicketRecord | null>(null);
+  const activeDetailRequestIdRef = useRef<number>(0);
+  const searchDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Keep ref synchronized with state
+  selectedTicketRef.current = selectedTicket;
 
   // Edit State
   const [isEditing, setIsEditing] = useState(false);
@@ -151,13 +161,16 @@ export function TicketSearchModal({
   // Copy Feedback
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  // Load tickets from bookings API
+  // Load tickets from bookings API with stable callback (no circular selectedTicket dependencies)
   const fetchTickets = useCallback(
-    async (silent = false) => {
-      if (!silent) setLoading(true);
-      else setRefreshing(true);
+    async (silent = false, serverQuery?: string) => {
+      if (!silent && !serverQuery) setLoading(true);
+      else if (silent && !serverQuery) setRefreshing(true);
+      else if (serverQuery) setIsServerSearching(true);
+
       try {
-        const res = await adminFetch("/api/bookings?limit=500&sortBy=travel_date_desc");
+        const qParam = serverQuery ? `&q=${encodeURIComponent(serverQuery)}` : "";
+        const res = await adminFetch(`/api/bookings?limit=500&sortBy=created_desc${qParam}`);
         const data = await res.json();
         if (data.success && Array.isArray(data.bookings)) {
           // Normalize records with tickets or PNRs
@@ -167,56 +180,73 @@ export function TicketSearchModal({
             pnr_number: b.pnr_number || `PNR-${b.id}`,
             total_amount: Number(b.total_amount || b.ticket_amount || b.base_amount || b.fare || 0),
           }));
-          setTickets(rows);
 
-          // Update currently selected ticket if present
-          if (selectedTicket) {
-            const found = rows.find((r) => r.id === selectedTicket.id);
-            if (found) setSelectedTicket(found);
-          } else if (rows.length > 0) {
-            setSelectedTicket(rows[0]);
+          if (serverQuery) {
+            // Merge queried results into existing tickets avoiding duplicates
+            setTickets((prev) => {
+              const map = new Map<number, TicketRecord>();
+              rows.forEach((r) => map.set(r.id, r));
+              prev.forEach((p) => {
+                if (!map.has(p.id)) map.set(p.id, p);
+              });
+              return Array.from(map.values());
+            });
+          } else {
+            setTickets(rows);
           }
         }
       } catch (err) {
         console.error("Error fetching tickets:", err);
-        if (!silent) toast.error("Could not fetch tickets list.");
+        if (!silent && !serverQuery) toast.error("Could not fetch tickets list.");
       } finally {
         setLoading(false);
         setRefreshing(false);
+        setIsServerSearching(false);
       }
     },
-    [selectedTicket]
+    [] // Completely stable reference
   );
 
-  useEffect(() => {
-    if (isOpen) {
-      if (initialQuery) setSearchQuery(initialQuery);
-      fetchTickets();
-    } else {
+  // When a ticket is selected, fetch full details with race-condition guard & loading indicator
+  const handleSelectTicket = useCallback(async (ticket: TicketRecord | null) => {
+    if (!ticket) {
+      setSelectedTicket(null);
+      selectedTicketRef.current = null;
       setIsEditing(false);
       setShowDeleteConfirm(false);
+      return;
     }
-  }, [isOpen, initialQuery, fetchTickets]);
 
-  // When a ticket is selected, fetch full details (including passenger manifest)
-  const handleSelectTicket = async (ticket: TicketRecord) => {
+    const reqId = ++activeDetailRequestIdRef.current;
     setSelectedTicket(ticket);
+    selectedTicketRef.current = ticket;
     setIsEditing(false);
     setShowDeleteConfirm(false);
+    setDetailLoading(true);
+
     try {
       const res = await adminFetch(`/api/bookings/${ticket.id}`);
       const data = await res.json();
-      if (data.success && data.booking) {
-        setSelectedTicket({
-          ...ticket,
-          ...data.booking,
-          passengers: data.passengers || [],
-        });
+      // Only apply if this request is still the active one (prevents race overwrites)
+      if (activeDetailRequestIdRef.current === reqId) {
+        if (data.success && data.booking) {
+          const merged: TicketRecord = {
+            ...ticket,
+            ...data.booking,
+            passengers: data.passengers || [],
+          };
+          setSelectedTicket(merged);
+          selectedTicketRef.current = merged;
+        }
       }
-    } catch {
-      // Fallback to list object
+    } catch (err) {
+      console.error("Error fetching ticket details:", err);
+    } finally {
+      if (activeDetailRequestIdRef.current === reqId) {
+        setDetailLoading(false);
+      }
     }
-  };
+  }, []);
 
   // Filter tickets by query & category
   const filteredTickets = useMemo(() => {
@@ -225,6 +255,13 @@ export function TicketSearchModal({
       list = list.filter((t) => {
         const cat = (t.category || "").toUpperCase();
         if (categoryFilter === "CAR") return cat === "CAR" || cat === "TAXI";
+        if (categoryFilter === "TOUR") {
+          return (
+            cat === "TOUR" ||
+            Boolean(t.package_name) ||
+            Boolean(t.tour_type && !t.tour_type.toLowerCase().includes("local"))
+          );
+        }
         return cat === categoryFilter;
       });
     }
@@ -256,6 +293,61 @@ export function TicketSearchModal({
       );
     });
   }, [tickets, categoryFilter, searchQuery]);
+
+  // Synchronize selection: ensure selectedTicket ALWAYS belongs to filteredTickets
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (filteredTickets.length > 0) {
+      const currentId = selectedTicketRef.current?.id;
+      const match = currentId ? filteredTickets.find((t) => t.id === currentId) : null;
+
+      if (match) {
+        // Current ticket is still part of filtered results; retain selection
+        if (!isEditing && selectedTicketRef.current) {
+          setSelectedTicket((prev) => (prev ? { ...prev, ...match } : match));
+        }
+      } else {
+        // Current selected ticket does NOT match the search query / category!
+        // Automatically select the first matching ticket in filteredTickets
+        handleSelectTicket(filteredTickets[0]);
+      }
+    } else {
+      // No tickets match the current search or category filter
+      if (selectedTicketRef.current !== null) {
+        setSelectedTicket(null);
+        selectedTicketRef.current = null;
+      }
+    }
+  }, [filteredTickets, isOpen, isEditing, handleSelectTicket]);
+
+  // Debounced server search for deeper DB coverage beyond local batch
+  useEffect(() => {
+    if (!isOpen) return;
+    const q = searchQuery.trim();
+    if (q.length >= 2) {
+      if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+      searchDebounceTimerRef.current = setTimeout(() => {
+        fetchTickets(true, q);
+      }, 350);
+    }
+    return () => {
+      if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+    };
+  }, [searchQuery, isOpen, fetchTickets]);
+
+  // Modal open/close lifecycle
+  useEffect(() => {
+    if (isOpen) {
+      if (initialQuery) setSearchQuery(initialQuery);
+      fetchTickets();
+    } else {
+      setIsEditing(false);
+      setShowDeleteConfirm(false);
+      setSelectedTicket(null);
+      selectedTicketRef.current = null;
+    }
+  }, [isOpen, initialQuery, fetchTickets]);
 
   // Copy helper
   const handleCopy = (text: string, fieldName: string) => {
@@ -528,6 +620,12 @@ export function TicketSearchModal({
             <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto text-xs font-bold text-slate-600 bg-white px-3.5 py-2.5 rounded-2xl border border-slate-200 shadow-2xs">
               <Ticket className="w-4 h-4 text-emerald-600" />
               <span>Showing: <strong className="text-slate-900 font-extrabold">{filteredTickets.length}</strong> of {tickets.length} tickets</span>
+              {isServerSearching && (
+                <span className="flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 animate-pulse">
+                  <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+                  Searching DB...
+                </span>
+              )}
             </div>
           </div>
 
@@ -656,6 +754,18 @@ export function TicketSearchModal({
           <div className="lg:col-span-8 flex flex-col h-[520px] lg:h-auto overflow-y-auto bg-slate-100/60 p-3 sm:p-6 space-y-4">
             {selectedTicket ? (
               <>
+                {/* Detail loading banner when refreshing full record */}
+                {detailLoading && (
+                  <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center justify-between gap-2 shadow-2xs animate-pulse">
+                    <span className="flex items-center gap-2">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                      Loading verified ticket manifest &amp; passenger details...
+                    </span>
+                    <span className="text-[10px] uppercase font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                      Syncing
+                    </span>
+                  </div>
+                )}
                 {/* Action Bar Above Ticket */}
                 <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -1215,14 +1325,28 @@ export function TicketSearchModal({
                 </div>
               </>
             ) : (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-400 space-y-3">
+              <div className="h-full min-h-[350px] flex flex-col items-center justify-center text-center p-8 text-slate-400 space-y-3">
                 <Ticket className="w-12 h-12 text-slate-300" />
-                <h3 className="font-extrabold text-slate-700 text-sm">
-                  Select a Ticket to View Details
+                <h3 className="font-extrabold text-slate-800 text-base">
+                  {searchQuery ? "No Matching Tickets Found" : "Select a Ticket to View Details"}
                 </h3>
-                <p className="text-xs text-slate-400 max-w-sm">
-                  Search by Ticket Number, PNR, or Passenger Name from the left list to inspect, edit, or delete the generated ticket copy.
+                <p className="text-xs text-slate-500 max-w-md leading-relaxed">
+                  {searchQuery
+                    ? `No journey ticket found matching "${searchQuery}"${categoryFilter !== "ALL" ? ` under ${categoryFilter}` : ""}. Try searching by another Ticket Number, PNR, passenger phone, or switch the category filter to "All Tickets".`
+                    : "Search by Ticket Number, PNR, or Passenger Name from the left list to inspect, edit, or delete the generated ticket copy."}
                 </p>
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setCategoryFilter("ALL");
+                    }}
+                    className="mt-2 px-4 py-2 text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl transition shadow-2xs cursor-pointer"
+                  >
+                    Clear Search &amp; Show All
+                  </button>
+                )}
               </div>
             )}
           </div>
