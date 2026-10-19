@@ -254,6 +254,27 @@ export const Route = createFileRoute("/api/enquiries")({
           const bId = generateBookingId();
           const bookingStatus = bType === 'TAXI' ? 'PENDING CONFIRMATION' : 'BOOKING REQUESTED';
 
+          // Idempotency check: if booking with same ticket or PNR already exists, return it
+          if (body.ticket_number || body.pnr_number) {
+            const existingBkg = await query(
+              `SELECT * FROM bookings WHERE ticket_number = $1 OR pnr_number = $2 LIMIT 1`,
+              [body.ticket_number || '__none__', body.pnr_number || '__none__']
+            ).catch(() => ({ rows: [] }));
+            if (existingBkg.rows.length > 0) {
+              const eb = existingBkg.rows[0];
+              return new Response(JSON.stringify({ 
+                success: true, 
+                enquiry, 
+                booking_reference: eb.booking_reference || eb.booking_number,
+                advance_paid: Number(eb.advance_amount || 0),
+                booking_id: eb.id
+              }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+              });
+            }
+          }
+
           // Extract fare amount from body or notes
           let fareVal = Number(body.total_amount || body.fare || body.amount || body.ticket_amount || 0);
           if (!fareVal && combinedNotes) {
@@ -420,7 +441,7 @@ export const Route = createFileRoute("/api/enquiries")({
           // ---- End Create Auto-Booking ----
 
           // Sync into corresponding Business Record tables (Day Book, Cab Bookings, Package Trips, etc.) asynchronously
-          syncToBusinessRecords(body, combinedNotes).catch((err) =>
+          syncToBusinessRecords(body, combinedNotes, booking).catch((err) =>
             console.error("Background sync error:", err),
           );
 
@@ -557,7 +578,7 @@ export const Route = createFileRoute("/api/enquiries")({
   },
 });
 
-async function syncToBusinessRecords(payload: any, combinedNotes: string) {
+async function syncToBusinessRecords(payload: any, combinedNotes: string, booking?: any) {
   const {
     name,
     phone,
@@ -585,6 +606,10 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
   const todayStr = new Date().toISOString().split("T")[0];
   const travelDate = date || todayStr;
   const sUpper = String(service || "").toUpperCase();
+  const bookingNumber = booking?.booking_number || payload.booking_number || null;
+  const rawMethod = String(payload.payment_method || "CASH").toUpperCase();
+  const effectiveMethod = rawMethod.startsWith("MANUAL_") ? rawMethod.replace("MANUAL_", "") : rawMethod;
+  const effectivePnr = booking?.pnr_number || payload.pnr_number || (combinedNotes.match(/PNR:\s*([A-Z0-9-]+)/i)?.[1]) || null;
 
   // 1. Ensure customer exists in customers table
   try {
@@ -604,7 +629,7 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
   // 2. Always create a Day Book Entry
   try {
     const serialNo = `DB-${Date.now().toString().slice(-6)}`;
-    const pnrVal = payload.pnr_number || (combinedNotes.match(/PNR:\s*([A-Z0-9-]+)/i)?.[1]) || null;
+    const pnrVal = effectivePnr;
     let fareVal = Number(payload.total_amount || payload.fare || payload.amount || payload.ticket_amount || payload.base_amount || 0);
     if (!fareVal && combinedNotes) {
       const m = combinedNotes.match(/(?:Total Fare|Fare|Amount|Price|ticket_amount):\s*₹?(\d+(?:\.\d+)?)/i);
@@ -655,8 +680,8 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
         serial_number, booking_date, travel_date, travel_by, 
         passenger_name, passenger_phone, from_location, to_location, 
         booking_amount, office_advance, due_amount, total_amount,
-        status, notes, pnr
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+        status, notes, pnr, booking_reference, payment_method
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
       [
         serialNo,
         todayStr,
@@ -673,15 +698,17 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
         dayBookStatus,
         combinedNotes,
         pnrVal,
+        bookingNumber,
+        effectiveMethod,
       ],
     ).catch(async () => {
       await query(
         `INSERT INTO day_book_entries (
           serial_number, booking_date, travel_date, travel_by, 
           passenger_name, passenger_phone, from_location, to_location, 
-          booking_amount, office_advance, due_amount,
+          booking_amount, office_advance, due_amount, total_amount,
           status, notes, pnr
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
         [
           serialNo,
           todayStr,
@@ -694,11 +721,13 @@ async function syncToBusinessRecords(payload: any, combinedNotes: string) {
           fareVal,
           officeAdvanceVal,
           dueVal,
+          fareVal,
           dayBookStatus,
           combinedNotes,
           pnrVal,
         ],
-      ).catch(async () => {
+      )
+.catch(async () => {
         await query(
           `INSERT INTO day_book_entries (serial_number, booking_date, travel_date, travel_by, passenger_name, passenger_phone, from_location, to_location, status, notes, pnr)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,

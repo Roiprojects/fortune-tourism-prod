@@ -294,29 +294,29 @@ export function extractSupplier(particulars?: string, category?: string, notes?:
   const text = `${particulars || ""} ${notes || ""}`;
 
   // Airlines
-  if (/indigo/i.test(text)) return "IndiGo Airlines";
-  if (/air india express/i.test(text)) return "Air India Express";
-  if (/air india/i.test(text)) return "Air India";
-  if (/spicejet/i.test(text)) return "SpiceJet";
-  if (/vistara/i.test(text)) return "Vistara Airlines";
-  if (/akasa/i.test(text)) return "Akasa Air";
+  if (/\bindigo\b/i.test(text)) return "IndiGo Airlines";
+  if (/\bair india express\b/i.test(text)) return "Air India Express";
+  if (/\bair india\b/i.test(text)) return "Air India";
+  if (/\bspicejet\b/i.test(text)) return "SpiceJet";
+  if (/\bvistara\b/i.test(text)) return "Vistara Airlines";
+  if (/\bakasa\b/i.test(text)) return "Akasa Air";
 
   // Bus Operators
-  if (/ksrtc/i.test(text)) return "KSRTC (Karnataka RTC)";
-  if (/srs/i.test(text)) return "SRS Travels";
-  if (/vrl/i.test(text)) return "VRL Travels";
-  if (/orange/i.test(text)) return "Orange Tours & Travels";
-  if (/sharma/i.test(text)) return "Sharma Transports";
-  if (/national/i.test(text)) return "National Travels";
-  if (/jabbar/i.test(text)) return "Jabbar Travels";
-  if (/kallada/i.test(text)) return "Kallada Travels";
+  if (/\bksrtc\b/i.test(text)) return "KSRTC (Karnataka RTC)";
+  if (/\bsrs\b/i.test(text)) return "SRS Travels";
+  if (/\bvrl\b/i.test(text)) return "VRL Travels";
+  if (/\borange\s+tours?\b/i.test(text)) return "Orange Tours & Travels";
+  if (/\bsharma\b/i.test(text)) return "Sharma Transports";
+  if (/\bnational\s+travels?\b/i.test(text) || (category === "BUS" && /\bnational\b/i.test(text))) return "National Travels";
+  if (/\bjabbar\b/i.test(text)) return "Jabbar Travels";
+  if (/\bkallada\b/i.test(text)) return "Kallada Travels";
 
   // Trains
-  if (/irctc|train|railway|rajdhani|shatabdi|vande/i.test(text) || category === "TRAIN") return "IRCTC / Indian Railways";
+  if (/\b(irctc|train|railway|rajdhani|shatabdi|vande)\b/i.test(text) || category === "TRAIN") return "IRCTC / Indian Railways";
 
   // Hotels
-  if (/taj|marriott|hilton|hyatt|radisson|lemon tree|oyo/i.test(text)) {
-    const m = text.match(/(taj|marriott|hilton|hyatt|radisson|lemon tree|oyo\w*)\s*[\w\s]*/i);
+  if (/\b(taj|marriott|hilton|hyatt|radisson|lemon tree|oyo)\b/i.test(text)) {
+    const m = text.match(/\b(taj|marriott|hilton|hyatt|radisson|lemon tree|oyo\w*)\s*[\w\s]*/i);
     if (m) return m[0].trim();
   }
 
@@ -329,6 +329,7 @@ export function extractSupplier(particulars?: string, category?: string, notes?:
 
   return "Fortune Operations Vendor";
 }
+
 
 interface AccountsReportsHubProps {
   initialReport?: AccountReportKey;
@@ -1841,8 +1842,10 @@ export function AccountsReportsHub({
       }
 
       // Map day book entries
+      // Map day book entries
       let liveDaily: DailyReportRecord[] = [];
       const matchedBkgIds = new Set<string>();
+      const matchedDbIds = new Set<string>();
       const dayBookTxns: TransactionRecord[] = [];
 
       if (dbRes && dbRes.ok) {
@@ -1869,19 +1872,42 @@ export function AccountsReportsHub({
               }
             }
 
-            // Cross-match with bookings table to enrich amounts if day_book was 0
+            const rRef = String(r.booking_reference || "").trim();
+            const rSerial = String(r.serial_number || "").trim();
+            const rNotes = String(r.notes || "");
+            const rPnr = (r.pnr || "").trim();
+            const cleanRPhone = String(r.passenger_phone || "").replace(/\D/g, "").slice(-10);
+            const rDate = parseToComparableDate(r.travel_date || r.booking_date || r.created_at);
+
+            // Cross-match with bookings table
             const matchingBkg = bList.find((b: any) => {
+              if (matchedBkgIds.has(String(b.id))) return false;
+              // 1. Explicit reference or booking number
+              if (rRef && (b.booking_number === rRef || b.ticket_number === rRef || b.pnr_number === rRef)) return true;
+              if (rSerial && (b.booking_number === rSerial || b.ticket_number === rSerial)) return true;
+              // 2. Ticket / PNR in notes or pnr field
+              if (b.ticket_number && (rNotes.includes(b.ticket_number) || rPnr === b.ticket_number)) return true;
+              if (b.pnr_number && (rNotes.includes(b.pnr_number) || rPnr === b.pnr_number)) return true;
               if (pnr && (b.pnr_number === pnr || b.ticket_number === pnr)) return true;
-              if (r.passenger_phone && b.passenger_phone) {
-                const p1 = String(r.passenger_phone).replace(/\D/g, "").slice(-10);
-                const p2 = String(b.passenger_phone).replace(/\D/g, "").slice(-10);
-                if (p1 && p1 === p2) return true;
+              if (b.booking_number && rNotes.includes(b.booking_number)) return true;
+              // 3. Strict Phone + Travel Date + Passenger Name match
+              if (cleanRPhone && b.passenger_phone) {
+                const cleanBPhone = String(b.passenger_phone).replace(/\D/g, "").slice(-10);
+                const bDate = parseToComparableDate(b.departure_datetime || b.travel_date || b.booking_date || b.created_at);
+                if (cleanRPhone === cleanBPhone && rDate && bDate && rDate === bDate) {
+                  const rName = String(r.passenger_name || "").trim().toLowerCase();
+                  const bName = String(b.passenger_name || "").trim().toLowerCase();
+                  if (rName && bName && (rName.includes(bName.slice(0, 4)) || bName.includes(rName.slice(0, 4)))) {
+                    return true;
+                  }
+                }
               }
               return false;
             });
 
             if (matchingBkg) {
               matchedBkgIds.add(String(matchingBkg.id));
+              matchedDbIds.add(String(r.id));
             }
 
             const rawBookingAmt = Number(r.booking_amount || r.total_amount || 0);
@@ -1924,8 +1950,14 @@ export function AccountsReportsHub({
             };
           });
 
-          // Also map unlinked Day Book entries with balances or bookings into dayBookTxns
+          // Map ONLY unlinked Day Book entries with balances or bookings into dayBookTxns
           dbData.rows.forEach((r: any) => {
+            // CRITICAL: Skip any Day Book entry that is already linked/matched to a booking in bList!
+            // The booking already produces a transaction in bookingTxns; adding it again causes duplicate income!
+            if (matchedDbIds.has(String(r.id))) {
+              return;
+            }
+
             const rawBookingAmt = Number(r.booking_amount || r.total_amount || 0);
             const rawAdvAmt = Number(r.office_advance || 0);
             const rawDue = r.due_amount !== null && r.due_amount !== undefined ? Number(r.due_amount) : Math.max(0, rawBookingAmt - rawAdvAmt);
@@ -1941,13 +1973,23 @@ export function AccountsReportsHub({
               else if (tCat.includes("TRAIN")) cat = "TRAIN";
               else if (tCat.includes("TOUR")) cat = "TOUR";
 
+              const rawPM = String(r.payment_method || "").toUpperCase();
+              let dbPayMethod: TransactionRecord["payment_method"] = "CASH";
+              if (rawPM.includes("UPI")) dbPayMethod = "UPI";
+              else if (rawPM.includes("CARD")) dbPayMethod = "CARD";
+              else if (rawPM.includes("NET") || rawPM.includes("BANK")) dbPayMethod = "NETBANKING";
+              else if (rawPM.includes("RAZORPAY")) dbPayMethod = "RAZORPAY";
+              else if (r.notes && /UPI/i.test(r.notes)) dbPayMethod = "UPI";
+
+              const particularStr = `${tCat}: ${r.passenger_name || "Customer"}${r.from_location && r.to_location ? ` (${r.from_location} → ${r.to_location})` : ""}`;
+
               dayBookTxns.push({
                 id: `DB-TXN-${r.id}`,
                 date: r.booking_date || r.created_at || new Date().toISOString(),
                 ref_number: r.serial_number || r.pnr || `SB-${r.id}`,
-                particulars: `${tCat}: ${r.passenger_name || "Customer"}${r.from_location && r.to_location ? ` (${r.from_location} → ${r.to_location})` : ""}`,
+                particulars: particularStr,
                 category: cat,
-                payment_method: "CASH",
+                payment_method: dbPayMethod,
                 status: isFullyPaid ? "PAID" : "PENDING",
                 income: amountPaid,
                 expense: 0,
@@ -1955,6 +1997,7 @@ export function AccountsReportsHub({
                 customer_name: r.passenger_name || "Customer",
                 phone: r.passenger_phone || "",
                 notes: r.notes || (pendingAmount > 0 ? `Outstanding Due: ₹${pendingAmount}` : "Settled"),
+                supplier: r.supplier || extractSupplier(particularStr, cat, r.notes),
                 total_amount: rawBookingAmt,
                 amount_paid: amountPaid,
                 pending_amount: pendingAmount,
@@ -1964,6 +2007,7 @@ export function AccountsReportsHub({
           });
         }
       }
+
 
       // Add ALL bookings that were not already linked in day_book_entries into liveDaily!
       bList.forEach((b: any) => {
@@ -2164,8 +2208,11 @@ export function AccountsReportsHub({
           b.remaining_amount !== undefined ? b.remaining_amount : Math.max(0, total - adv)
         );
         const rawPayStatus = (b.payment_status || "").toUpperCase();
-        const pMode = String(b.payment_mode || b.payment_method || "UPI").toUpperCase();
-        const isManualMode = pMode.includes("MANUAL") || pMode.includes("CASH") || (b.notes && (b.notes.includes("100% Full Payment") || b.notes.includes("Full Payment") || b.notes.includes("Manual Channel") || b.notes.includes("ZERO DUE")));
+        const pMode = String(b.primary_payment_method || b.payment_method || b.payment_mode || "").toUpperCase();
+        const isCashFromNotes = Boolean(b.notes && /(?:Manual\s*-\s*CASH|Cash Payment|Paid via Cash|Counter Cash)/i.test(b.notes));
+        const isUPIFromNotes = Boolean(b.notes && /(?:Online UPI|Paid via UPI|UPI Transfer)/i.test(b.notes));
+
+        const isManualMode = pMode.includes("MANUAL") || pMode.includes("CASH") || isCashFromNotes || (b.notes && (b.notes.includes("100% Full Payment") || b.notes.includes("Full Payment") || b.notes.includes("Manual Channel") || b.notes.includes("ZERO DUE")));
         const isPaid =
           (rem === 0 && total > 0) ||
           rawPayStatus === "PAID" ||
@@ -2187,11 +2234,14 @@ export function AccountsReportsHub({
         else if (isPaid || (pendingAmount === 0 && total > 0)) status = "PAID";
         else status = "PENDING";
 
-        let method: TransactionRecord["payment_method"] = "UPI";
-        if (pMode.includes("CASH")) method = "CASH";
+        let method: TransactionRecord["payment_method"] = "CASH";
+        if (pMode.includes("UPI") || isUPIFromNotes) method = "UPI";
+        else if (pMode.includes("CASH") || isCashFromNotes) method = "CASH";
         else if (pMode.includes("CARD")) method = "CARD";
         else if (pMode.includes("NET") || pMode.includes("BANK")) method = "NETBANKING";
         else if (pMode.includes("RAZORPAY")) method = "RAZORPAY";
+        else if (pMode) method = "UPI";
+        else method = isManualMode ? "CASH" : "UPI";
 
         const rawCat = (b.category || b.booking_type || "CAR").toUpperCase();
         let cat: TransactionRecord["category"] = "CAR";

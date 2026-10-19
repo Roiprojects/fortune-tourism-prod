@@ -16,10 +16,16 @@ const MONEY_SELECT = `
   SELECT b.*,
     COALESCE(p.paid_total, 0)::numeric AS paid_total,
     COALESCE(r.refunded_total, 0)::numeric AS refunded_total,
-    GREATEST(COALESCE(b.total_amount, 0) - (COALESCE(p.paid_total, 0) - COALESCE(r.refunded_total, 0)), 0)::numeric AS remaining_amount
+    GREATEST(COALESCE(b.total_amount, 0) - (COALESCE(p.paid_total, 0) - COALESCE(r.refunded_total, 0)), 0)::numeric AS remaining_amount,
+    p.primary_payment_method,
+    p.payment_methods
   FROM bookings b
   LEFT JOIN (
-    SELECT booking_id, SUM(amount) AS paid_total FROM booking_payments
+    SELECT booking_id,
+           SUM(amount) AS paid_total,
+           MAX(payment_method) AS primary_payment_method,
+           STRING_AGG(DISTINCT payment_method, ', ') AS payment_methods
+    FROM booking_payments
     WHERE payment_status = 'Success' AND NOT COALESCE(is_deleted, false)
     GROUP BY booking_id
   ) p ON p.booking_id = b.id

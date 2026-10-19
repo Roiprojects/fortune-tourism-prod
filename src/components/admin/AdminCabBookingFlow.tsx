@@ -383,6 +383,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
   };
 
   const handleConfirmAndGenerateTicket = async () => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     try {
       const isHourly = cabTripType === "HOURLY PACKAGE";
