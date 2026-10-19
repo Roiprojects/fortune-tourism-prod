@@ -22,12 +22,20 @@ import {
   Building2,
   Wallet,
   Gauge,
+  Car,
+  Calculator,
+  Sliders,
+  ChevronDown,
 } from "lucide-react";
 import { LocationSearchInput } from "@/components/booking/LocationSearchInput";
 import { generateTicketNumber, generatePNR } from "@/lib/booking-utils";
 import { buildWhatsAppUrl } from "@/lib/contact";
-import { downloadTicketCopyPDF } from "@/lib/ticket-copy-pdf";
-import { useFleetTariffs } from "@/lib/fleet-tariffs";
+import {
+  useFleetTariffs,
+  KM_OPTIONS_LIST,
+  PER_KM_RATES_LIST,
+  FIXED_TOTAL_FARES_LIST,
+} from "@/lib/fleet-tariffs";
 
 type CabTripType = "ONE WAY" | "ROUND TRIP" | "LOCAL" | "AIRPORT" | "HOURLY PACKAGE";
 
@@ -209,6 +217,11 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
   const [selectedFleetId, setSelectedFleetId] = useState<string>("sedan");
   const [withLuggageCarrier, setWithLuggageCarrier] = useState<boolean>(false);
 
+  // Fare Customization & Auto Calculation States: "STANDARD" | "CUSTOM_PER_KM" | "FIXED_TOTAL"
+  const [fareCalculationMode, setFareCalculationMode] = useState<"STANDARD" | "CUSTOM_PER_KM" | "FIXED_TOTAL">("STANDARD");
+  const [customRatePerKm, setCustomRatePerKm] = useState<number>(14);
+  const [customFixedFare, setCustomFixedFare] = useState<number>(2000);
+
   // Passenger state
   const [passengerName, setPassengerName] = useState("");
   const [passengerPhone, setPassengerPhone] = useState("");
@@ -253,24 +266,84 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
     return `${day}-${month}-${year} ${hours}:${minutes}`;
   }, []);
 
-  // Selected Fleet details
+  // Selected Fleet details with cross-compatible ID matching
   const selectedFleet = useMemo(() => {
-    return fleetOptions.find((f) => f.id === selectedFleetId) || fleetOptions[1] || fleetOptions[0];
+    return (
+      fleetOptions.find(
+        (f) =>
+          f.id === selectedFleetId ||
+          (selectedFleetId === "crysta" && f.id === "innova-crysta") ||
+          (selectedFleetId === "innova-crysta" && f.id === "crysta") ||
+          (selectedFleetId === "tempo" && f.id === "tempo-traveller") ||
+          (selectedFleetId === "tempo-traveller" && f.id === "tempo") ||
+          (selectedFleetId === "minibus" && f.id === "mini-bus") ||
+          (selectedFleetId === "mini-bus" && f.id === "minibus")
+      ) ||
+      fleetOptions[1] ||
+      fleetOptions[0]
+    );
   }, [fleetOptions, selectedFleetId]);
 
-  // Dynamic Fare calculation based on Trip Type & Selected Kilometers
+  // Car selection handler to sync default rate
+  const handleCarChange = (newCarId: string) => {
+    setSelectedFleetId(newCarId);
+    const found = fleetOptions.find(
+      (f) =>
+        f.id === newCarId ||
+        (newCarId === "crysta" && f.id === "innova-crysta") ||
+        (newCarId === "innova-crysta" && f.id === "crysta") ||
+        (newCarId === "tempo" && f.id === "tempo-traveller") ||
+        (newCarId === "tempo-traveller" && f.id === "tempo") ||
+        (newCarId === "minibus" && f.id === "mini-bus") ||
+        (newCarId === "mini-bus" && f.id === "minibus")
+    );
+    if (found && fareCalculationMode !== "CUSTOM_PER_KM") {
+      setCustomRatePerKm(found.postLimitRate);
+    }
+  };
+
+  // Active Journey Kilometers
+  const activeJourneyKm = useMemo(() => {
+    return cabTripType === "ROUND TRIP" ? cabRoundTripKm : cabOneWayKm;
+  }, [cabTripType, cabRoundTripKm, cabOneWayKm]);
+
+  // Dynamic Fare calculation based on Trip Type, Selected Kilometers & Customization Mode
   const calculatedFare = useMemo(() => {
+    const activeKm = cabTripType === "ROUND TRIP" ? cabRoundTripKm : cabOneWayKm;
+
+    // 1. FIXED TOTAL FARE MODE
+    if (fareCalculationMode === "FIXED_TOTAL") {
+      const fixedBase = Math.max(0, Number(customFixedFare) || 0);
+      return Math.round(fixedBase + (withLuggageCarrier ? roofLuggageRate : 0));
+    }
+
+    // 2. CUSTOM RATE PER KM MODE (Auto-calculated: Km * Custom Rate)
+    if (fareCalculationMode === "CUSTOM_PER_KM") {
+      const rate = Math.max(0, Number(customRatePerKm) || 0);
+      const distanceFare = activeKm * rate;
+      return Math.round(distanceFare + (withLuggageCarrier ? roofLuggageRate : 0));
+    }
+
+    // 3. STANDARD VEHICLE TARIFF MODE
     let base = selectedFleet.basePriceOneWay;
     if (cabTripType === "ONE WAY") {
-      base = selectedFleet.basePriceOneWay;
-      if (cabOneWayKm > selectedFleet.includedKms) {
-        base += (cabOneWayKm - selectedFleet.includedKms) * selectedFleet.postLimitRate;
+      if (cabOneWayKm <= 0) {
+        base = 0;
+      } else if (cabOneWayKm <= selectedFleet.includedKms) {
+        base = selectedFleet.basePriceOneWay;
+      } else {
+        base = selectedFleet.basePriceOneWay + (cabOneWayKm - selectedFleet.includedKms) * selectedFleet.postLimitRate;
       }
     } else if (cabTripType === "ROUND TRIP") {
-      base = selectedFleet.basePriceRoundTrip;
-      const baseRtKm = selectedFleet.includedKms * 2;
-      if (cabRoundTripKm > baseRtKm) {
-        base += (cabRoundTripKm - baseRtKm) * selectedFleet.postLimitRate;
+      if (cabRoundTripKm <= 0) {
+        base = 0;
+      } else {
+        const baseRtKm = selectedFleet.includedKms * 2;
+        if (cabRoundTripKm <= baseRtKm) {
+          base = selectedFleet.basePriceRoundTrip;
+        } else {
+          base = selectedFleet.basePriceRoundTrip + (cabRoundTripKm - baseRtKm) * selectedFleet.postLimitRate;
+        }
       }
     } else if (cabTripType === "AIRPORT") {
       base = selectedFleet.basePriceAirport;
@@ -280,7 +353,61 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
       else base = selectedFleet.basePriceLocal12hr;
     }
     return withLuggageCarrier ? Math.round(base + roofLuggageRate) : Math.round(base);
-  }, [cabTripType, selectedFleet, cabOneWayKm, cabRoundTripKm, localPackage, withLuggageCarrier, roofLuggageRate]);
+  }, [
+    fareCalculationMode,
+    customFixedFare,
+    customRatePerKm,
+    cabTripType,
+    selectedFleet,
+    cabOneWayKm,
+    cabRoundTripKm,
+    localPackage,
+    withLuggageCarrier,
+    roofLuggageRate,
+  ]);
+
+  // Formula explanation text for complete live fare display
+  const fareFormulaExplanation = useMemo(() => {
+    const activeKm = cabTripType === "ROUND TRIP" ? cabRoundTripKm : cabOneWayKm;
+    if (fareCalculationMode === "FIXED_TOTAL") {
+      return `Fixed Total Fare: ₹${Number(customFixedFare || 0).toLocaleString("en-IN")}${withLuggageCarrier ? ` + ₹${roofLuggageRate} (Luggage Carrier)` : ""}`;
+    }
+    if (fareCalculationMode === "CUSTOM_PER_KM") {
+      return `${activeKm} km × ₹${customRatePerKm}/km = ₹${(activeKm * customRatePerKm).toLocaleString("en-IN")}${withLuggageCarrier ? ` + ₹${roofLuggageRate} (Luggage Carrier)` : ""}`;
+    }
+    if (cabTripType === "ONE WAY") {
+      if (cabOneWayKm <= 0) return "0 Km selected · ₹0 Fare";
+      if (cabOneWayKm <= selectedFleet.includedKms) {
+        return `Base Fare (includes ${selectedFleet.includedKms} km) = ₹${selectedFleet.basePriceOneWay.toLocaleString("en-IN")}${withLuggageCarrier ? ` + ₹${roofLuggageRate}` : ""}`;
+      }
+      const extraKm = cabOneWayKm - selectedFleet.includedKms;
+      return `Base ₹${selectedFleet.basePriceOneWay.toLocaleString("en-IN")} (${selectedFleet.includedKms} km) + ${extraKm} extra km @ ₹${selectedFleet.postLimitRate}/km (₹${(extraKm * selectedFleet.postLimitRate).toLocaleString("en-IN")})${withLuggageCarrier ? ` + ₹${roofLuggageRate}` : ""}`;
+    }
+    if (cabTripType === "ROUND TRIP") {
+      if (cabRoundTripKm <= 0) return "0 Km selected · ₹0 Fare";
+      const baseRtKm = selectedFleet.includedKms * 2;
+      if (cabRoundTripKm <= baseRtKm) {
+        return `Round Trip Base (${baseRtKm} km included) = ₹${selectedFleet.basePriceRoundTrip.toLocaleString("en-IN")}${withLuggageCarrier ? ` + ₹${roofLuggageRate}` : ""}`;
+      }
+      const extraKm = cabRoundTripKm - baseRtKm;
+      return `Round Trip Base ₹${selectedFleet.basePriceRoundTrip.toLocaleString("en-IN")} (${baseRtKm} km) + ${extraKm} extra km @ ₹${selectedFleet.postLimitRate}/km (₹${(extraKm * selectedFleet.postLimitRate).toLocaleString("en-IN")})${withLuggageCarrier ? ` + ₹${roofLuggageRate}` : ""}`;
+    }
+    if (cabTripType === "AIRPORT") {
+      return `Airport Transfer Flat Fare = ₹${selectedFleet.basePriceAirport.toLocaleString("en-IN")}`;
+    }
+    return `Local Hourly Package = ₹${calculatedFare.toLocaleString("en-IN")}`;
+  }, [
+    fareCalculationMode,
+    customFixedFare,
+    customRatePerKm,
+    cabTripType,
+    cabOneWayKm,
+    cabRoundTripKm,
+    selectedFleet,
+    withLuggageCarrier,
+    roofLuggageRate,
+    calculatedFare,
+  ]);
 
   // Effective Cab Fare prioritizing manual amount entered by user
   const effectiveCabFare = useMemo(() => {
@@ -438,6 +565,8 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
           `PNR: ${pnrNumber}`,
           `Fleet: ${vehicleDisplay}`,
           cabTripType === "ROUND TRIP" ? `Round Trip (${cabRoundTripKm} km)` : cabTripType === "ONE WAY" ? `One Way (${cabOneWayKm} km)` : null,
+          `Calculation Mode: ${fareCalculationMode === "CUSTOM_PER_KM" ? `Custom ₹${customRatePerKm}/km` : fareCalculationMode === "FIXED_TOTAL" ? `Fixed Fare ₹${customFixedFare}` : "Standard Tariff"}`,
+          withLuggageCarrier ? `Roof Luggage Carrier: Yes (+₹${roofLuggageRate})` : null,
           isHourly ? `Rental Package: ${hourlyLabel || "Hourly"} (${fromLocationDisplay})` : null,
           `Fare: ₹${effectiveCabFare}`,
           paymentChoice === "full"
@@ -665,119 +794,317 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
               </div>
             )}
 
-            {/* KILOMETER SELECTOR BUTTONS (For ONE WAY) */}
-            {cabTripType === "ONE WAY" && (
-              <div className="flex flex-col items-center justify-center gap-1.5 pt-2 pb-1 animate-in fade-in duration-200">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                  <Gauge className="w-3.5 h-3.5 text-[#00c58e]" /> SELECT JOURNEY KILOMETERS (KM)
-                  <span className="text-[10px] text-emerald-400 bg-emerald-950/70 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
-                    Base Included: 145 km
+            {/* ================= CAR DROPDOWN & KILOMETERS (FROM 0 KM) & FARE CUSTOMIZATION ================= */}
+            <div className="bg-[#111c3a]/90 border border-white/15 rounded-2xl p-4 sm:p-5 space-y-4 shadow-xl">
+              {/* 1. CAR / FLEET SELECTION DROPDOWN */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <label className="text-[11px] font-black uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
+                    <Car className="w-4 h-4 text-[#00c58e]" />
+                    <span>SELECT CAR / VEHICLE TYPE</span>
+                  </label>
+                  <span className="text-[11px] font-bold text-slate-300 bg-white/5 border border-white/10 px-2.5 py-0.5 rounded-full">
+                    Active: <strong className="text-emerald-400">{selectedFleet.name}</strong> ({selectedFleet.seats} Seater · ₹{selectedFleet.postLimitRate}/km)
                   </span>
                 </div>
-                <div className="inline-flex flex-wrap items-center justify-center rounded-xl border border-white/15 overflow-hidden text-xs sm:text-sm font-bold bg-[#111c3a]/90 p-1 gap-1 shadow-inner">
-                  {[100, 145, 150, 200, 250, 300, 400].map((km) => {
-                    const isSelected = cabOneWayKm === km && !isCustomKm;
-                    return (
-                      <button
-                        key={km}
-                        type="button"
-                        onClick={() => {
-                          setCabOneWayKm(km);
-                          setIsCustomKm(false);
-                        }}
-                        className={`px-3 sm:px-4 py-2 transition-all uppercase tracking-wider rounded-lg font-black cursor-pointer ${
-                          isSelected
-                            ? "bg-[#00c58e] text-white shadow-md shadow-[#00c58e]/30 scale-[1.02]"
-                            : "text-slate-300 hover:text-white hover:bg-white/10"
-                        }`}
-                      >
-                        {km} Km {km === 145 ? "★" : ""}
-                      </button>
-                    );
-                  })}
-                  {/* Custom Km Button / Input */}
-                  <div
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition-all ${
-                      isCustomKm
-                        ? "bg-[#00c58e]/20 border-[#00c58e] text-white"
-                        : "border-white/10 text-slate-300 hover:bg-white/5"
-                    }`}
-                  >
-                    <span className="text-[11px] font-bold">Custom:</span>
-                    <input
-                      type="number"
-                      min={10}
-                      max={5000}
-                      value={cabOneWayKm}
-                      onFocus={() => setIsCustomKm(true)}
-                      onChange={(e) => {
-                        setIsCustomKm(true);
-                        setCabOneWayKm(Math.max(1, Number(e.target.value) || 0));
-                      }}
-                      className="w-16 bg-[#0b1329] border border-white/20 focus:border-[#00c58e] px-1.5 py-0.5 rounded text-xs font-black text-white text-center outline-none"
-                    />
-                    <span className="text-[11px] font-bold">Km</span>
-                  </div>
-                </div>
-              </div>
-            )}
 
-            {/* KILOMETER SELECTOR BUTTONS (For ROUND TRIP) */}
-            {cabTripType === "ROUND TRIP" && (
-              <div className="flex flex-col items-center justify-center gap-1.5 pt-2 pb-1 animate-in fade-in duration-200">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                  <Gauge className="w-3.5 h-3.5 text-[#00c58e]" /> SELECT ROUND TRIP KILOMETERS (2-WAY RETURN)
-                  <span className="text-[10px] text-emerald-400 bg-emerald-950/70 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
-                    Base Included: 290 km (145 km × 2)
-                  </span>
-                </div>
-                <div className="inline-flex flex-wrap items-center justify-center rounded-xl border border-white/15 overflow-hidden text-xs sm:text-sm font-bold bg-[#111c3a]/90 p-1 gap-1 shadow-inner">
-                  {[200, 290, 300, 400, 500, 600, 800].map((km) => {
-                    const isSelected = cabRoundTripKm === km && !isCustomKm;
-                    return (
-                      <button
-                        key={km}
-                        type="button"
-                        onClick={() => {
-                          setCabRoundTripKm(km);
-                          setIsCustomKm(false);
-                        }}
-                        className={`px-3 sm:px-4 py-2 transition-all uppercase tracking-wider rounded-lg font-black cursor-pointer ${
-                          isSelected
-                            ? "bg-[#00c58e] text-white shadow-md shadow-[#00c58e]/30 scale-[1.02]"
-                            : "text-slate-300 hover:text-white hover:bg-white/10"
-                        }`}
-                      >
-                        {km} Km {km === 290 ? "★" : ""}
-                      </button>
-                    );
-                  })}
-                  {/* Custom Km Button / Input */}
-                  <div
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition-all ${
-                      isCustomKm
-                        ? "bg-[#00c58e]/20 border-[#00c58e] text-white"
-                        : "border-white/10 text-slate-300 hover:bg-white/5"
-                    }`}
+                <div className="relative">
+                  <select
+                    value={selectedFleet.id}
+                    onChange={(e) => handleCarChange(e.target.value)}
+                    className="w-full bg-[#0b1329] hover:bg-[#0e1935] focus:bg-[#0e1935] border border-white/20 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 text-white text-xs sm:text-sm font-black rounded-xl px-3.5 py-3 outline-none transition-all cursor-pointer shadow-inner [color-scheme:dark]"
                   >
-                    <span className="text-[11px] font-bold">Custom:</span>
-                    <input
-                      type="number"
-                      min={20}
-                      max={10000}
-                      value={cabRoundTripKm}
-                      onFocus={() => setIsCustomKm(true)}
-                      onChange={(e) => {
-                        setIsCustomKm(true);
-                        setCabRoundTripKm(Math.max(1, Number(e.target.value) || 0));
-                      }}
-                      className="w-16 bg-[#0b1329] border border-white/20 focus:border-[#00c58e] px-1.5 py-0.5 rounded text-xs font-black text-white text-center outline-none"
-                    />
-                    <span className="text-[11px] font-bold">Km</span>
-                  </div>
+                    {fleetOptions.map((fleet) => (
+                      <option key={fleet.id} value={fleet.id} className="bg-[#0b1329] text-white py-2">
+                        🚗 {fleet.name} ({fleet.seats} Seater) — Base ₹{fleet.basePriceOneWay.toLocaleString()} · Extra ₹{fleet.postLimitRate}/km — {fleet.category.split("·")[0].trim()}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
-            )}
+
+              {/* 2. KILOMETER SELECTOR (DROPDOWN + DIRECT INPUT STARTING FROM 0 KM) */}
+              {(cabTripType === "ONE WAY" || cabTripType === "ROUND TRIP") && (
+                <div className="border-t border-white/10 pt-3 space-y-2.5">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="text-[11px] font-black uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
+                      <Gauge className="w-4 h-4 text-[#00c58e]" />
+                      <span>
+                        {cabTripType === "ROUND TRIP" ? "ROUND TRIP KILOMETERS (2-WAY RETURN)" : "JOURNEY KILOMETERS"} (STARTS FROM 0 KM)
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-300 bg-emerald-950/70 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
+                      Selected: <strong className="text-emerald-300">{activeJourneyKm} Km</strong>
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                    {/* Km Dropdown */}
+                    <div className="sm:col-span-7 space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Select Km from Dropdown (Starts from 0 Km)
+                      </label>
+                      <select
+                        value={KM_OPTIONS_LIST.some((opt) => opt.value === activeJourneyKm) ? activeJourneyKm : "custom"}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "custom") {
+                            setIsCustomKm(true);
+                          } else {
+                            const kmNum = Number(val);
+                            if (cabTripType === "ROUND TRIP") {
+                              setCabRoundTripKm(kmNum);
+                            } else {
+                              setCabOneWayKm(kmNum);
+                            }
+                            setIsCustomKm(false);
+                          }
+                        }}
+                        className="w-full bg-[#0b1329] border border-white/20 focus:border-[#00c58e] text-white text-xs sm:text-sm font-black rounded-xl px-3 py-2.5 outline-none transition-all cursor-pointer [color-scheme:dark]"
+                      >
+                        {KM_OPTIONS_LIST.map((opt) => (
+                          <option key={opt.value} value={opt.value} className="bg-[#0b1329] text-white">
+                            {opt.label}
+                          </option>
+                        ))}
+                        <option value="custom" className="bg-[#0b1329] text-white">
+                          ✍ Custom Km (Type Below)
+                        </option>
+                      </select>
+                    </div>
+
+                    {/* Direct Enter Kms Input (Starts from 0) */}
+                    <div className="sm:col-span-5 space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Enter Custom Km (Min 0)
+                      </label>
+                      <div className="flex items-center gap-1.5 bg-[#0b1329] border border-white/20 focus-within:border-[#00c58e] rounded-xl px-3 py-2">
+                        <input
+                          type="number"
+                          min={0}
+                          max={10000}
+                          step={1}
+                          value={activeJourneyKm}
+                          onFocus={() => setIsCustomKm(true)}
+                          onChange={(e) => {
+                            setIsCustomKm(true);
+                            const val = Math.max(0, parseInt(e.target.value) || 0);
+                            if (cabTripType === "ROUND TRIP") {
+                              setCabRoundTripKm(val);
+                            } else {
+                              setCabOneWayKm(val);
+                            }
+                          }}
+                          className="w-full bg-transparent text-white font-black text-xs sm:text-sm outline-none"
+                          placeholder="0"
+                        />
+                        <span className="text-xs font-black text-emerald-400">Km</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick Preset Buttons (Includes 0 Km) */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">
+                      Quick Km:
+                    </span>
+                    {(cabTripType === "ROUND TRIP" ? [0, 100, 200, 290, 300, 400, 500, 600, 800] : [0, 50, 100, 145, 150, 200, 250, 300, 400]).map((kmVal) => {
+                      const isSel = activeJourneyKm === kmVal && !isCustomKm;
+                      return (
+                        <button
+                          key={kmVal}
+                          type="button"
+                          onClick={() => {
+                            if (cabTripType === "ROUND TRIP") {
+                              setCabRoundTripKm(kmVal);
+                            } else {
+                              setCabOneWayKm(kmVal);
+                            }
+                            setIsCustomKm(false);
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                            isSel
+                              ? "bg-[#00c58e] text-white shadow-md shadow-[#00c58e]/30 scale-105"
+                              : "bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10"
+                          }`}
+                        >
+                          {kmVal} Km {kmVal === 145 || kmVal === 290 ? "★" : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 3. FARE CUSTOMIZATION & AUTO-CALCULATION SECTION */}
+              <div className="border-t border-white/10 pt-3 space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="text-[11px] font-black uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
+                    <Calculator className="w-4 h-4 text-[#00c58e]" />
+                    <span>CUSTOMIZE FARE &amp; AUTO CALCULATE</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                    Select Mode:
+                  </span>
+                </div>
+
+                {/* Mode Selector Tabs */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFareCalculationMode("STANDARD")}
+                    className={`px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all border cursor-pointer ${
+                      fareCalculationMode === "STANDARD"
+                        ? "bg-[#00c58e] text-white border-[#00c58e] shadow-lg shadow-[#00c58e]/30"
+                        : "bg-[#0b1329] text-slate-300 border-white/10 hover:border-white/20"
+                    }`}
+                  >
+                    1. Standard Vehicle Tariff
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFareCalculationMode("CUSTOM_PER_KM")}
+                    className={`px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all border cursor-pointer ${
+                      fareCalculationMode === "CUSTOM_PER_KM"
+                        ? "bg-[#00c58e] text-white border-[#00c58e] shadow-lg shadow-[#00c58e]/30"
+                        : "bg-[#0b1329] text-slate-300 border-white/10 hover:border-white/20"
+                    }`}
+                  >
+                    2. Custom Rate/Km (Auto-Calc)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFareCalculationMode("FIXED_TOTAL")}
+                    className={`px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all border cursor-pointer ${
+                      fareCalculationMode === "FIXED_TOTAL"
+                        ? "bg-[#00c58e] text-white border-[#00c58e] shadow-lg shadow-[#00c58e]/30"
+                        : "bg-[#0b1329] text-slate-300 border-white/10 hover:border-white/20"
+                    }`}
+                  >
+                    3. Fixed Total Fare
+                  </button>
+                </div>
+
+                {/* Sub-controls based on Mode */}
+                {fareCalculationMode === "CUSTOM_PER_KM" && (
+                  <div className="p-3 bg-[#0b1329] border border-emerald-500/30 rounded-xl space-y-2 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-black text-emerald-400 flex items-center gap-1.5">
+                        <Sliders className="w-3.5 h-3.5" /> Rate Per Km Dropdown &amp; Edit
+                      </span>
+                      <span className="text-slate-400 text-[11px]">
+                        Formula: {activeJourneyKm} Km × ₹{customRatePerKm}/km = <strong className="text-white">₹{(activeJourneyKm * customRatePerKm).toLocaleString("en-IN")}</strong>
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                      <div className="sm:col-span-8">
+                        <select
+                          value={PER_KM_RATES_LIST.some((r) => r.value === customRatePerKm) ? customRatePerKm : "custom"}
+                          onChange={(e) => {
+                            if (e.target.value !== "custom") {
+                              setCustomRatePerKm(Number(e.target.value));
+                            }
+                          }}
+                          className="w-full bg-[#111c3a] border border-white/20 focus:border-[#00c58e] text-white text-xs sm:text-sm font-black rounded-lg px-3 py-2 outline-none cursor-pointer [color-scheme:dark]"
+                        >
+                          {PER_KM_RATES_LIST.map((rate) => (
+                            <option key={rate.value} value={rate.value} className="bg-[#0b1329] text-white">
+                              {rate.label}
+                            </option>
+                          ))}
+                          <option value="custom" className="bg-[#0b1329] text-white">
+                            ✍ Custom Rate (Type Here)
+                          </option>
+                        </select>
+                      </div>
+
+                      <div className="sm:col-span-4 flex items-center gap-1.5 bg-[#111c3a] border border-white/20 focus-within:border-[#00c58e] rounded-lg px-2.5 py-1.5">
+                        <span className="text-[11px] font-bold text-slate-400">Rate:</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={500}
+                          step={0.5}
+                          value={customRatePerKm}
+                          onChange={(e) => setCustomRatePerKm(Math.max(1, parseFloat(e.target.value) || 0))}
+                          className="w-full bg-transparent text-white font-black text-xs sm:text-sm outline-none text-right"
+                        />
+                        <span className="text-xs font-bold text-emerald-400">₹/km</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {fareCalculationMode === "FIXED_TOTAL" && (
+                  <div className="p-3 bg-[#0b1329] border border-emerald-500/30 rounded-xl space-y-2 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-black text-emerald-400 flex items-center gap-1.5">
+                        <Sliders className="w-3.5 h-3.5" /> Fixed Total Fare Presets &amp; Direct Edit
+                      </span>
+                      <span className="text-slate-400 text-[11px]">
+                        Flat Total Fare: <strong className="text-white">₹{customFixedFare.toLocaleString("en-IN")}</strong>
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                      <div className="sm:col-span-8">
+                        <select
+                          value={FIXED_TOTAL_FARES_LIST.some((f) => f.value === customFixedFare) ? customFixedFare : "custom"}
+                          onChange={(e) => {
+                            if (e.target.value !== "custom") {
+                              setCustomFixedFare(Number(e.target.value));
+                            }
+                          }}
+                          className="w-full bg-[#111c3a] border border-white/20 focus:border-[#00c58e] text-white text-xs sm:text-sm font-black rounded-lg px-3 py-2 outline-none cursor-pointer [color-scheme:dark]"
+                        >
+                          {FIXED_TOTAL_FARES_LIST.map((fare) => (
+                            <option key={fare.value} value={fare.value} className="bg-[#0b1329] text-white">
+                              {fare.label}
+                            </option>
+                          ))}
+                          <option value="custom" className="bg-[#0b1329] text-white">
+                            ✍ Custom Flat Fare (Type Here)
+                          </option>
+                        </select>
+                      </div>
+
+                      <div className="sm:col-span-4 flex items-center gap-1.5 bg-[#111c3a] border border-white/20 focus-within:border-[#00c58e] rounded-lg px-2.5 py-1.5">
+                        <span className="text-[11px] font-bold text-slate-400">Total:</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={500000}
+                          step={50}
+                          value={customFixedFare}
+                          onChange={(e) => setCustomFixedFare(Math.max(0, parseInt(e.target.value) || 0))}
+                          className="w-full bg-transparent text-white font-black text-xs sm:text-sm outline-none text-right"
+                        />
+                        <span className="text-xs font-bold text-emerald-400">₹</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Luggage Carrier Toggle */}
+                <div className="flex items-center justify-between p-2.5 bg-[#0b1329]/80 rounded-xl border border-white/10 text-xs">
+                  <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={withLuggageCarrier}
+                      onChange={(e) => setWithLuggageCarrier(e.target.checked)}
+                      className="rounded accent-[#00c58e] text-[#00c58e] focus:ring-[#00c58e]"
+                    />
+                    <span>🚙 Add Roof Luggage Carrier (+₹{roofLuggageRate})</span>
+                  </label>
+                  <span className="text-emerald-400 font-extrabold text-[11px]">
+                    {withLuggageCarrier ? `+₹${roofLuggageRate} Added` : "Optional"}
+                  </span>
+                </div>
+              </div>
+            </div>
 
             {/* INPUT FIELDS ROW */}
             <div className="pt-2">
@@ -1108,15 +1435,100 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
               )}
             </div>
 
-            {/* NEXT PAGE BUTTON */}
-            <div className="flex justify-center pt-4 border-t border-white/10">
-              <button
-                type="button"
-                onClick={handleGoToFleetSelection}
-                className="bg-[#00c58e] hover:bg-[#00a87a] text-white font-black px-12 py-3.5 rounded-2xl uppercase tracking-wider text-sm shadow-xl shadow-[#00c58e]/30 transition-all hover:scale-105 flex items-center gap-2 cursor-pointer"
-              >
-                NEXT PAGE <ArrowRight className="w-4 h-4" />
-              </button>
+            {/* ================= COMPLETE LIVE FARE DISPLAY CARD ================= */}
+            <div className="bg-gradient-to-r from-[#0d1f3d] via-[#102a43] to-[#0c1e36] border-2 border-[#00c58e]/60 rounded-3xl p-5 sm:p-6 shadow-2xl shadow-emerald-950/40 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-white/10 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-full bg-[#00c58e]/20 border border-[#00c58e]/40 flex items-center justify-center text-emerald-300 text-sm font-black">
+                    ✓
+                  </span>
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-emerald-300">
+                      LIVE FARE BREAKDOWN &amp; CALCULATION
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      {selectedFleet.name} ({selectedFleet.seats} Seater) · {cabTripType} · {activeJourneyKm} Km
+                    </p>
+                  </div>
+                </div>
+
+                <span className="text-[11px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                  {fareCalculationMode === "STANDARD"
+                    ? "Standard Tariff"
+                    : fareCalculationMode === "CUSTOM_PER_KM"
+                    ? `Custom ₹${customRatePerKm}/km`
+                    : "Fixed Flat Fare"}
+                </span>
+              </div>
+
+              {/* Fare Formula & Big Amount */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                <div className="md:col-span-7 space-y-2">
+                  <div className="text-xs text-slate-300">
+                    <span className="text-slate-400 font-semibold block text-[11px] uppercase tracking-wider">
+                      Calculation Formula:
+                    </span>
+                    <strong className="text-emerald-300 font-mono text-xs sm:text-sm">
+                      {fareFormulaExplanation}
+                    </strong>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400 pt-1">
+                    <span className="flex items-center gap-1 text-slate-300">
+                      🛡️ Toll &amp; State Taxes Included
+                    </span>
+                    <span className="flex items-center gap-1 text-slate-300">
+                      ⛽ Fuel &amp; Driver Allowance Included
+                    </span>
+                  </div>
+                </div>
+
+                <div className="md:col-span-5 flex flex-col items-center md:items-end justify-center p-3.5 bg-[#070d1e]/80 border border-emerald-500/30 rounded-2xl">
+                  <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    COMPLETE TOTAL FARE
+                  </div>
+                  <div className="text-3xl sm:text-4xl font-black text-[#00c58e] tracking-tight drop-shadow-sm">
+                    ₹{effectiveCabFare.toLocaleString("en-IN")}
+                  </div>
+                  <div className="text-[10px] text-slate-300 font-bold mt-1 flex items-center gap-2">
+                    <span className="text-emerald-400">Token Advance: ₹100</span>
+                    <span>|</span>
+                    <span className="text-amber-300">Due: ₹{Math.max(0, effectiveCabFare - 100).toLocaleString("en-IN")}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* DUAL ACTION BUTTONS: PROCEED DIRECTLY TO PASSENGERS OR BROWSE FLEET CARDS */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={handleGoToFleetSelection}
+                  className="w-full sm:w-auto text-xs font-bold text-slate-300 hover:text-white px-5 py-3 border border-white/15 bg-white/5 rounded-xl hover:bg-white/10 transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Car className="w-4 h-4 text-emerald-400" />
+                  View All Fleet Cards (Step 2)
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Direct fast-track validation
+                    if (!cabFrom || !cabFrom.trim()) {
+                      toast.error("Please enter a pickup location.");
+                      return;
+                    }
+                    if (cabTripType !== "LOCAL" && cabTripType !== "HOURLY PACKAGE" && (!cabTo || !cabTo.trim()) && cabTripType !== "AIRPORT") {
+                      toast.error("Please enter a drop location.");
+                      return;
+                    }
+                    setStep(3);
+                    window.scrollTo({ top: 80, behavior: "smooth" });
+                  }}
+                  className="w-full sm:w-auto bg-[#00c58e] hover:bg-[#00a87a] text-white font-black px-8 py-3.5 rounded-2xl uppercase tracking-wider text-xs sm:text-sm shadow-xl shadow-[#00c58e]/30 transition-all hover:scale-[1.02] flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  CONTINUE TO PASSENGER DETAILS <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -1147,33 +1559,50 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
             {/* Fleet Selection List */}
             <div className="space-y-4">
               {fleetOptions.map((fleet) => {
-                const isSelected = selectedFleetId === fleet.id;
+                const isSelected = selectedFleetId === fleet.id || (selectedFleetId === "crysta" && fleet.id === "innova-crysta") || (selectedFleetId === "innova-crysta" && fleet.id === "crysta");
                 let price = fleet.basePriceOneWay;
-                if (cabTripType === "ONE WAY") {
-                  price = fleet.basePriceOneWay;
-                  if (cabOneWayKm > fleet.includedKms) {
-                    price += (cabOneWayKm - fleet.includedKms) * fleet.postLimitRate;
+                if (fareCalculationMode === "FIXED_TOTAL") {
+                  price = isSelected ? customFixedFare : fleet.basePriceOneWay;
+                } else if (fareCalculationMode === "CUSTOM_PER_KM") {
+                  const r = isSelected ? customRatePerKm : fleet.postLimitRate;
+                  price = activeJourneyKm * r;
+                } else {
+                  if (cabTripType === "ONE WAY") {
+                    if (cabOneWayKm <= 0) {
+                      price = 0;
+                    } else if (cabOneWayKm <= fleet.includedKms) {
+                      price = fleet.basePriceOneWay;
+                    } else {
+                      price = fleet.basePriceOneWay + (cabOneWayKm - fleet.includedKms) * fleet.postLimitRate;
+                    }
+                  } else if (cabTripType === "ROUND TRIP") {
+                    if (cabRoundTripKm <= 0) {
+                      price = 0;
+                    } else {
+                      const baseRtKm = fleet.includedKms * 2;
+                      if (cabRoundTripKm <= baseRtKm) {
+                        price = fleet.basePriceRoundTrip;
+                      } else {
+                        price = fleet.basePriceRoundTrip + (cabRoundTripKm - baseRtKm) * fleet.postLimitRate;
+                      }
+                    }
+                  } else if (cabTripType === "AIRPORT") {
+                    price = fleet.basePriceAirport;
+                  } else if (cabTripType === "LOCAL" || cabTripType === "HOURLY PACKAGE") {
+                    if (localPackage === "4hr_40km") price = fleet.basePriceLocal4hr;
+                    else if (localPackage === "8hr_80km") price = fleet.basePriceLocal8hr;
+                    else price = fleet.basePriceLocal12hr;
                   }
                 }
-                if (cabTripType === "ROUND TRIP") {
-                  price = fleet.basePriceRoundTrip;
-                  const baseRtKm = fleet.includedKms * 2;
-                  if (cabRoundTripKm > baseRtKm) {
-                    price += (cabRoundTripKm - baseRtKm) * fleet.postLimitRate;
-                  }
-                }
-                if (cabTripType === "AIRPORT") price = fleet.basePriceAirport;
-                if (cabTripType === "LOCAL" || cabTripType === "HOURLY PACKAGE") {
-                  if (localPackage === "4hr_40km") price = fleet.basePriceLocal4hr;
-                  else if (localPackage === "8hr_80km") price = fleet.basePriceLocal8hr;
-                  else price = fleet.basePriceLocal12hr;
+                if (withLuggageCarrier && isSelected) {
+                  price += roofLuggageRate;
                 }
                 price = Math.round(price);
 
                 return (
                   <div
                     key={fleet.id}
-                    onClick={() => setSelectedFleetId(fleet.id)}
+                    onClick={() => handleCarChange(fleet.id)}
                     className={`p-4 sm:p-5 rounded-2xl border-2 transition-all cursor-pointer ${
                       isSelected
                         ? "border-[#00c58e] bg-[#162544]/95 ring-2 ring-[#00c58e]/30 shadow-xl shadow-black/40"
@@ -1258,7 +1687,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedFleetId(fleet.id);
+                            handleCarChange(fleet.id);
                             handleGoToPassengerDetails();
                           }}
                           className={`px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-sm transition-all cursor-pointer ${
