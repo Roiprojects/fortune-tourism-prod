@@ -120,7 +120,10 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
               }
             }
             if (fare <= 0) {
-              fare = enq.service === "Taxi" || enq.service === "Cab" ? 3100 : enq.service === "Tour" ? 12500 : 850;
+              fare = Number(enq.fare || enq.total_amount || 0);
+            }
+            if (fare <= 0) {
+              fare = enq.service === "Taxi" || enq.service === "Cab" ? 3100 : (enq.service === "Hourly Package" || enq.trip_type === "HOURLY PACKAGE") ? 2400 : enq.service === "Tour" ? 12500 : 850;
             }
 
             const travelDate = enq.travel_date
@@ -236,8 +239,8 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
     });
   }, [allCombinedRecords, selectedCategory, filterDateFrom, filterDateTo, searchQuery]);
 
-  // Aggregate financial metrics
-  const financialTotals = useMemo(() => {
+  // Lifetime All-Time Financial Totals across all records
+  const lifetimeTotals = useMemo(() => {
     let totalInflow = 0;
     let repairs = 0;
     let miscellaneous = 0;
@@ -265,6 +268,38 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
 
     return { totalInflow, repairs, miscellaneous, credit, supplier, agency, drivers, totalOutflow, netBalance };
   }, [allCombinedRecords]);
+
+  // Aggregate Date-Wise / Filtered Financial Metrics (Dynamically calculates for selected date range & filters)
+  const financialTotals = useMemo(() => {
+    let totalInflow = 0;
+    let repairs = 0;
+    let miscellaneous = 0;
+    let credit = 0;
+    let supplier = 0;
+    let agency = 0;
+    let drivers = 0;
+    let totalOutflow = 0;
+
+    filteredRecords.forEach((it) => {
+      if (it.entryType === "inflow") {
+        totalInflow += Number(it.inflowAmount || 0);
+      } else {
+        repairs += Number(it.repairs || 0);
+        miscellaneous += Number(it.miscellaneous || 0);
+        credit += Number(it.credit || 0);
+        supplier += Number(it.supplierAmount || 0);
+        agency += Number(it.agencyAmount || 0);
+        drivers += Number(it.driverAmount || 0);
+        totalOutflow += computeExpenseItemTotal(it);
+      }
+    });
+
+    const netBalance = totalInflow - totalOutflow;
+
+    return { totalInflow, repairs, miscellaneous, credit, supplier, agency, drivers, totalOutflow, netBalance };
+  }, [filteredRecords]);
+
+  const isDateFiltered = Boolean(filterDateFrom || filterDateTo || searchQuery.trim() || selectedCategory !== "all");
 
   // =========================================================================
   // EXCEL IMPORT ENGINE
@@ -1349,6 +1384,38 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                 </div>
               </div>
 
+              {/* Filter / Date-Wise Calculation Status Header */}
+              <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                    Financial Summary Overview
+                  </span>
+                  {isDateFiltered ? (
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 shadow-2xs">
+                      📅 Date-Wise Calculation ({filteredRecords.length} records)
+                    </span>
+                  ) : (
+                    <span className="text-[10px] bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-full font-semibold">
+                      All-Time History ({allCombinedRecords.length} records)
+                    </span>
+                  )}
+                </div>
+                {isDateFiltered && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterDateFrom("");
+                      setFilterDateTo("");
+                      setSearchQuery("");
+                      setSelectedCategory("all");
+                    }}
+                    className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
+                  >
+                    Reset Date Filters (View All-Time)
+                  </button>
+                )}
+              </div>
+
               {/* Metric Summary Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
                 {/* 1. Inflows */}
@@ -1364,7 +1431,14 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                   <div className="text-xs sm:text-sm font-black text-emerald-950 mt-1">
                     ₹{financialTotals.totalInflow.toLocaleString("en-IN")}
                   </div>
-                  <p className="text-[9px] text-emerald-700/80 font-bold">Booking Cash</p>
+                  <p className="text-[9px] text-emerald-700/80 font-bold">
+                    Booking Cash
+                    {isDateFiltered && (
+                      <span className="block text-[8px] text-slate-500 font-semibold mt-0.5">
+                        All-Time: ₹{lifetimeTotals.totalInflow.toLocaleString("en-IN")}
+                      </span>
+                    )}
+                  </p>
                 </div>
 
                 {/* 2. Repairs */}
@@ -1380,7 +1454,14 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                   <div className="text-xs sm:text-sm font-black text-amber-950 mt-1">
                     ₹{financialTotals.repairs.toLocaleString("en-IN")}
                   </div>
-                  <p className="text-[9px] text-amber-700/80 font-bold">Garage &amp; Parts</p>
+                  <p className="text-[9px] text-amber-700/80 font-bold">
+                    Garage &amp; Parts
+                    {isDateFiltered && (
+                      <span className="block text-[8px] text-slate-500 font-semibold mt-0.5">
+                        All-Time: ₹{lifetimeTotals.repairs.toLocaleString("en-IN")}
+                      </span>
+                    )}
+                  </p>
                 </div>
 
                 {/* 3. Misc */}
@@ -1396,7 +1477,14 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                   <div className="text-xs sm:text-sm font-black text-indigo-950 mt-1">
                     ₹{financialTotals.miscellaneous.toLocaleString("en-IN")}
                   </div>
-                  <p className="text-[9px] text-indigo-700/80 font-bold">Tolls, Parking</p>
+                  <p className="text-[9px] text-indigo-700/80 font-bold">
+                    Tolls, Parking
+                    {isDateFiltered && (
+                      <span className="block text-[8px] text-slate-500 font-semibold mt-0.5">
+                        All-Time: ₹{lifetimeTotals.miscellaneous.toLocaleString("en-IN")}
+                      </span>
+                    )}
+                  </p>
                 </div>
 
                 {/* 4. Credit */}
@@ -1412,7 +1500,14 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                   <div className="text-xs sm:text-sm font-black text-rose-950 mt-1">
                     ₹{financialTotals.credit.toLocaleString("en-IN")}
                   </div>
-                  <p className="text-[9px] text-rose-700/80 font-bold">Clearance</p>
+                  <p className="text-[9px] text-rose-700/80 font-bold">
+                    Clearance
+                    {isDateFiltered && (
+                      <span className="block text-[8px] text-slate-500 font-semibold mt-0.5">
+                        All-Time: ₹{lifetimeTotals.credit.toLocaleString("en-IN")}
+                      </span>
+                    )}
+                  </p>
                 </div>
 
                 {/* 5. Supplier */}
@@ -1428,7 +1523,14 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                   <div className="text-xs sm:text-sm font-black text-teal-950 mt-1">
                     ₹{financialTotals.supplier.toLocaleString("en-IN")}
                   </div>
-                  <p className="text-[9px] text-teal-700/80 font-bold">Fuel &amp; Vendors</p>
+                  <p className="text-[9px] text-teal-700/80 font-bold">
+                    Fuel &amp; Vendors
+                    {isDateFiltered && (
+                      <span className="block text-[8px] text-slate-500 font-semibold mt-0.5">
+                        All-Time: ₹{lifetimeTotals.supplier.toLocaleString("en-IN")}
+                      </span>
+                    )}
+                  </p>
                 </div>
 
                 {/* 6. Agency */}
@@ -1444,7 +1546,14 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                   <div className="text-xs sm:text-sm font-black text-blue-950 mt-1">
                     ₹{financialTotals.agency.toLocaleString("en-IN")}
                   </div>
-                  <p className="text-[9px] text-blue-700/80 font-bold">B2B Partners</p>
+                  <p className="text-[9px] text-blue-700/80 font-bold">
+                    B2B Partners
+                    {isDateFiltered && (
+                      <span className="block text-[8px] text-slate-500 font-semibold mt-0.5">
+                        All-Time: ₹{lifetimeTotals.agency.toLocaleString("en-IN")}
+                      </span>
+                    )}
+                  </p>
                 </div>
 
                 {/* 7. Drivers */}
@@ -1460,7 +1569,14 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                   <div className="text-xs sm:text-sm font-black text-purple-950 mt-1">
                     ₹{financialTotals.drivers.toLocaleString("en-IN")}
                   </div>
-                  <p className="text-[9px] text-purple-700/80 font-bold">Bata &amp; Payouts</p>
+                  <p className="text-[9px] text-purple-700/80 font-bold">
+                    Bata &amp; Payouts
+                    {isDateFiltered && (
+                      <span className="block text-[8px] text-slate-500 font-semibold mt-0.5">
+                        All-Time: ₹{lifetimeTotals.drivers.toLocaleString("en-IN")}
+                      </span>
+                    )}
+                  </p>
                 </div>
 
                 {/* 8. Net Balance */}
@@ -1474,7 +1590,14 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                   }`}>
                     ₹{financialTotals.netBalance.toLocaleString("en-IN")}
                   </div>
-                  <p className="text-[9px] text-emerald-200 font-bold">Inflow - Outflow</p>
+                  <p className="text-[9px] text-emerald-200 font-bold">
+                    Inflow - Outflow
+                    {isDateFiltered && (
+                      <span className="block text-[8px] text-emerald-300/80 font-semibold mt-0.5">
+                        All-Time: ₹{lifetimeTotals.netBalance.toLocaleString("en-IN")}
+                      </span>
+                    )}
+                  </p>
                 </div>
               </div>
 
@@ -1662,7 +1785,9 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
                   <div className="flex items-center gap-3">
                     <span>Showing {filteredRecords.length} entries</span>
                     <span className="text-slate-400">&bull;</span>
-                    <span className="text-slate-500 font-medium">Category: {selectedCategory.toUpperCase()}</span>
+                    <span className="text-slate-500 font-medium">
+                      Category: {selectedCategory.toUpperCase()} {isDateFiltered ? "(Date-Wise Filtered Calculation)" : "(All-Time History)"}
+                    </span>
                   </div>
                   <div className="flex items-center gap-4">
                     <span className="text-emerald-700 font-extrabold">

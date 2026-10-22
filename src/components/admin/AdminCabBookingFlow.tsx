@@ -36,6 +36,7 @@ import {
   PER_KM_RATES_LIST,
   FIXED_TOTAL_FARES_LIST,
 } from "@/lib/fleet-tariffs";
+import { INITIAL_HOURLY_PACKAGES_RECORDS } from "@/components/admin/HourlyPackagesTripsModal";
 
 type CabTripType = "ONE WAY" | "ROUND TRIP" | "LOCAL" | "AIRPORT" | "HOURLY PACKAGE";
 
@@ -513,7 +514,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const isHourly = cabTripType === "HOURLY PACKAGE";
+      const isHourly = cabTripType === "HOURLY PACKAGE" || cabTripType === "LOCAL";
       const hourlyHoursStr = isHourly
         ? (localPackage === "4hr_40km" ? "4" : localPackage === "12hr_120km" ? "12" : "8")
         : null;
@@ -599,10 +600,25 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
         try {
           const STORAGE_KEY = "fortune_hourly_packages_trips_data";
           const saved = localStorage.getItem(STORAGE_KEY);
-          let currentList: any[] = saved ? JSON.parse(saved) : [];
-          const now = new Date();
-          const curMonthGroup = `1/${now.getMonth() + 1}/${now.getFullYear()}`;
-          const dateStr = `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`;
+          let currentList: any[] = [];
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved);
+              if (Array.isArray(parsed) && parsed.length > 0) currentList = parsed;
+            } catch (err) {}
+          }
+          if (currentList.length === 0) {
+            currentList = [...INITIAL_HOURLY_PACKAGES_RECORDS];
+          }
+
+          let dateObj = new Date();
+          if (cabDate) {
+            const p = new Date(cabDate);
+            if (!isNaN(p.getTime())) dateObj = p;
+          }
+          const curMonthGroup = `1/${dateObj.getMonth() + 1}/${dateObj.getFullYear()}`;
+          const dateStr = `${String(dateObj.getDate()).padStart(2, "0")}/${String(dateObj.getMonth() + 1).padStart(2, "0")}/${dateObj.getFullYear()}`;
+
           const newEntry = {
             id: `HPT-${Date.now()}`,
             monthGroup: curMonthGroup,
@@ -618,13 +634,16 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
             drPhNo: "9740463404",
             taxiNo: "KA 51 AC 6052",
             toll: "INCLUDED",
-            boarding: boardingPoint,
+            boarding: boardingPoint || fromLocationDisplay,
             amount: effectiveCabFare,
             paymentStatus: effectivePaymentStatus === "Fully Paid" ? "Paid" : effectivePaymentStatus === "Advance Paid" ? "Advance Paid" : "Pending",
             paymentMethod: effectiveMethod,
             pnr: pnrNumber,
           };
           localStorage.setItem(STORAGE_KEY, JSON.stringify([newEntry, ...currentList]));
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new Event("fortune_hourly_storage_updated"));
+          }
         } catch (e) {
           console.warn("Could not save to fortune_hourly_packages_trips_data:", e);
         }

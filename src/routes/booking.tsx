@@ -50,6 +50,7 @@ import {
   FIXED_TOTAL_FARES_LIST,
 } from "@/lib/fleet-tariffs";
 import { useTourTariffs } from "@/lib/tour-tariffs";
+import { INITIAL_HOURLY_PACKAGES_RECORDS } from "@/components/admin/HourlyPackagesTripsModal";
 
 export const Route = createFileRoute("/booking")({
   validateSearch: (search: Record<string, unknown>) => {
@@ -1101,10 +1102,25 @@ function BookingPage() {
         try {
           const STORAGE_KEY = "fortune_hourly_packages_trips_data";
           const saved = localStorage.getItem(STORAGE_KEY);
-          let currentList: any[] = saved ? JSON.parse(saved) : [];
-          const now = new Date();
-          const curMonthGroup = `1/${now.getMonth() + 1}/${now.getFullYear()}`;
-          const dateStr = `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`;
+          let currentList: any[] = [];
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved);
+              if (Array.isArray(parsed) && parsed.length > 0) currentList = parsed;
+            } catch (err) {}
+          }
+          if (currentList.length === 0) {
+            currentList = [...INITIAL_HOURLY_PACKAGES_RECORDS];
+          }
+
+          let dateObj = new Date();
+          if (cabDate) {
+            const p = new Date(cabDate);
+            if (!isNaN(p.getTime())) dateObj = p;
+          }
+          const curMonthGroup = `1/${dateObj.getMonth() + 1}/${dateObj.getFullYear()}`;
+          const dateStr = `${String(dateObj.getDate()).padStart(2, "0")}/${String(dateObj.getMonth() + 1).padStart(2, "0")}/${dateObj.getFullYear()}`;
+
           const newEntry = {
             id: `HPT-${Date.now()}`,
             monthGroup: curMonthGroup,
@@ -1120,13 +1136,16 @@ function BookingPage() {
             drPhNo: "9740463404",
             taxiNo: "KA 51 AC 6052",
             toll: "INCLUDED",
-            boarding: boardingPoint,
+            boarding: boardingPoint || fromLocationDisplay,
             amount: effectiveCabTotal,
             paymentStatus: effectivePaymentStatus === "Fully Paid" ? "Paid" : effectivePaymentStatus === "Advance Paid" ? "Advance Paid" : "Pending",
             paymentMethod: effectiveMethod,
             pnr: pnrNumber,
           };
           localStorage.setItem(STORAGE_KEY, JSON.stringify([newEntry, ...currentList]));
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new Event("fortune_hourly_storage_updated"));
+          }
         } catch (e) {
           console.warn("Could not save hourly package trip locally:", e);
         }

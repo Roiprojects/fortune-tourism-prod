@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import {
@@ -23,6 +23,7 @@ import {
   Ticket,
   CheckCircle2,
   MessageCircle,
+  RefreshCw,
 } from "lucide-react";
 import logoAsset from "@/assets/fortune-tourism-logo.png";
 import { downloadTicketCopyPDF } from "@/lib/ticket-copy-pdf";
@@ -195,6 +196,45 @@ interface HourlyPackagesTripsModalProps {
   onClose: () => void;
 }
 
+function parseToTripDateAndMonth(rawDateStr?: string | null): { dateStr: string; monthGroup: string } {
+  if (!rawDateStr) {
+    const now = new Date();
+    return {
+      dateStr: `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`,
+      monthGroup: `1/${now.getMonth() + 1}/${now.getFullYear()}`,
+    };
+  }
+
+  const s = String(rawDateStr).trim();
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
+    const parts = s.split("/");
+    const d = parts[0].padStart(2, "0");
+    const m = parts[1].replace(/^0/, "");
+    const y = parts[2];
+    return {
+      dateStr: `${d}/${parts[1].padStart(2, "0")}/${y}`,
+      monthGroup: `1/${m}/${y}`,
+    };
+  }
+
+  const dObj = new Date(s);
+  if (!isNaN(dObj.getTime())) {
+    const d = String(dObj.getDate()).padStart(2, "0");
+    const m = dObj.getMonth() + 1;
+    const y = dObj.getFullYear();
+    return {
+      dateStr: `${d}/${String(m).padStart(2, "0")}/${y}`,
+      monthGroup: `1/${m}/${y}`,
+    };
+  }
+
+  const now = new Date();
+  return {
+    dateStr: `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`,
+    monthGroup: `1/${now.getMonth() + 1}/${now.getFullYear()}`,
+  };
+}
+
 export function HourlyPackagesTripsModal({
   isOpen,
   onClose,
@@ -217,6 +257,7 @@ export function HourlyPackagesTripsModal({
   const [selectedDriverFilter, setSelectedDriverFilter] = useState("ALL");
   const [selectedCarFilter, setSelectedCarFilter] = useState("ALL");
   const [selectedDurationFilter, setSelectedDurationFilter] = useState("ALL");
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Edit / Add modal state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -234,6 +275,251 @@ export function HourlyPackagesTripsModal({
       console.error("Error saving hourly package trips:", e);
     }
   };
+
+  // Live Database Sync: queries hourly_bookings, enquiries, and bookings
+  const syncLiveHourlyBookings = useCallback(async () => {
+    setIsSyncing(true);
+    try {
+      const adminKey =
+        (typeof window !== "undefined" &&
+          (sessionStorage.getItem("fortune_admin_key") ||
+            localStorage.getItem("fortune_admin_key"))) ||
+        "Admin@fortunetourism2026";
+      const headers: Record<string, string> = { "x-admin-key": adminKey };
+
+      const [hourlyRes, enquiriesRes, bookingsRes] = await Promise.all([
+        fetch("/api/business/hourly_bookings?limit=500", { headers }).catch(() => null),
+        fetch("/api/enquiries?limit=200").catch(() => null),
+        fetch("/api/bookings?limit=200").catch(() => null),
+      ]);
+
+      const fetchedTrips: HourlyPackageTripRecord[] = [];
+
+      // 1. Process /api/business/hourly_bookings table rows
+      if (hourlyRes && hourlyRes.ok) {
+        try {
+          const hData = await hourlyRes.json();
+          if (hData.success && Array.isArray(hData.rows)) {
+            hData.rows.forEach((row: any) => {
+              const { dateStr, monthGroup } = parseToTripDateAndMonth(row.travel_date || row.booking_date || row.created_at);
+              const hrs = row.hours ? `${row.hours} Hr's` : "8 Hr's";
+              fetchedTrips.push({
+                id: `HPT-DB-${row.id || row.booking_number}`,
+                monthGroup,
+                slNo: row.id ? Number(row.id) : 1,
+                date: dateStr,
+                paxName: (row.passenger_name || "GUEST").trim().toUpperCase(),
+                phNumber: String(row.phone || "").trim(),
+                from: (row.from_location || "BOMMASANDRA").toUpperCase(),
+                to: (row.to_location || "BANGALORE LOCAL").toUpperCase(),
+                hours: hrs,
+                car: "SEDAN",
+                driver: "ZAMEER",
+                drPhNo: "9740463404",
+                taxiNo: "KA 51 AC 6052",
+                toll: "INCLUDED",
+                boarding: (row.from_location || "BOMMASANDRA").toUpperCase(),
+                amount: Number(row.amount || 2400),
+                paymentStatus: row.payment_status || "Paid",
+              });
+            });
+          }
+        } catch (e) {
+          console.warn("Could not parse hourly_bookings:", e);
+        }
+      }
+
+      // 2. Process /api/enquiries rows
+      if (enquiriesRes && enquiriesRes.ok) {
+        try {
+          const enqData = await enquiriesRes.json();
+          if (enqData.success && Array.isArray(enqData.enquiries)) {
+            enqData.enquiries.forEach((enq: any) => {
+              const sUpper = String(enq.service || "").toUpperCase();
+              const tripUpper = String(enq.trip_type || "").toUpperCase();
+              const notesUpper = String(enq.notes || "").toUpperCase();
+              const isHourlyEnq =
+                sUpper.includes("HOURLY") ||
+                tripUpper.includes("HOURLY") ||
+                tripUpper.includes("LOCAL") ||
+                Boolean(enq.hours_package) ||
+                notesUpper.includes("HOURLY") ||
+                notesUpper.includes("RENTAL PACKAGE");
+
+              if (isHourlyEnq) {
+                const { dateStr, monthGroup } = parseToTripDateAndMonth(enq.travel_date || enq.created_at);
+                let hrsStr = "8 Hr's";
+                if (enq.hours) hrsStr = enq.hours;
+                else if (enq.hours_package) hrsStr = `${enq.hours_package} Hr's`;
+                else if (/(\d+)\s*(?:hrs?|hr's)/i.test(notesUpper)) {
+                  const m = notesUpper.match(/(\d+)\s*(?:hrs?|hr's)/i);
+                  if (m && m[1]) hrsStr = `${m[1]} Hr's`;
+                }
+
+                let fare = Number(enq.fare || enq.total_amount || 0);
+                if (fare <= 0 && enq.notes) {
+                  const m = String(enq.notes).match(/Fare:\s*₹?\s*([\d,]+)/i);
+                  if (m && m[1]) fare = Number(m[1].replace(/,/g, "")) || 0;
+                }
+                if (fare <= 0) fare = 2400;
+
+                let carName = (enq.vehicle_name || enq.car_type || "SEDAN").toUpperCase();
+                if (carName.includes("HATCH")) carName = "HATCHBACK";
+                else if (carName.includes("SEDAN") || carName.includes("DZIRE")) carName = "DZIRE";
+                else if (carName.includes("CRYSTA") || carName.includes("INNOVA")) carName = "INNOVA";
+                else if (carName.includes("SUV") || carName.includes("XYLO")) carName = "XYLO";
+                else if (carName.includes("TEMPO")) carName = "TEMPO";
+
+                fetchedTrips.push({
+                  id: `HPT-ENQ-${enq.id}`,
+                  monthGroup,
+                  slNo: Number(enq.id) || 1,
+                  date: dateStr,
+                  paxName: (enq.name || "GUEST").trim().toUpperCase(),
+                  phNumber: String(enq.phone || "").trim(),
+                  from: (enq.pickup || "BOMMASANDRA").toUpperCase(),
+                  to: (enq.destination || "BANGALORE LOCAL").toUpperCase(),
+                  hours: hrsStr,
+                  car: carName,
+                  driver: "ZAMEER",
+                  drPhNo: "9740463404",
+                  taxiNo: "KA 51 AC 6052",
+                  toll: "INCLUDED",
+                  boarding: (enq.pickup || "BOMMASANDRA").toUpperCase(),
+                  amount: fare,
+                  paymentStatus: (enq.status || "").toLowerCase() === "confirmed" ? "Paid" : "Advance Paid",
+                });
+              }
+            });
+          }
+        } catch (e) {
+          console.warn("Could not parse enquiries for hourly:", e);
+        }
+      }
+
+      // 3. Process /api/bookings rows
+      if (bookingsRes && bookingsRes.ok) {
+        try {
+          const bData = await bookingsRes.json();
+          const bList = Array.isArray(bData.bookings) ? bData.bookings : Array.isArray(bData.rows) ? bData.rows : [];
+          bList.forEach((b: any) => {
+            const sUpper = String(b.service || "").toUpperCase();
+            const tripUpper = String(b.trip_type || "").toUpperCase();
+            const notesUpper = String(b.notes || "").toUpperCase();
+            const isHourlyBkg =
+              sUpper.includes("HOURLY") ||
+              tripUpper.includes("HOURLY") ||
+              tripUpper.includes("LOCAL") ||
+              notesUpper.includes("HOURLY") ||
+              notesUpper.includes("RENTAL PACKAGE");
+
+            if (isHourlyBkg) {
+              const { dateStr, monthGroup } = parseToTripDateAndMonth(b.departure_datetime || b.travel_date || b.created_at);
+              let hrsStr = "8 Hr's";
+              const m = notesUpper.match(/(\d+)\s*(?:hrs?|hr's)/i);
+              if (m && m[1]) hrsStr = `${m[1]} Hr's`;
+
+              let fare = Number(b.total_amount || b.fare || 0);
+              if (fare <= 0) fare = 2400;
+
+              let carName = (b.car_type || b.vehicle_name || "SEDAN").toUpperCase();
+              if (carName.includes("DZIRE") || carName.includes("SEDAN")) carName = "DZIRE";
+              else if (carName.includes("XYLO") || carName.includes("SUV")) carName = "XYLO";
+
+              fetchedTrips.push({
+                id: `HPT-BKG-${b.id}`,
+                monthGroup,
+                slNo: Number(b.id) || 1,
+                date: dateStr,
+                paxName: (b.passenger_name || "GUEST").trim().toUpperCase(),
+                phNumber: String(b.passenger_phone || "").trim(),
+                from: (b.from_location || "BOMMASANDRA").toUpperCase(),
+                to: (b.to_location || "BANGALORE LOCAL").toUpperCase(),
+                hours: hrsStr,
+                car: carName,
+                driver: "ZAMEER",
+                drPhNo: "9740463404",
+                taxiNo: "KA 51 AC 6052",
+                toll: "INCLUDED",
+                boarding: (b.pickup_location || "BOMMASANDRA").toUpperCase(),
+                amount: fare,
+                paymentStatus: (b.payment_status || "").toLowerCase() === "fully paid" ? "Paid" : "Advance Paid",
+              });
+            }
+          });
+        } catch (e) {
+          console.warn("Could not parse bookings for hourly:", e);
+        }
+      }
+
+      // Merge fetched trips with existing records (avoiding duplicates)
+      setRecords((prevRecords) => {
+        const baseList = prevRecords && prevRecords.length > 0 ? prevRecords : INITIAL_HOURLY_PACKAGES_RECORDS;
+        const result = [...baseList];
+
+        fetchedTrips.forEach((trip) => {
+          const cleanPhone = trip.phNumber.replace(/\D/g, "").slice(-10);
+          const exists = result.some((r) => {
+            if (r.id === trip.id) return true;
+            const rPhone = (r.phNumber || "").replace(/\D/g, "").slice(-10);
+            if (cleanPhone && rPhone && cleanPhone === rPhone && r.date === trip.date) return true;
+            if (r.paxName.trim().toLowerCase() === trip.paxName.trim().toLowerCase() && r.date === trip.date) return true;
+            return false;
+          });
+
+          if (!exists) {
+            result.unshift(trip);
+          }
+        });
+
+        // Save merged to localStorage
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(result));
+        } catch (e) {}
+
+        return result;
+      });
+    } catch (err) {
+      console.error("Hourly bookings live sync failed:", err);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, []);
+
+  // Reload storage and sync live bookings when modal is opened
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const loadFromStorage = () => {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setRecords(parsed);
+          }
+        }
+      } catch (e) {
+        console.error("Error reading saved hourly trips:", e);
+      }
+    };
+
+    loadFromStorage();
+
+    const handleStorageUpdate = () => {
+      loadFromStorage();
+    };
+    window.addEventListener("fortune_hourly_storage_updated", handleStorageUpdate);
+    window.addEventListener("storage", handleStorageUpdate);
+
+    // Sync live database bookings automatically
+    syncLiveHourlyBookings();
+
+    return () => {
+      window.removeEventListener("fortune_hourly_storage_updated", handleStorageUpdate);
+      window.removeEventListener("storage", handleStorageUpdate);
+    };
+  }, [isOpen, syncLiveHourlyBookings]);
 
   // Close on Escape key
   useEffect(() => {
@@ -649,6 +935,20 @@ export function HourlyPackagesTripsModal({
 
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                syncLiveHourlyBookings();
+                toast.success("Synchronizing live hourly package bookings...");
+              }}
+              disabled={isSyncing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg text-xs font-bold shadow-2xs transition cursor-pointer"
+              title="Refresh and sync live bookings from database"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+              <span>{isSyncing ? "Syncing..." : "Sync Live Bookings"}</span>
+            </button>
+
             <button
               type="button"
               onClick={handleExportExcel}
