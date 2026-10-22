@@ -1499,14 +1499,15 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
               </div>
 
               {/* DUAL ACTION BUTTONS: PROCEED DIRECTLY TO PASSENGERS OR BROWSE FLEET CARDS */}
+              {/* DUAL ACTION BUTTONS: PROCEED TO FLEET SELECTION (STEP 2) OR FAST-TRACK */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-white/10">
                 <button
                   type="button"
                   onClick={handleGoToFleetSelection}
-                  className="w-full sm:w-auto text-xs font-bold text-slate-300 hover:text-white px-5 py-3 border border-white/15 bg-white/5 rounded-xl hover:bg-white/10 transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full sm:w-auto bg-[#00c58e] hover:bg-[#00a87a] text-white font-black px-8 py-3.5 rounded-2xl uppercase tracking-wider text-xs sm:text-sm shadow-xl shadow-[#00c58e]/30 transition-all hover:scale-[1.02] flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <Car className="w-4 h-4 text-emerald-400" />
-                  View All Fleet Cards (Step 2)
+                  <Car className="w-4 h-4" />
+                  PROCEED TO SELECT VEHICLE FLEET & FARE (STEP 2) <ArrowRight className="w-4 h-4" />
                 </button>
 
                 <button
@@ -1524,9 +1525,9 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                     setStep(3);
                     window.scrollTo({ top: 80, behavior: "smooth" });
                   }}
-                  className="w-full sm:w-auto bg-[#00c58e] hover:bg-[#00a87a] text-white font-black px-8 py-3.5 rounded-2xl uppercase tracking-wider text-xs sm:text-sm shadow-xl shadow-[#00c58e]/30 transition-all hover:scale-[1.02] flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full sm:w-auto text-xs font-bold text-slate-300 hover:text-white px-5 py-3 border border-white/15 bg-white/5 rounded-xl hover:bg-white/10 transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  CONTINUE TO PASSENGER DETAILS <ArrowRight className="w-4 h-4" />
+                  Fast-Track to Passenger Details (Step 3) →
                 </button>
               </div>
             </div>
@@ -1554,6 +1555,43 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
               >
                 <ArrowLeft className="w-3.5 h-3.5 text-[#00c58e]" /> Modify Route
               </button>
+            </div>
+
+            {/* Active Selected Vehicle Banner */}
+            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-inner">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#00c58e]/20 border border-[#00c58e]/40 flex items-center justify-center text-[#00c58e]">
+                  <Car className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
+                    Currently Selected Vehicle
+                  </div>
+                  <div className="text-base font-extrabold text-white flex items-center gap-2">
+                    {selectedFleet.name}
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-white/10 text-slate-300">
+                      {selectedFleet.seats} Seater AC
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                <div className="text-right">
+                  <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
+                    Total Estimated Fare
+                  </div>
+                  <div className="text-xl sm:text-2xl font-black text-[#00c58e]">
+                    ₹{effectiveCabFare.toLocaleString("en-IN")}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleGoToPassengerDetails}
+                  className="bg-[#00c58e] hover:bg-[#00a87a] text-white font-black px-5 py-2.5 rounded-xl uppercase tracking-wider text-xs shadow-lg shadow-[#00c58e]/30 transition-all hover:scale-105 flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                >
+                  Continue →
+                </button>
+              </div>
             </div>
 
             {/* Fleet Selection List */}
@@ -1688,7 +1726,6 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                           onClick={(e) => {
                             e.stopPropagation();
                             handleCarChange(fleet.id);
-                            handleGoToPassengerDetails();
                           }}
                           className={`px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-sm transition-all cursor-pointer ${
                             isSelected
