@@ -214,6 +214,9 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
   const [airportTripType, setAirportTripType] = useState<"Drop to Airport" | "Pickup from Airport">("Drop to Airport");
   const [airportName, setAirportName] = useState("Terminal 1, Kempegowda International Airport (BLR)");
 
+  // Toll / Highway Charges Option: "INCLUDED" | "EXCLUDED"
+  const [tollOption, setTollOption] = useState<"INCLUDED" | "EXCLUDED">("INCLUDED");
+
   // Selected Fleet
   const [selectedFleetId, setSelectedFleetId] = useState<string>("sedan");
   const [withLuggageCarrier, setWithLuggageCarrier] = useState<boolean>(false);
@@ -229,9 +232,10 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
   const [boardingPoint, setBoardingPoint] = useState("");
   const [boardingAddress, setBoardingAddress] = useState("");
 
-  // Payment state
-  const [advanceOption, setAdvanceOption] = useState<number>(100);
-  const [paymentChoice, setPaymentChoice] = useState<"token_100" | "full" | "zero">("token_100");
+  // Payment state - Flexible Advance Amount with real-time balance
+  const [advanceAmount, setAdvanceAmount] = useState<number>(500);
+  const [advanceOption, setAdvanceOption] = useState<number>(500);
+  const [paymentChoice, setPaymentChoice] = useState<"advance" | "full" | "zero">("advance");
   const [fullPaymentType, setFullPaymentType] = useState<"AUTOMATIC" | "MANUAL">("AUTOMATIC");
   const [manualMethod, setManualMethod] = useState<"CASH" | "BANK_TRANSFER" | "POS_CARD" | "CHEQUE">("CASH");
   const [manualReceiptNo, setManualReceiptNo] = useState("");
@@ -418,17 +422,26 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
     return calculatedFare;
   }, [manualFareAmount, calculatedFare]);
 
+  const remainingBalance = useMemo(() => {
+    if (paymentChoice === "full") return 0;
+    if (paymentChoice === "zero") return effectiveCabFare;
+    return Math.max(0, effectiveCabFare - advanceAmount);
+  }, [paymentChoice, effectiveCabFare, advanceAmount]);
+
   const paymentStatusText = useMemo(() => {
-    if (paymentChoice === "full") {
+    if (paymentChoice === "full" || (paymentChoice === "advance" && advanceAmount >= effectiveCabFare)) {
       return fullPaymentType === "AUTOMATIC"
-        ? "CONFIRMED / 100% PAID (ONLINE UPI)"
-        : `CONFIRMED / 100% PAID (${manualMethod === "CASH" ? "CASH" : manualMethod === "BANK_TRANSFER" ? "BANK TRANSFER" : manualMethod === "POS_CARD" ? "CARD POS" : "CHEQUE"})`;
+        ? "FULL PAID / 100% PAID (ONLINE UPI) (BAL: ₹0)"
+        : `FULL PAID / 100% PAID (${manualMethod === "CASH" ? "CASH" : manualMethod === "BANK_TRANSFER" ? "BANK TRANSFER" : manualMethod === "POS_CARD" ? "CARD POS" : "CHEQUE"}) (BAL: ₹0)`;
     }
-    if (paymentChoice === "token_100") {
-      return `₹100 ADVANCE PAID (BAL: ₹${Math.max(0, effectiveCabFare - 100).toLocaleString("en-IN")})`;
+    if (paymentChoice === "advance") {
+      if (advanceAmount <= 0) {
+        return `PAY ON BOARDING (DUE: ₹${effectiveCabFare.toLocaleString("en-IN")})`;
+      }
+      return `₹${advanceAmount.toLocaleString("en-IN")} ADVANCE PAID (BAL: ₹${remainingBalance.toLocaleString("en-IN")})`;
     }
     return `PAY ON BOARDING (DUE: ₹${effectiveCabFare.toLocaleString("en-IN")})`;
-  }, [paymentChoice, fullPaymentType, manualMethod, effectiveCabFare]);
+  }, [paymentChoice, advanceAmount, effectiveCabFare, remainingBalance, fullPaymentType, manualMethod]);
 
   const fromLocationDisplay = useMemo(() => {
     if (cabTripType === "AIRPORT") {
@@ -449,7 +462,9 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
           : localPackage === "8hr_80km"
           ? "8 Hrs / 80 Kms"
           : "12 Hrs / 120 Kms";
-      return `Local City Use (${pkgLabel})`;
+      return cabTo && cabTo.trim()
+        ? `${cabTo} (${pkgLabel})`
+        : `Local City Use (${pkgLabel})`;
     }
     return cabTo || "Mysore";
   }, [cabTripType, airportTripType, cabTo, airportName, localPackage]);
@@ -522,9 +537,21 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
         ? (localPackage === "4hr_40km" ? "4 Hr's" : localPackage === "12hr_120km" ? "12 Hr's" : "8 Hr's")
         : null;
 
-      const effectiveAdvance = paymentChoice === "full" ? Number(effectiveCabFare || 0) : paymentChoice === "token_100" ? 100 : 0;
-      const effectivePaymentStatus = paymentChoice === "full" ? "Fully Paid" : paymentChoice === "token_100" ? "Advance Paid" : "Pending";
-      const effectiveMethod = paymentChoice === "full" ? (fullPaymentType === "AUTOMATIC" ? "UPI" : `MANUAL_${manualMethod}`) : paymentChoice === "token_100" ? "UPI" : "PAY_ON_ARRIVAL";
+      const effectiveAdvance = paymentChoice === "full"
+        ? Number(effectiveCabFare || 0)
+        : paymentChoice === "advance"
+        ? Math.min(Number(effectiveCabFare || 0), advanceAmount)
+        : 0;
+      const effectivePaymentStatus = paymentChoice === "full" || effectiveAdvance >= Number(effectiveCabFare || 0)
+        ? "Fully Paid"
+        : effectiveAdvance > 0
+        ? "Advance Paid"
+        : "Pending";
+      const effectiveMethod = paymentChoice === "full"
+        ? (fullPaymentType === "AUTOMATIC" ? "UPI" : `MANUAL_${manualMethod}`)
+        : paymentChoice === "advance"
+        ? "UPI"
+        : "PAY_ON_ARRIVAL";
 
       const totalKm = cabTripType === "ROUND TRIP" ? cabRoundTripKm : (cabTripType === "ONE WAY" ? cabOneWayKm : (selectedFleet.includedKms || 145));
 
@@ -565,15 +592,16 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
           `Ticket No: ${ticketNumber}`,
           `PNR: ${pnrNumber}`,
           `Fleet: ${vehicleDisplay}`,
+          `Toll: ${tollOption}`,
           cabTripType === "ROUND TRIP" ? `Round Trip (${cabRoundTripKm} km)` : cabTripType === "ONE WAY" ? `One Way (${cabOneWayKm} km)` : null,
           `Calculation Mode: ${fareCalculationMode === "CUSTOM_PER_KM" ? `Custom ₹${customRatePerKm}/km` : fareCalculationMode === "FIXED_TOTAL" ? `Fixed Fare ₹${customFixedFare}` : "Standard Tariff"}`,
           withLuggageCarrier ? `Roof Luggage Carrier: Yes (+₹${roofLuggageRate})` : null,
           isHourly ? `Rental Package: ${hourlyLabel || "Hourly"} (${fromLocationDisplay})` : null,
           `Fare: ₹${effectiveCabFare}`,
-          paymentChoice === "full"
+          paymentChoice === "full" || effectiveAdvance >= Number(effectiveCabFare || 0)
             ? `Payment: 100% Full Payment of ₹${effectiveCabFare} (${fullPaymentType === "AUTOMATIC" ? "Online UPI" : `Manual - ${manualMethod}`})`
-            : paymentChoice === "token_100"
-            ? `Payment: ₹100 Advance Paid (Balance: ₹${Math.max(0, effectiveCabFare - 100)})`
+            : paymentChoice === "advance"
+            ? `Payment: ₹${effectiveAdvance} Advance Paid (Balance: ₹${Math.max(0, effectiveCabFare - effectiveAdvance)})`
             : `Payment: Zero Advance (Pay on Boarding)`,
           utrRef && `UTR/Ref: ${utrRef}`,
           manualReceiptNo && `Manual Ref: ${manualReceiptNo}`,
@@ -687,12 +715,83 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
       serviceType: "CAB",
       fareAmount: effectiveCabFare,
       paymentStatus: paymentStatusText,
+      toll: tollOption,
     });
     toast.success("Ticket PDF downloaded successfully!");
   };
 
   const handlePrint = () => {
-    window.print();
+    const card = document.getElementById("official-ticket-card");
+    if (!card) {
+      window.print();
+      return;
+    }
+
+    try {
+      const printWindow = window.open("", "_blank", "width=850,height=900");
+      if (!printWindow) {
+        window.print();
+        return;
+      }
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8" />
+            <title>Ticket Voucher - ${ticketNumber}</title>
+            <style>
+              @page {
+                size: A4 portrait;
+                margin: 8mm;
+              }
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                margin: 0;
+                padding: 10px;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+              }
+              th, td {
+                border: 1px solid #000 !important;
+                padding: 6px 10px !important;
+              }
+              .no-print {
+                display: none !important;
+              }
+              img {
+                max-width: 100% !important;
+                height: auto !important;
+              }
+            </style>
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+          </head>
+          <body>
+            <div style="max-width: 820px; margin: 0 auto;">
+              ${card.outerHTML}
+            </div>
+            <script>
+              window.onload = function() {
+                setTimeout(function() {
+                  window.print();
+                  window.close();
+                }, 400);
+              };
+            <\/script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+    } catch (e) {
+      console.error("Print popup error, falling back to window.print():", e);
+      window.print();
+    }
   };
 
   const handleResetForAnother = () => {
@@ -713,7 +812,10 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
         @media print {
           @page {
             size: A4 portrait;
-            margin: 10mm;
+            margin: 8mm;
+          }
+          header, nav, footer, .no-print, [role="navigation"], .admin-header {
+            display: none !important;
           }
           body * {
             visibility: hidden !important;
@@ -728,9 +830,8 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
             width: 100% !important;
             box-shadow: none !important;
             border: 2px solid #000 !important;
-          }
-          .no-print {
-            display: none !important;
+            background: #fff !important;
+            color: #000 !important;
           }
         }
       `}</style>
@@ -1107,20 +1208,53 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                   </div>
                 )}
 
-                {/* Luggage Carrier Toggle */}
-                <div className="flex items-center justify-between p-2.5 bg-[#0b1329]/80 rounded-xl border border-white/10 text-xs">
-                  <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={withLuggageCarrier}
-                      onChange={(e) => setWithLuggageCarrier(e.target.checked)}
-                      className="rounded accent-[#00c58e] text-[#00c58e] focus:ring-[#00c58e]"
-                    />
-                    <span>🚙 Add Roof Luggage Carrier (+₹{roofLuggageRate})</span>
-                  </label>
-                  <span className="text-emerald-400 font-extrabold text-[11px]">
-                    {withLuggageCarrier ? `+₹${roofLuggageRate} Added` : "Optional"}
-                  </span>
+                {/* Luggage Carrier and Toll Options Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex items-center justify-between p-2.5 bg-[#0b1329]/80 rounded-xl border border-white/10 text-xs">
+                    <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={withLuggageCarrier}
+                        onChange={(e) => setWithLuggageCarrier(e.target.checked)}
+                        className="rounded accent-[#00c58e] text-[#00c58e] focus:ring-[#00c58e]"
+                      />
+                      <span>🚙 Add Roof Luggage Carrier (+₹{roofLuggageRate})</span>
+                    </label>
+                    <span className="text-emerald-400 font-extrabold text-[11px]">
+                      {withLuggageCarrier ? `+₹${roofLuggageRate} Added` : "Optional"}
+                    </span>
+                  </div>
+
+                  {/* Toll / Parking Button Toggle */}
+                  <div className="flex items-center justify-between p-2.5 bg-[#0b1329]/80 rounded-xl border border-white/10 text-xs">
+                    <span className="font-bold text-slate-300 flex items-center gap-1.5">
+                      🛣️ Toll &amp; Parking:
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setTollOption("INCLUDED")}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          tollOption === "INCLUDED"
+                            ? "bg-emerald-600 text-white font-black shadow-sm ring-1 ring-emerald-400"
+                            : "bg-white/10 text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        ✓ Toll Included
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTollOption("EXCLUDED")}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          tollOption === "EXCLUDED"
+                            ? "bg-rose-600 text-white font-black shadow-sm ring-1 ring-rose-400"
+                            : "bg-white/10 text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        ✕ Toll Excluded
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1311,44 +1445,83 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                 </div>
               )}
 
-              {/* LOCAL / HOURLY */}
+              {/* LOCAL / HOURLY (Equal 50/50 Pickup and Drop Location with Swap) */}
               {(cabTripType === "LOCAL" || cabTripType === "HOURLY PACKAGE") && (
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                  <div className="md:col-span-6 space-y-1">
-                    <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-                      PICKUP LOCATION / AREA
-                    </label>
-                    <LocationSearchInput
-                      value={cabFrom}
-                      onChange={setCabFrom}
-                      placeholder="Enter Pickup Location"
-                      dark={true}
-                    />
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between pb-1 border-b border-white/10 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-black text-xs uppercase tracking-wider">
+                        {cabTripType === "HOURLY PACKAGE" ? "HOURLY RENTAL PACKAGE" : "LOCAL CITY USE"}
+                      </span>
+                      <span className="text-xs text-slate-300 font-bold">
+                        {localPackage === "4hr_40km" ? "4 Hrs / 40 Kms" : localPackage === "8hr_80km" ? "8 Hrs / 80 Kms" : "12 Hrs / 120 Kms"}
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="md:col-span-3 space-y-1">
-                    <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-                      PICK UP DATE
-                    </label>
-                    <input
-                      type="date"
-                      min={today}
-                      value={cabDate}
-                      onChange={(e) => setCabDate(e.target.value)}
-                      className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
-                    />
-                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                    {/* FROM + SWAP + TO (Equal 50/50 Width) */}
+                    <div className="md:col-span-6 flex items-end gap-2">
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
+                          PICKUP LOCATION / AREA
+                        </label>
+                        <LocationSearchInput
+                          value={cabFrom}
+                          onChange={setCabFrom}
+                          placeholder="Enter Pickup Location / Area"
+                          dark={true}
+                        />
+                      </div>
 
-                  <div className="md:col-span-3 space-y-1">
-                    <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-                      PICK UP TIME
-                    </label>
-                    <input
-                      type="time"
-                      value={cabTime}
-                      onChange={(e) => setCabTime(e.target.value)}
-                      className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
-                    />
+                      <div className="flex-shrink-0 pb-1">
+                        <button
+                          type="button"
+                          onClick={swapLocations}
+                          className="w-9 h-9 rounded-full bg-[#111c3a] border border-white/20 hover:border-[#00c58e] hover:bg-[#16254c] flex items-center justify-center text-slate-300 transition-all shadow-md hover:scale-105 cursor-pointer"
+                          title="Swap Pickup & Drop Locations"
+                        >
+                          <ArrowLeftRight className="w-4 h-4 text-[#00c58e]" />
+                        </button>
+                      </div>
+
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
+                          DROP LOCATION / AREA
+                        </label>
+                        <LocationSearchInput
+                          value={cabTo}
+                          onChange={setCabTo}
+                          placeholder="Enter Drop Location / Area"
+                          dark={true}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-3 space-y-1">
+                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
+                        PICK UP DATE
+                      </label>
+                      <input
+                        type="date"
+                        min={today}
+                        value={cabDate}
+                        onChange={(e) => setCabDate(e.target.value)}
+                        className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
+                      />
+                    </div>
+
+                    <div className="md:col-span-3 space-y-1">
+                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
+                        PICK UP TIME
+                      </label>
+                      <input
+                        type="time"
+                        value={cabTime}
+                        onChange={(e) => setCabTime(e.target.value)}
+                        className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
+                      />
+                    </div>
                   </div>
                 </div>
               )}
@@ -1493,8 +1666,8 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400 pt-1">
-                    <span className="flex items-center gap-1 text-slate-300">
-                      🛡️ Toll &amp; State Taxes Included
+                    <span className={`flex items-center gap-1 font-bold ${tollOption === "INCLUDED" ? "text-emerald-300" : "text-rose-400"}`}>
+                      {tollOption === "INCLUDED" ? "🛡️ Toll & Parking: INCLUDED" : "⚠️ Toll & Parking: EXCLUDED"}
                     </span>
                     <span className="flex items-center gap-1 text-slate-300">
                       ⛽ Fuel &amp; Driver Allowance Included
@@ -1510,9 +1683,9 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                     ₹{effectiveCabFare.toLocaleString("en-IN")}
                   </div>
                   <div className="text-[10px] text-slate-300 font-bold mt-1 flex items-center gap-2">
-                    <span className="text-emerald-400">Token Advance: ₹100</span>
+                    <span className="text-emerald-400">Advance: ₹{advanceAmount.toLocaleString("en-IN")}</span>
                     <span>|</span>
-                    <span className="text-amber-300">Due: ₹{Math.max(0, effectiveCabFare - 100).toLocaleString("en-IN")}</span>
+                    <span className="text-amber-300">Balance: ₹{remainingBalance.toLocaleString("en-IN")}</span>
                   </div>
                 </div>
               </div>
@@ -2003,27 +2176,27 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
               </span>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {/* 1. Pay ₹100 Advance */}
+                {/* 1. Advance Payment (Custom Amount & Auto-Calculated Balance) */}
                 <button
                   type="button"
                   onClick={() => {
-                    setPaymentChoice("token_100");
-                    setAdvanceOption(100);
+                    setPaymentChoice("advance");
+                    if (advanceAmount <= 0) setAdvanceAmount(500);
                   }}
                   className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-                    paymentChoice === "token_100"
+                    paymentChoice === "advance"
                       ? "bg-[#162544]/95 border-[#00c58e] ring-2 ring-[#00c58e]/30 shadow-xl shadow-black/40"
                       : "bg-[#111c3a]/80 border-white/10 hover:border-white/20"
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-black text-white text-sm sm:text-base">⚡ Pay ₹100 Advance</span>
+                    <span className="font-black text-white text-sm sm:text-base">⚡ Advance Payment</span>
                     <span className="bg-[#00c58e] text-white font-black text-[10px] px-2.5 py-0.5 rounded-full uppercase shadow-xs">
-                      PRIORITY LOCK
+                      CUSTOM ADVANCE
                     </span>
                   </div>
                   <p className="text-xs text-slate-300">
-                    Instant vehicle lock with priority driver dispatch.
+                    Pay custom advance (₹{advanceAmount.toLocaleString("en-IN")}). Balance ₹{remainingBalance.toLocaleString("en-IN")} due on boarding.
                   </p>
                 </button>
 
@@ -2110,9 +2283,9 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                 </button>
               </div>
 
-              {/* OPTION 1: UPI QR if ₹100 Advance */}
-              {paymentChoice === "token_100" && (
-                <div className="bg-[#111c3a]/95 border border-purple-500/30 rounded-2xl p-5 space-y-4 shadow-xl shadow-purple-950/20">
+              {/* OPTION 1: ADVANCE PAYMENT DETAILS & QR */}
+              {paymentChoice === "advance" && (
+                <div className="bg-[#111c3a]/95 border border-emerald-500/40 rounded-2xl p-5 space-y-4 shadow-xl shadow-emerald-950/20">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-lg bg-[#5f259f] text-white flex items-center justify-center font-bold text-sm shadow">
@@ -2120,20 +2293,105 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                       </div>
                       <div>
                         <h3 className="font-extrabold text-white text-sm">
-                          Scan &amp; Pay via PhonePe / Any UPI App
+                          Advance Payment &amp; Auto Balance Calculation
                         </h3>
-                        <p className="text-[11px] text-purple-200">
-                          Collect ₹100 Token Advance to confirm and generate offline ticket copy (Balance ₹{(Math.max(0, effectiveCabFare - 100)).toLocaleString("en-IN")} on boarding)
+                        <p className="text-[11px] text-emerald-200">
+                          Enter custom advance amount — balance is automatically computed in real time.
                         </p>
                       </div>
                     </div>
                     <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-950/70 border border-emerald-500/30 px-2.5 py-1 rounded-full">
-                      Token Advance QR (₹100)
+                      Advance: ₹{advanceAmount.toLocaleString("en-IN")} | Bal: ₹{remainingBalance.toLocaleString("en-IN")}
                     </span>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row items-center gap-5">
-                    {/* PhonePe QR Card */}
+                  {/* Manual Advance Amount Input & Quick Preset Buttons */}
+                  <div className="p-4 bg-[#0a1228] border border-white/10 rounded-xl space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <label className="text-xs font-black text-amber-400 uppercase tracking-wider block">
+                          Enter Advance Amount (₹)
+                        </label>
+                        <p className="text-[11px] text-slate-400">
+                          Type any custom amount or click the quick presets below
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-black text-lg">₹</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={effectiveCabFare}
+                          value={advanceAmount || ""}
+                          onChange={(e) => {
+                            const val = Math.max(0, Number(e.target.value) || 0);
+                            setAdvanceAmount(val);
+                          }}
+                          placeholder="500"
+                          className="w-36 bg-[#0B132B] border-2 border-emerald-500/60 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/30 text-white font-black text-base px-3 py-1.5 rounded-xl outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Quick Preset Buttons */}
+                    <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-white/10">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Quick Presets:</span>
+                      {[200, 500, 1000, 1500, 2000, 2500].filter(amt => amt < effectiveCabFare).map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setAdvanceAmount(preset)}
+                          className={`text-xs font-bold px-3 py-1 rounded-lg border transition-all cursor-pointer ${
+                            advanceAmount === preset
+                              ? "bg-emerald-600 border-emerald-400 text-white font-black shadow-xs"
+                              : "bg-white/5 border-white/15 text-slate-300 hover:bg-white/10 hover:text-white"
+                          }`}
+                        >
+                          ₹{preset.toLocaleString("en-IN")}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setAdvanceAmount(effectiveCabFare)}
+                        className={`text-xs font-bold px-3 py-1 rounded-lg border transition-all cursor-pointer ${
+                          advanceAmount === effectiveCabFare
+                            ? "bg-amber-500 border-amber-300 text-slate-950 font-black shadow-xs"
+                            : "bg-amber-400/10 border-amber-400/30 text-amber-300 hover:bg-amber-400/20"
+                        }`}
+                      >
+                        Full Paid (₹{effectiveCabFare.toLocaleString("en-IN")})
+                      </button>
+                    </div>
+
+                    {/* Real-time Balance Box */}
+                    <div className="grid grid-cols-3 gap-2 p-3 bg-[#070e20] rounded-xl border border-emerald-500/30 text-center">
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-bold uppercase">Total Fare</div>
+                        <div className="text-base font-black text-white">₹{effectiveCabFare.toLocaleString("en-IN")}</div>
+                      </div>
+                      <div className="border-x border-white/10">
+                        <div className="text-[10px] text-emerald-400 font-bold uppercase">Advance Paid</div>
+                        <div className="text-base font-black text-emerald-400">₹{advanceAmount.toLocaleString("en-IN")}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-amber-400 font-bold uppercase">Remaining Balance</div>
+                        <div className={`text-base font-black ${remainingBalance === 0 ? "text-emerald-400" : "text-amber-400"}`}>
+                          ₹{remainingBalance.toLocaleString("en-IN")}
+                        </div>
+                      </div>
+                    </div>
+
+                    {remainingBalance === 0 && (
+                      <div className="p-2.5 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold text-center flex items-center justify-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        100% Full Payment Settled — Zero Remaining Balance
+                      </div>
+                    )}
+                  </div>
+
+                  {/* PhonePe QR Card and Details */}
+                  <div className="flex flex-col sm:flex-row items-center gap-5 pt-2">
                     <div className="bg-white p-3 rounded-2xl shadow-2xl border-2 border-purple-300 shrink-0 text-center group relative">
                       <div
                         className="w-44 sm:w-48 overflow-hidden rounded-xl bg-slate-50 border border-slate-200 cursor-pointer"
@@ -2176,13 +2434,15 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                       </div>
 
                       <div className="space-y-1.5">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fast Pay ₹100 Advance With UPI App</div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Fast Pay ₹{advanceAmount.toLocaleString("en-IN")} Advance With UPI App
+                        </div>
                         <div className="flex flex-wrap gap-2">
                           {[
-                            { name: "PhonePe", link: "phonepe://pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=100&cu=INR", color: "bg-[#5f259f] text-white hover:bg-purple-800 border-purple-400/30" },
-                            { name: "Google Pay", link: "tez://upi/pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=100&cu=INR", color: "bg-blue-600 text-white hover:bg-blue-700 border-blue-400/30" },
-                            { name: "Paytm", link: "paytmmp://upi/pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=100&cu=INR", color: "bg-sky-600 text-white hover:bg-sky-700 border-sky-400/30" },
-                            { name: "Any UPI App", link: "upi://pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=100&cu=INR&tn=Token%20Advance%20Fortune%20Tourism", color: "bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-400/30" },
+                            { name: "PhonePe", link: `phonepe://pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=${advanceAmount}&cu=INR`, color: "bg-[#5f259f] text-white hover:bg-purple-800 border-purple-400/30" },
+                            { name: "Google Pay", link: `tez://upi/pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=${advanceAmount}&cu=INR`, color: "bg-blue-600 text-white hover:bg-blue-700 border-blue-400/30" },
+                            { name: "Paytm", link: `paytmmp://upi/pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=${advanceAmount}&cu=INR`, color: "bg-sky-600 text-white hover:bg-sky-700 border-sky-400/30" },
+                            { name: "Any UPI App", link: `upi://pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=${advanceAmount}&cu=INR&tn=Advance%20Booking%20Fortune%20Tourism`, color: "bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-400/30" },
                           ].map((app) => (
                             <a
                               key={app.name}
@@ -2804,34 +3064,40 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                       </td>
                     </tr>
 
-                    {/* Row 6: Total Fare Amount | Payment Status */}
+                    {/* Row 6: Total Fare Amount | Payment Status | Toll / Parking */}
                     <tr className="divide-x divide-slate-900 bg-emerald-50/50">
                       <td className="p-2.5 font-black text-slate-900 bg-emerald-100/70 whitespace-nowrap">
                         Total Fare Amount:
                       </td>
-                      <td colSpan={2} className="p-2.5 font-black text-emerald-800 text-sm sm:text-base">
+                      <td className="p-2.5 font-black text-emerald-800 text-sm sm:text-base">
                         ₹{Number(effectiveCabFare || 0).toLocaleString("en-IN")}
                         {cabTripType === "ROUND TRIP" && (
-                          <span className="text-[10px] font-bold text-emerald-700 ml-2">
-                            (Includes Full 2-Way Return Circuit · {cabRoundTripKm} Km)
-                          </span>
+                          <div className="text-[10px] font-bold text-emerald-700">
+                            (2-Way Return · {cabRoundTripKm} Km)
+                          </div>
                         )}
                         {cabTripType === "ONE WAY" && (
-                          <span className="text-[10px] font-bold text-emerald-700 ml-2">
+                          <div className="text-[10px] font-bold text-emerald-700">
                             ({cabOneWayKm} Km Journey)
-                          </span>
+                          </div>
                         )}
                         {(cabTripType === "HOURLY PACKAGE" || cabTripType === "LOCAL") && (
-                          <span className="text-[10px] font-bold text-emerald-700 ml-2">
-                            ({localPackage === "4hr_40km" ? "4 Hrs / 40 Kms Full Fare" : localPackage === "8hr_80km" ? "8 Hrs / 80 Kms Full Fare" : "12 Hrs / 120 Kms Full Fare"})
-                          </span>
+                          <div className="text-[10px] font-bold text-emerald-700">
+                            ({localPackage === "4hr_40km" ? "4 Hrs / 40 Kms" : localPackage === "8hr_80km" ? "8 Hrs / 80 Kms" : "12 Hrs / 120 Kms"})
+                          </div>
                         )}
                       </td>
                       <td className="p-2.5 font-bold text-slate-900 bg-emerald-100/70 whitespace-nowrap">
                         Payment Status:
                       </td>
-                      <td colSpan={2} className="p-2.5 font-black text-emerald-700 uppercase">
+                      <td className="p-2.5 font-black text-emerald-700 uppercase">
                         {paymentStatusText}
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-900 bg-emerald-100/70 whitespace-nowrap">
+                        Toll / Parking:
+                      </td>
+                      <td className={`p-2.5 font-black uppercase ${tollOption === "INCLUDED" ? "text-emerald-700" : "text-rose-600"}`}>
+                        {tollOption === "INCLUDED" ? "✓ TOLL INCLUDED" : "✕ TOLL EXCLUDED"}
                       </td>
                     </tr>
                   </tbody>

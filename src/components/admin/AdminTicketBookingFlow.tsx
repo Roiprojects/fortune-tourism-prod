@@ -68,7 +68,8 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
   const [step, setStep] = useState<"JOURNEY" | "PASSENGERS" | "PAYMENT" | "CONFIRMED">("JOURNEY");
 
   // Payment Choice State
-  const [paymentChoice, setPaymentChoice] = useState<"token_100" | "full" | "zero">("token_100");
+  const [advanceAmount, setAdvanceAmount] = useState<number>(500);
+  const [paymentChoice, setPaymentChoice] = useState<"advance" | "full" | "zero">("advance");
   const [fullPaymentType, setFullPaymentType] = useState<"AUTOMATIC" | "MANUAL">("AUTOMATIC");
   const [manualMethod, setManualMethod] = useState<"CASH" | "BANK_TRANSFER" | "POS_CARD" | "CHEQUE">("CASH");
   const [manualReceiptNo, setManualReceiptNo] = useState("");
@@ -292,17 +293,24 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
     otherFormData.passengers,
   ]);
 
+  const remainingBalance = useMemo(() => {
+    if (paymentChoice === "full") return 0;
+    if (paymentChoice === "zero") return ticketFareAmount;
+    return Math.max(0, ticketFareAmount - advanceAmount);
+  }, [paymentChoice, ticketFareAmount, advanceAmount]);
+
   const paymentStatusText = useMemo(() => {
-    if (paymentChoice === "full") {
+    if (paymentChoice === "full" || (paymentChoice === "advance" && advanceAmount >= ticketFareAmount && ticketFareAmount > 0)) {
       return fullPaymentType === "AUTOMATIC"
-        ? "CONFIRMED / 100% PAID (ONLINE UPI)"
-        : `CONFIRMED / 100% PAID (${manualMethod === "CASH" ? "CASH" : manualMethod === "BANK_TRANSFER" ? "BANK TRANSFER" : manualMethod === "POS_CARD" ? "CARD POS" : "CHEQUE"})`;
+        ? "CONFIRMED / 100% PAID (ONLINE UPI) (BAL: ₹0)"
+        : `CONFIRMED / 100% PAID (${manualMethod === "CASH" ? "CASH" : manualMethod === "BANK_TRANSFER" ? "BANK TRANSFER" : manualMethod === "POS_CARD" ? "CARD POS" : "CHEQUE"}) (BAL: ₹0)`;
     }
-    if (paymentChoice === "token_100") {
-      return `₹100 ADVANCE PAID (BAL: ₹${Math.max(0, ticketFareAmount - 100).toLocaleString("en-IN")})`;
+    if (paymentChoice === "advance") {
+      if (advanceAmount <= 0) return `PAY ON BOARDING (DUE: ₹${ticketFareAmount.toLocaleString("en-IN")})`;
+      return `₹${advanceAmount.toLocaleString("en-IN")} ADVANCE PAID (BAL: ₹${remainingBalance.toLocaleString("en-IN")})`;
     }
     return `PAY ON BOARDING (DUE: ₹${ticketFareAmount.toLocaleString("en-IN")})`;
-  }, [paymentChoice, fullPaymentType, manualMethod, ticketFareAmount]);
+  }, [paymentChoice, fullPaymentType, manualMethod, ticketFareAmount, advanceAmount, remainingBalance]);
 
   // Passenger count selector (1 to 6)
   const setPassengerCount = (count: number) => {
@@ -421,16 +429,17 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
     }
     setIsSubmitting(true);
     try {
-      const effectiveAdvance = paymentChoice === "full" ? Number(ticketFareAmount || 0) : paymentChoice === "token_100" ? 100 : 0;
+      const effectiveAdvance = paymentChoice === "full" ? Number(ticketFareAmount || 0) : paymentChoice === "advance" ? Math.min(Number(ticketFareAmount || 0), advanceAmount) : 0;
+      const effectivePaymentStatus = paymentChoice === "full" || effectiveAdvance >= Number(ticketFareAmount || 0) ? "Fully Paid" : effectiveAdvance > 0 ? "Advance Paid" : "Pending";
       const effectiveMethod = paymentChoice === "full"
         ? (fullPaymentType === "AUTOMATIC" ? "UPI" : `MANUAL_${manualMethod}`)
-        : paymentChoice === "token_100"
+        : paymentChoice === "advance"
         ? "UPI"
         : "PAY_ON_ARRIVAL";
 
       const paymentNotes = [
-        `Payment Choice: ${paymentChoice === "token_100" ? "₹100 Token Advance (Priority Lock)" : paymentChoice === "full" ? `Full Payment (${fullPaymentType})` : "Zero Advance (Pay on Boarding)"}`,
-        paymentChoice === "token_100" && utrRef && `UTR Ref: ${utrRef}`,
+        `Payment Choice: ${paymentChoice === "advance" ? `₹${effectiveAdvance} Advance Paid (Balance: ₹${Math.max(0, Number(ticketFareAmount || 0) - effectiveAdvance)})` : paymentChoice === "full" ? `Full Payment (${fullPaymentType})` : "Zero Advance (Pay on Boarding)"}`,
+        paymentChoice === "advance" && utrRef && `UTR Ref: ${utrRef}`,
         paymentChoice === "full" && fullPaymentType === "AUTOMATIC" && utrRef && `UPI UTR: ${utrRef}`,
         paymentChoice === "full" && fullPaymentType === "MANUAL" && `Manual Channel: ${manualMethod}${manualReceiptNo ? ` | Receipt: ${manualReceiptNo}` : ""}${collectedBy ? ` | Handled By: ${collectedBy}` : ""}`,
       ].filter(Boolean).join(" | ");
@@ -468,7 +477,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
         advance_amount: effectiveAdvance,
         payment_choice: paymentChoice,
         payment_method: effectiveMethod,
-        payment_status: paymentChoice === "full" ? "Fully Paid" : paymentChoice === "token_100" ? "Advance Paid" : "Pending",
+        payment_status: effectivePaymentStatus,
         payment_ref: manualReceiptNo || utrRef || null,
         transaction_id: manualReceiptNo || utrRef || null,
         collected_by: collectedBy || "Admin Counter",
@@ -515,16 +524,17 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
       const flightFrom = otherFormData.from_airport || otherFormData.from_location || otherFormData.pickup || "BANGALORE";
       const flightTo = otherFormData.destination || otherFormData.to_airport || otherFormData.to_destination || otherFormData.to_location || "DELHI";
 
-      const effectiveAdvance = paymentChoice === "full" ? Number(ticketFareAmount || 0) : paymentChoice === "token_100" ? 100 : 0;
+      const effectiveAdvance = paymentChoice === "full" ? Number(ticketFareAmount || 0) : paymentChoice === "advance" ? Math.min(Number(ticketFareAmount || 0), advanceAmount) : 0;
+      const effectivePaymentStatus = paymentChoice === "full" || effectiveAdvance >= Number(ticketFareAmount || 0) ? "Fully Paid" : effectiveAdvance > 0 ? "Advance Paid" : "Pending";
       const effectiveMethod = paymentChoice === "full"
         ? (fullPaymentType === "AUTOMATIC" ? "UPI" : `MANUAL_${manualMethod}`)
-        : paymentChoice === "token_100"
+        : paymentChoice === "advance"
         ? "UPI"
         : "PAY_ON_ARRIVAL";
 
       const paymentNotes = [
-        `Payment Choice: ${paymentChoice === "token_100" ? "₹100 Token Advance (Priority Lock)" : paymentChoice === "full" ? `Full Payment (${fullPaymentType})` : "Zero Advance (Pay on Boarding)"}`,
-        paymentChoice === "token_100" && utrRef && `UTR Ref: ${utrRef}`,
+        `Payment Choice: ${paymentChoice === "advance" ? `₹${effectiveAdvance} Advance Paid (Balance: ₹${Math.max(0, Number(ticketFareAmount || 0) - effectiveAdvance)})` : paymentChoice === "full" ? `Full Payment (${fullPaymentType})` : "Zero Advance (Pay on Boarding)"}`,
+        paymentChoice === "advance" && utrRef && `UTR Ref: ${utrRef}`,
         paymentChoice === "full" && fullPaymentType === "AUTOMATIC" && utrRef && `UPI UTR: ${utrRef}`,
         paymentChoice === "full" && fullPaymentType === "MANUAL" && `Manual Channel: ${manualMethod}${manualReceiptNo ? ` | Receipt: ${manualReceiptNo}` : ""}${collectedBy ? ` | Handled By: ${collectedBy}` : ""}`,
       ].filter(Boolean).join(" | ");
@@ -568,7 +578,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
         advance_amount: effectiveAdvance,
         payment_choice: paymentChoice,
         payment_method: effectiveMethod,
-        payment_status: paymentChoice === "full" ? "Fully Paid" : paymentChoice === "token_100" ? "Advance Paid" : "Pending",
+        payment_status: effectivePaymentStatus,
         payment_ref: manualReceiptNo || utrRef || null,
         transaction_id: manualReceiptNo || utrRef || null,
         collected_by: collectedBy || "Admin Counter",
@@ -1281,33 +1291,36 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
               </span>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {/* 1. Pay ₹100 Advance */}
+                {/* 1. Advance Payment (Custom Amount & Auto-Calculated Balance) */}
                 <button
                   type="button"
-                  onClick={() => setPaymentChoice("token_100")}
+                  onClick={() => {
+                    setPaymentChoice("advance");
+                    if (advanceAmount <= 0) setAdvanceAmount(500);
+                  }}
                   className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-                    paymentChoice === "token_100"
+                    paymentChoice === "advance"
                       ? "bg-[#162544]/95 border-[#00c58e] ring-2 ring-[#00c58e]/30 shadow-xl shadow-black/40"
                       : "bg-[#111c3a]/80 border-white/10 hover:border-white/20"
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-black text-white text-sm sm:text-base">⚡ Pay ₹100 Advance</span>
+                    <span className="font-black text-white text-sm sm:text-base">⚡ Advance Payment</span>
                     <span className="bg-[#00c58e] text-white font-black text-[10px] px-2.5 py-0.5 rounded-full uppercase shadow-xs">
-                      PRIORITY LOCK
+                      CUSTOM ADVANCE
                     </span>
                   </div>
                   <p className="text-xs text-slate-300">
-                    {serviceType === "TRAIN" && "Instant seat reservation lock with priority booking confirmation."}
-                    {serviceType === "BUS" && "Instant seat reservation lock with priority bus operator confirmation."}
-                    {serviceType === "FLIGHT" && "Instant flight seat block with priority PNR confirmation."}
+                    Pay custom advance (₹{advanceAmount.toLocaleString("en-IN")}). Balance ₹{remainingBalance.toLocaleString("en-IN")} due on boarding.
                   </p>
                 </button>
 
                 {/* 2. Full Payment Method (Manual & Automatically) */}
                 <button
                   type="button"
-                  onClick={() => setPaymentChoice("full")}
+                  onClick={() => {
+                    setPaymentChoice("full");
+                  }}
                   className={`p-4 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
                     paymentChoice === "full"
                       ? "bg-[#162544]/95 border-amber-400 ring-2 ring-amber-400/40 shadow-xl shadow-black/40"
@@ -1360,7 +1373,9 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                 {/* 3. Zero Advance */}
                 <button
                   type="button"
-                  onClick={() => setPaymentChoice("zero")}
+                  onClick={() => {
+                    setPaymentChoice("zero");
+                  }}
                   className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
                     paymentChoice === "zero"
                       ? "bg-[#162544]/95 border-[#00c58e] ring-2 ring-[#00c58e]/30 shadow-xl shadow-black/40"
@@ -1379,9 +1394,9 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                 </button>
               </div>
 
-              {/* OPTION 1: UPI QR if ₹100 Advance is selected */}
-              {paymentChoice === "token_100" && (
-                <div className="bg-[#111c3a]/95 border border-purple-500/30 rounded-2xl p-5 space-y-4 shadow-xl shadow-purple-950/20">
+              {/* OPTION 1: ADVANCE PAYMENT DETAILS & QR */}
+              {paymentChoice === "advance" && (
+                <div className="bg-[#111c3a]/95 border border-emerald-500/40 rounded-2xl p-5 space-y-4 shadow-xl shadow-emerald-950/20">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-lg bg-[#5f259f] text-white flex items-center justify-center font-bold text-sm shadow">
@@ -1389,19 +1404,105 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                       </div>
                       <div>
                         <h3 className="font-extrabold text-white text-sm">
-                          Scan &amp; Pay via PhonePe / Any UPI App
+                          Advance Payment &amp; Auto Balance Calculation
                         </h3>
-                        <p className="text-[11px] text-purple-200">
-                          Pay ₹100 Token Advance to confirm and instantly generate journey ticket copy (Balance ₹{(Math.max(0, ticketFareAmount - 100)).toLocaleString("en-IN")} on boarding)
+                        <p className="text-[11px] text-emerald-200">
+                          Enter custom advance amount — balance is automatically computed in real time.
                         </p>
                       </div>
                     </div>
                     <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-950/70 border border-emerald-500/30 px-2.5 py-1 rounded-full">
-                      Token Advance QR (₹100)
+                      Advance: ₹{advanceAmount.toLocaleString("en-IN")} | Bal: ₹{remainingBalance.toLocaleString("en-IN")}
                     </span>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row items-center gap-5">
+                  {/* Manual Advance Amount Input & Quick Preset Buttons */}
+                  <div className="p-4 bg-[#0a1228] border border-white/10 rounded-xl space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <label className="text-xs font-black text-amber-400 uppercase tracking-wider block">
+                          Enter Advance Amount (₹)
+                        </label>
+                        <p className="text-[11px] text-slate-400">
+                          Type any custom amount or click the quick presets below
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-black text-lg">₹</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={ticketFareAmount}
+                          value={advanceAmount || ""}
+                          onChange={(e) => {
+                            const val = Math.max(0, Number(e.target.value) || 0);
+                            setAdvanceAmount(val);
+                          }}
+                          placeholder="500"
+                          className="w-36 bg-[#0B132B] border-2 border-emerald-500/60 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/30 text-white font-black text-base px-3 py-1.5 rounded-xl outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Quick Preset Buttons */}
+                    <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-white/10">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Quick Presets:</span>
+                      {[200, 500, 1000, 1500, 2000, 2500].filter(amt => amt < ticketFareAmount).map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setAdvanceAmount(preset)}
+                          className={`text-xs font-bold px-3 py-1 rounded-lg border transition-all cursor-pointer ${
+                            advanceAmount === preset
+                              ? "bg-emerald-600 border-emerald-400 text-white font-black shadow-xs"
+                              : "bg-white/5 border-white/15 text-slate-300 hover:bg-white/10 hover:text-white"
+                          }`}
+                        >
+                          ₹{preset.toLocaleString("en-IN")}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setAdvanceAmount(ticketFareAmount)}
+                        className={`text-xs font-bold px-3 py-1 rounded-lg border transition-all cursor-pointer ${
+                          advanceAmount === ticketFareAmount
+                            ? "bg-amber-500 border-amber-300 text-slate-950 font-black shadow-xs"
+                            : "bg-amber-400/10 border-amber-400/30 text-amber-300 hover:bg-amber-400/20"
+                        }`}
+                      >
+                        Full Paid (₹{ticketFareAmount.toLocaleString("en-IN")})
+                      </button>
+                    </div>
+
+                    {/* Real-time Balance Box */}
+                    <div className="grid grid-cols-3 gap-2 p-3 bg-[#070e20] rounded-xl border border-emerald-500/30 text-center">
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-bold uppercase">Total Fare</div>
+                        <div className="text-base font-black text-white">₹{ticketFareAmount.toLocaleString("en-IN")}</div>
+                      </div>
+                      <div className="border-x border-white/10">
+                        <div className="text-[10px] text-emerald-400 font-bold uppercase">Advance Paid</div>
+                        <div className="text-base font-black text-emerald-400">₹{advanceAmount.toLocaleString("en-IN")}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-amber-400 font-bold uppercase">Remaining Balance</div>
+                        <div className={`text-base font-black ${remainingBalance === 0 ? "text-emerald-400" : "text-amber-400"}`}>
+                          ₹{remainingBalance.toLocaleString("en-IN")}
+                        </div>
+                      </div>
+                    </div>
+
+                    {remainingBalance === 0 && (
+                      <div className="p-2.5 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold text-center flex items-center justify-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        100% Full Payment Settled — Zero Remaining Balance
+                      </div>
+                    )}
+                  </div>
+
+                  {/* PhonePe QR Card and Fast Pay Links */}
+                  <div className="flex flex-col sm:flex-row items-center gap-5 pt-2">
                     <div className="bg-white p-3 rounded-2xl shadow-2xl border-2 border-purple-300 shrink-0 text-center group relative">
                       <div
                         className="w-44 sm:w-48 overflow-hidden rounded-xl bg-slate-50 border border-slate-200 cursor-pointer"
@@ -1444,13 +1545,15 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                       </div>
 
                       <div className="space-y-1.5">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fast Pay ₹100 Advance With UPI App</div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Fast Pay ₹{advanceAmount.toLocaleString("en-IN")} Advance With UPI App
+                        </div>
                         <div className="flex flex-wrap gap-2">
                           {[
-                            { name: "PhonePe", link: "phonepe://pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=100&cu=INR", color: "bg-[#5f259f] text-white hover:bg-purple-800 border-purple-400/30" },
-                            { name: "Google Pay", link: "tez://upi/pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=100&cu=INR", color: "bg-blue-600 text-white hover:bg-blue-700 border-blue-400/30" },
-                            { name: "Paytm", link: "paytmmp://upi/pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=100&cu=INR", color: "bg-sky-600 text-white hover:bg-sky-700 border-sky-400/30" },
-                            { name: "Any UPI App", link: "upi://pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=100&cu=INR&tn=Token%20Advance%20Fortune%20Tourism", color: "bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-400/30" },
+                            { name: "PhonePe", link: `phonepe://pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=${advanceAmount}&cu=INR`, color: "bg-[#5f259f] text-white hover:bg-purple-800 border-purple-400/30" },
+                            { name: "Google Pay", link: `tez://upi/pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=${advanceAmount}&cu=INR`, color: "bg-blue-600 text-white hover:bg-blue-700 border-blue-400/30" },
+                            { name: "Paytm", link: `paytmmp://upi/pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=${advanceAmount}&cu=INR`, color: "bg-sky-600 text-white hover:bg-sky-700 border-sky-400/30" },
+                            { name: "Any UPI App", link: `upi://pay?pa=fortunetourism@okaxis&pn=Zameer%20S%20Fortune%20Tourism&am=${advanceAmount}&cu=INR&tn=Advance%20Booking%20Fortune%20Tourism`, color: "bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-400/30" },
                           ].map((app) => (
                             <a
                               key={app.name}

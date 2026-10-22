@@ -30,6 +30,7 @@ export interface TicketCopyData {
   baseFare?: number | string;
   driverAllowance?: number | string;
   paymentStatus?: string;
+  toll?: string;
   passengers?: TicketPassenger[];
 }
 
@@ -165,18 +166,25 @@ export function downloadTicketCopyPDF(data: TicketCopyData) {
               const num = Number(data.fareAmount || 0);
               const fareStr = num > 0 ? `INR ${num.toLocaleString("en-IN")}` : data.fareAmount ? `INR ${data.fareAmount}` : "INR 0";
               if (data.tripType?.toUpperCase().includes("ROUND") || Boolean(data.returnDate)) {
-                return `${fareStr} (Full 2-Way Return Circuit)`;
+                return `${fareStr} (2-Way Return)`;
               }
               if (data.tripType?.toUpperCase().includes("HOURLY")) {
-                return `${fareStr} (Full Package Fare)`;
+                return `${fareStr} (Hourly Pkg)`;
               }
               return fareStr;
             })(),
-            colSpan: 2,
             styles: { fontStyle: "bold", fontSize: 9.5, textColor: [14, 107, 80] },
           },
           { content: "Payment Status:", styles: { fontStyle: "bold", fillColor: [230, 245, 235] } },
-          { content: data.paymentStatus || "CONFIRMED / PAID", colSpan: 2, styles: { fontStyle: "bold", textColor: [14, 107, 80] } },
+          { content: data.paymentStatus || "CONFIRMED / PAID", styles: { fontStyle: "bold", textColor: [14, 107, 80] } },
+          { content: "Toll / Parking:", styles: { fontStyle: "bold", fillColor: [230, 245, 235] } },
+          {
+            content: (data.toll || "INCLUDED").toUpperCase(),
+            styles: {
+              fontStyle: "bold",
+              textColor: (data.toll || "").toUpperCase().includes("EXCLUDE") ? [180, 40, 40] : [14, 107, 80],
+            },
+          },
         ],
       ],
     });
@@ -285,23 +293,76 @@ export function downloadTicketCopyPDF(data: TicketCopyData) {
       { align: "center" }
     );
 
-    doc.save(`Fortune-Tourism-Ticket-${data.ticketNumber}.pdf`);
+    try {
+      doc.save(`Fortune-Tourism-Ticket-${data.ticketNumber}.pdf`);
+    } catch (saveErr) {
+      console.error("Standard doc.save failed, trying blob download:", saveErr);
+      const blob = doc.output("blob");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Fortune-Tourism-Ticket-${data.ticketNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
   };
 
-  const loadImg = (src: string): Promise<HTMLImageElement | undefined> => {
+  const loadImgWithTimeout = (src: string, timeoutMs = 700): Promise<HTMLImageElement | undefined> => {
     return new Promise((resolve) => {
+      if (typeof window === "undefined") {
+        resolve(undefined);
+        return;
+      }
+      let settled = false;
       const el = new Image();
-      el.crossOrigin = "anonymous";
-      el.onload = () => resolve(el);
-      el.onerror = () => resolve(undefined);
+      const timer = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          resolve(undefined);
+        }
+      }, timeoutMs);
+
+      el.onload = () => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(el);
+        }
+      };
+      el.onerror = () => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(undefined);
+        }
+      };
+      try {
+        el.crossOrigin = "anonymous";
+      } catch (e) {}
       el.src = src;
     });
   };
 
   Promise.all([
-    loadImg("/fortune-tourism-full-logo.png"),
-    loadImg("/images/phonepe-qr.jpg")
-  ]).then(([logoImg, qrImg]) => {
-    generateAndSave(logoImg, qrImg);
-  });
+    loadImgWithTimeout("/fortune-tourism-full-logo.png"),
+    loadImgWithTimeout("/images/phonepe-qr.jpg"),
+  ])
+    .then(([logoImg, qrImg]) => {
+      try {
+        generateAndSave(logoImg, qrImg);
+      } catch (err) {
+        console.warn("generateAndSave with images had warning, retrying without images:", err);
+        generateAndSave(undefined, undefined);
+      }
+    })
+    .catch((err) => {
+      console.error("Promise.all failed in downloadTicketCopyPDF, falling back to clean text PDF:", err);
+      try {
+        generateAndSave(undefined, undefined);
+      } catch (fatalErr) {
+        console.error("Fatal PDF generation error:", fatalErr);
+      }
+    });
 }
