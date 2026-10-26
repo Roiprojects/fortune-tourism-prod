@@ -272,7 +272,67 @@ export function BusBookingForm({ formData, onChange, errors, onCompleteBooking, 
             </p>
           </div>
 
+          {/* Bus PNR Entry */}
+          <div className="bg-[#111c3a]/90 border border-amber-500/30 rounded-2xl p-4 sm:p-5 space-y-3 shadow-inner">
+            <span className="text-[11px] font-black uppercase tracking-wider text-amber-300 block">
+              🚌 Bus PNR / Ticket Entry
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                  Bus PNR / Booking Reference
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. BUS12345 / REDBUS-9A7F"
+                  value={formData.bus_pnr || ""}
+                  onChange={(e) => onChange("bus_pnr", e.target.value.toUpperCase())}
+                  className="w-full bg-[#0b1329]/90 border border-amber-500/30 rounded-xl px-3 py-2 text-xs font-black text-amber-200 focus:border-amber-400 outline-none placeholder:text-slate-500 [color-scheme:dark] tracking-widest"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                  Booking / Seat Status
+                </label>
+                <select
+                  value={formData.bus_status || "Confirmed"}
+                  onChange={(e) => onChange("bus_status", e.target.value)}
+                  className="w-full bg-[#0b1329]/90 border border-white/15 rounded-xl px-3 py-2 text-xs font-bold text-white focus:border-[#00c58e] outline-none [color-scheme:dark]"
+                >
+                  <option>Confirmed</option>
+                  <option>Waitlisted</option>
+                  <option>On Hold</option>
+                  <option>Cancelled</option>
+                  <option>Partially Confirmed</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Passengers with Excel (XL) Import */}
           <div className="space-y-2.5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-[11px] font-black uppercase tracking-wider text-emerald-300">Passenger List</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const txt = window.prompt("Paste passengers from Excel (Tab-separated: Name \t Age \t Gender — one per line):");
+                  if (!txt) return;
+                  const lines = txt.trim().split("\n").filter(Boolean);
+                  const parsed = lines.map((line) => {
+                    const parts = line.split(/\t|,/).map((s) => s.trim());
+                    return { name: parts[0] || "", age: parts[1] || "", gender: parts[2] || "Male" };
+                  }).filter((p) => p.name);
+                  if (parsed.length > 0) {
+                    onChange("passengers", parsed);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 rounded-lg text-xs font-bold transition cursor-pointer"
+                title="Import passengers from Excel — paste Name, Age, Gender tab-separated"
+              >
+                📊 Import from Excel (XL)
+              </button>
+            </div>
             {passengers.map((p, idx) => (
               <div
                 key={idx}

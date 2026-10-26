@@ -34,6 +34,7 @@ interface Passenger {
   age: string;
   gender: string;
   berth_preference: string;
+  pnr_status?: string;
 }
 
 const CLASS_OPTIONS = [
@@ -103,7 +104,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
 
   // Passengers list (1 to 6)
   const [passengers, setPassengers] = useState<Passenger[]>([
-    { name: "", age: "", gender: "Male", berth_preference: "No Preference" },
+    { name: "", age: "", gender: "Male", berth_preference: "No Preference", pnr_status: "CNF" },
   ]);
 
   // Form State for other services (Bus, Flight)
@@ -318,7 +319,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
     if (count > current.length) {
       const updated = [...current];
       for (let i = current.length; i < count; i++) {
-        updated.push({ name: "", age: "", gender: "Male", berth_preference: "No Preference" });
+        updated.push({ name: "", age: "", gender: "Male", berth_preference: "No Preference", pnr_status: "CNF" });
       }
       setPassengers(updated);
     } else if (count < current.length) {
@@ -645,7 +646,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
     setStep("JOURNEY");
     setTicketNumber(generateTicketNumber());
     setPnrNumber(generatePNR());
-    setPassengers([{ name: "", age: "", gender: "Male", berth_preference: "No Preference" }]);
+    setPassengers([{ name: "", age: "", gender: "Male", berth_preference: "No Preference", pnr_status: "CNF" }]);
     setTrainData({
       from_station: "",
       to_station: "",
@@ -995,13 +996,14 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                           key={idx}
                           className="bg-[#111c3a]/80 border border-white/10 rounded-2xl p-4 sm:p-5 shadow-inner text-white"
                         >
-                          <div className="flex items-center gap-3">
-                            <span className="text-xs font-black text-emerald-400 shrink-0 w-5">
+                          <div className="flex items-start gap-3">
+                            <span className="text-xs font-black text-emerald-400 shrink-0 w-5 pt-2">
                               {idx + 1}.
                             </span>
 
                             <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 flex-1">
-                              <div className="sm:col-span-6">
+                              <div className="sm:col-span-4">
+                                <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Full Name *</label>
                                 <input
                                   type="text"
                                   placeholder="Full Name (as per Aadhaar / ID)"
@@ -1011,7 +1013,8 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                                 />
                               </div>
 
-                              <div className="sm:col-span-3">
+                              <div className="sm:col-span-2">
+                                <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Age</label>
                                 <input
                                   type="number"
                                   min="1"
@@ -1023,7 +1026,8 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                                 />
                               </div>
 
-                              <div className="sm:col-span-3">
+                              <div className="sm:col-span-2">
+                                <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Gender</label>
                                 <select
                                   value={p.gender}
                                   onChange={(e) => updatePassenger(idx, "gender", e.target.value)}
@@ -1034,13 +1038,30 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                                   <option className="bg-[#0b1329]">Child</option>
                                 </select>
                               </div>
+
+                              <div className="sm:col-span-4">
+                                <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">PNR Status</label>
+                                <select
+                                  value={p.pnr_status || "CNF"}
+                                  onChange={(e) => updatePassenger(idx, "pnr_status", e.target.value)}
+                                  className="w-full bg-[#0b1329]/90 border border-emerald-500/30 rounded-xl px-3 py-2 text-xs font-bold text-emerald-300 focus:border-[#00c58e] outline-none [color-scheme:dark]"
+                                >
+                                  <option value="CNF" className="bg-[#0b1329] text-green-300">CNF – Confirmed</option>
+                                  <option value="RAC" className="bg-[#0b1329] text-yellow-300">RAC – Reservation Against Cancellation</option>
+                                  <option value="WL" className="bg-[#0b1329] text-red-300">WL – Waitlisted</option>
+                                  <option value="PQWL" className="bg-[#0b1329] text-orange-300">PQWL – Pooled Quota Waitlist</option>
+                                  <option value="RLWL" className="bg-[#0b1329] text-orange-300">RLWL – Remote Location Waitlist</option>
+                                  <option value="CAN" className="bg-[#0b1329] text-red-400">CAN – Cancelled</option>
+                                  <option value="CHART NOT PREPARED" className="bg-[#0b1329]">Chart Not Prepared</option>
+                                </select>
+                              </div>
                             </div>
 
                             {passengers.length > 1 && (
                               <button
                                 type="button"
                                 onClick={() => removePassenger(idx)}
-                                className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition-colors shrink-0 cursor-pointer"
+                                className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition-colors shrink-0 cursor-pointer mt-6"
                                 title="Remove Passenger"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -1223,23 +1244,20 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                   <div className="text-slate-300 text-[11px] space-y-0.5">
                     {serviceType === "TRAIN" ? (
                       <>
-                        <div>Base Ticket Fare: <strong className="text-white">₹{Math.max(0, Math.round(ticketFareAmount * 0.95)).toLocaleString("en-IN")}</strong></div>
+                        <div>Ticket Fare: <strong className="text-white">₹{ticketFareAmount.toLocaleString("en-IN")}</strong></div>
                         <div>IRCTC &amp; Reservation Charges: <strong className="text-emerald-400">Included</strong></div>
-                        <div>Taxes &amp; GST: <strong className="text-emerald-400">Included (5% GST)</strong></div>
                         <div>Total All-Inclusive: <strong className="text-[#00c58e] font-black">₹{ticketFareAmount.toLocaleString("en-IN")}</strong></div>
                       </>
                     ) : serviceType === "BUS" ? (
                       <>
-                        <div>Base Seat Fare: <strong className="text-white">₹{Math.max(0, Math.round(ticketFareAmount * 0.95)).toLocaleString("en-IN")}</strong></div>
-                        <div>Toll &amp; Driver Allowance: <strong className="text-emerald-400">Included</strong></div>
-                        <div>Taxes &amp; GST: <strong className="text-emerald-400">Included (5% GST)</strong></div>
+                        <div>Seat Fare: <strong className="text-white">₹{ticketFareAmount.toLocaleString("en-IN")}</strong></div>
+                        <div>Toll &amp; Operator Charges: <strong className="text-emerald-400">Included</strong></div>
                         <div>Total All-Inclusive: <strong className="text-[#00c58e] font-black">₹{ticketFareAmount.toLocaleString("en-IN")}</strong></div>
                       </>
                     ) : (
                       <>
-                        <div>Base Airfare: <strong className="text-white">₹{Math.max(0, Math.round(ticketFareAmount * 0.88)).toLocaleString("en-IN")}</strong></div>
+                        <div>Airfare: <strong className="text-white">₹{ticketFareAmount.toLocaleString("en-IN")}</strong></div>
                         <div>Fuel &amp; Airline Charges: <strong className="text-emerald-400">Included</strong></div>
-                        <div>Airport Taxes &amp; GST: <strong className="text-emerald-400">Included (12% Taxes)</strong></div>
                         <div>Total All-Inclusive: <strong className="text-[#00c58e] font-black">₹{ticketFareAmount.toLocaleString("en-IN")}</strong></div>
                       </>
                     )}
@@ -2090,21 +2108,41 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                       </td>
                     </tr>
 
-                    {/* Row 2: FROM | TO */}
-                    <tr className="border-b border-slate-900 divide-x divide-slate-900">
-                      <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
-                        FROM
-                      </td>
-                      <td colSpan={2} className="p-2.5 font-black text-slate-900 uppercase">
-                        {fromLocationDisplay}
-                      </td>
-                      <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
-                        TO:
-                      </td>
-                      <td colSpan={2} className="p-2.5 font-black text-slate-900 uppercase">
-                        {toLocationDisplay}
-                      </td>
-                    </tr>
+                    {/* Row 2: FROM | TO (Multi-City: separate rows per leg) */}
+                    {serviceType === "FLIGHT" && otherFormData.flight_trip_type === "Multi City" && Array.isArray(otherFormData.multi_city_flights) && otherFormData.multi_city_flights.length > 0 ? (
+                      otherFormData.multi_city_flights.map((leg: any, legIdx: number) => (
+                        <tr key={`leg-${legIdx}`} className="border-b border-slate-900 divide-x divide-slate-900">
+                          <td className="p-2.5 font-bold text-slate-900 bg-blue-50 whitespace-nowrap text-[11px]">
+                            Flight {legIdx + 1} FROM
+                          </td>
+                          <td colSpan={2} className="p-2.5 font-black text-slate-900 uppercase">
+                            {(leg.from || "—").toUpperCase()}
+                          </td>
+                          <td className="p-2.5 font-bold text-slate-900 bg-blue-50 whitespace-nowrap text-[11px]">
+                            Flight {legIdx + 1} TO:
+                          </td>
+                          <td colSpan={2} className="p-2.5 font-black text-slate-900 uppercase">
+                            {(leg.to || "—").toUpperCase()}
+                            {leg.date && <span className="ml-2 text-[10px] text-slate-500 font-bold">({leg.date}{leg.preferred_time ? " · " + leg.preferred_time : ""})</span>}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr className="border-b border-slate-900 divide-x divide-slate-900">
+                        <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
+                          FROM
+                        </td>
+                        <td colSpan={2} className="p-2.5 font-black text-slate-900 uppercase">
+                          {fromLocationDisplay}
+                        </td>
+                        <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
+                          TO:
+                        </td>
+                        <td colSpan={2} className="p-2.5 font-black text-slate-900 uppercase">
+                          {toLocationDisplay}
+                        </td>
+                      </tr>
+                    )}
 
                     {/* Row 3: Ticket Number | PNR Number | Departure On */}
                     <tr className="border-b border-slate-900 divide-x divide-slate-900">
@@ -2228,8 +2266,8 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                         <th className="p-2">Passenger Full Name</th>
                         <th className="p-2 w-20 text-center">Age</th>
                         <th className="p-2 w-24 text-center">Gender</th>
-                        <th className="p-2 w-44 text-center">Seat / Berth Preference</th>
-                        <th className="p-2 w-28 text-center">Status</th>
+                        <th className="p-2 w-40 text-center">Seat / Berth</th>
+                        <th className="p-2 w-36 text-center">PNR Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-300">
@@ -2247,11 +2285,17 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                           <td className="p-2 text-center font-bold text-slate-700">{p.age ? `${p.age} Yrs` : "—"}</td>
                           <td className="p-2 text-center font-bold text-slate-700">{p.gender || "—"}</td>
                           <td className="p-2 text-center font-mono font-bold text-slate-800">
-                            {p.berth_preference || p.seat_berth || p.seat || "Confirmed"}
+                            {p.berth_preference || (p as any).seat_berth || (p as any).seat || "—"}
                           </td>
                           <td className="p-2 text-center">
-                            <span className="bg-emerald-100 text-emerald-800 font-black text-[10px] px-2 py-0.5 rounded-full border border-emerald-300">
-                              CONFIRMED
+                            <span className={`font-black text-[10px] px-2 py-0.5 rounded-full border ${
+                              (p.pnr_status || "CNF") === "CNF" ? "bg-emerald-100 text-emerald-800 border-emerald-300" :
+                              (p.pnr_status || "") === "RAC" ? "bg-yellow-100 text-yellow-800 border-yellow-300" :
+                              (p.pnr_status || "").startsWith("WL") || (p.pnr_status || "").includes("WL") ? "bg-red-100 text-red-800 border-red-300" :
+                              (p.pnr_status || "") === "CAN" ? "bg-gray-100 text-gray-600 border-gray-300" :
+                              "bg-slate-100 text-slate-700 border-slate-300"
+                            }`}>
+                              {p.pnr_status || "CNF"}
                             </span>
                           </td>
                         </tr>

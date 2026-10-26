@@ -2996,30 +2996,26 @@ function BookingPage() {
                         </>
                       ) : serviceType === "TRAIN" ? (
                         <>
-                          <div>Base Ticket Fare: <strong className="text-white">₹{Math.max(0, Math.round(displayTotalFare * 0.95)).toLocaleString("en-IN")}</strong></div>
+                          <div>Ticket Fare: <strong className="text-white">₹{displayTotalFare.toLocaleString("en-IN")}</strong></div>
                           <div>IRCTC &amp; Reservation Charges: <strong className="text-emerald-400">Included</strong></div>
-                          <div>Taxes &amp; GST: <strong className="text-emerald-400">Included (5% GST)</strong></div>
                           <div>Total All-Inclusive: <strong className="text-[#00c58e] font-black">₹{displayTotalFare.toLocaleString("en-IN")}</strong></div>
                         </>
                       ) : serviceType === "BUS" ? (
                         <>
-                          <div>Base Seat Fare: <strong className="text-white">₹{Math.max(0, Math.round(displayTotalFare * 0.95)).toLocaleString("en-IN")}</strong></div>
-                          <div>Toll &amp; Driver Allowance: <strong className="text-emerald-400">Included</strong></div>
-                          <div>Taxes &amp; GST: <strong className="text-emerald-400">Included (5% GST)</strong></div>
+                          <div>Seat Fare: <strong className="text-white">₹{displayTotalFare.toLocaleString("en-IN")}</strong></div>
+                          <div>Toll &amp; Operator Charges: <strong className="text-emerald-400">Included</strong></div>
                           <div>Total All-Inclusive: <strong className="text-[#00c58e] font-black">₹{displayTotalFare.toLocaleString("en-IN")}</strong></div>
                         </>
                       ) : serviceType === "FLIGHT" ? (
                         <>
-                          <div>Base Airfare: <strong className="text-white">₹{Math.max(0, Math.round(displayTotalFare * 0.88)).toLocaleString("en-IN")}</strong></div>
+                          <div>Airfare: <strong className="text-white">₹{displayTotalFare.toLocaleString("en-IN")}</strong></div>
                           <div>Fuel &amp; Airline Charges: <strong className="text-emerald-400">Included</strong></div>
-                          <div>Airport Taxes &amp; GST: <strong className="text-emerald-400">Included (12% Taxes)</strong></div>
                           <div>Total All-Inclusive: <strong className="text-[#00c58e] font-black">₹{displayTotalFare.toLocaleString("en-IN")}</strong></div>
                         </>
                       ) : (
                         <>
-                          <div>Base Package Fare: <strong className="text-white">₹{Math.max(0, Math.round(displayTotalFare * 0.95)).toLocaleString("en-IN")}</strong></div>
+                          <div>Package Fare: <strong className="text-white">₹{displayTotalFare.toLocaleString("en-IN")}</strong></div>
                           <div>Sightseeing, Hotel &amp; Transport: <strong className="text-emerald-400">Included</strong></div>
-                          <div>Taxes &amp; GST: <strong className="text-emerald-400">Included (5% GST)</strong></div>
                           <div>Total All-Inclusive: <strong className="text-[#00c58e] font-black">₹{displayTotalFare.toLocaleString("en-IN")}</strong></div>
                         </>
                       )}

@@ -1163,8 +1163,115 @@ export function FlightBookingForm({
             </p>
           </div>
 
-          {/* Passengers List */}
+          {/* PNR Entry & Real-time Schedule */}
+          <div className="bg-[#111c3a]/90 border border-blue-500/30 rounded-2xl p-4 sm:p-5 space-y-4 shadow-inner">
+            <span className="text-[11px] font-black uppercase tracking-wider text-blue-300 block flex items-center gap-2">
+              ✈️ PNR Entry &amp; Real-Time Flight Schedule
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                  PNR Entry (Airline PNR)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. ABC123 / FT7G8H9"
+                  value={formData.airline_pnr || ""}
+                  onChange={(e) => onChange("airline_pnr", e.target.value.toUpperCase())}
+                  className="w-full bg-[#0b1329]/90 border border-blue-500/30 rounded-xl px-3 py-2 text-xs font-black text-blue-200 focus:border-blue-400 outline-none placeholder:text-slate-500 [color-scheme:dark] tracking-widest"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                  Flight Number
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 6E-201 / AI-101"
+                  value={formData.flight_number || ""}
+                  onChange={(e) => onChange("flight_number", e.target.value.toUpperCase())}
+                  className="w-full bg-[#0b1329]/90 border border-white/15 rounded-xl px-3 py-2 text-xs font-bold text-white focus:border-[#00c58e] outline-none placeholder:text-slate-500 [color-scheme:dark]"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                  Flight Status
+                </label>
+                <select
+                  value={formData.flight_status || "On Schedule"}
+                  onChange={(e) => onChange("flight_status", e.target.value)}
+                  className="w-full bg-[#0b1329]/90 border border-white/15 rounded-xl px-3 py-2 text-xs font-bold text-white focus:border-[#00c58e] outline-none [color-scheme:dark]"
+                >
+                  <option>On Schedule</option>
+                  <option>Delayed</option>
+                  <option>Boarding</option>
+                  <option>Departed</option>
+                  <option>Arrived</option>
+                  <option>Cancelled</option>
+                  <option>Diverted</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                  Departure Time (Actual)
+                </label>
+                <input
+                  type="time"
+                  value={formData.departure_time || ""}
+                  onChange={(e) => onChange("departure_time", e.target.value)}
+                  className="w-full bg-[#0b1329]/90 border border-white/15 rounded-xl px-3 py-2 text-xs font-bold text-white focus:border-[#00c58e] outline-none [color-scheme:dark]"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                  Arrival Time (Actual)
+                </label>
+                <input
+                  type="time"
+                  value={formData.arrival_time || ""}
+                  onChange={(e) => onChange("arrival_time", e.target.value)}
+                  className="w-full bg-[#0b1329]/90 border border-white/15 rounded-xl px-3 py-2 text-xs font-bold text-white focus:border-[#00c58e] outline-none [color-scheme:dark]"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                  Terminal / Gate
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Terminal 2, Gate 14"
+                  value={formData.terminal_info || ""}
+                  onChange={(e) => onChange("terminal_info", e.target.value)}
+                  className="w-full bg-[#0b1329]/90 border border-white/15 rounded-xl px-3 py-2 text-xs font-bold text-white focus:border-[#00c58e] outline-none placeholder:text-slate-500 [color-scheme:dark]"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Passengers List with Excel (XL) Import */}
           <div className="space-y-2.5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-[11px] font-black uppercase tracking-wider text-emerald-300">Passenger List</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const txt = window.prompt("Paste passengers from Excel (Tab-separated: Name \\t Age \\t Gender — one per line):");
+                  if (!txt) return;
+                  const lines = txt.trim().split("\n").filter(Boolean);
+                  const parsed = lines.map((line) => {
+                    const parts = line.split(/\t|,/).map((s) => s.trim());
+                    return { name: parts[0] || "", age: parts[1] || "", gender: parts[2] || "Male" };
+                  }).filter((p) => p.name);
+                  if (parsed.length > 0) {
+                    onChange("passengers", parsed);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 rounded-lg text-xs font-bold transition cursor-pointer"
+                title="Import passengers from Excel/CSV — paste tab or comma separated: Name, Age, Gender"
+              >
+                📊 Import from Excel (XL)
+              </button>
+            </div>
             {passengers.map((p, idx) => (
               <div
                 key={idx}

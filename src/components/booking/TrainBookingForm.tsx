@@ -291,6 +291,28 @@ export function TrainBookingForm({ formData, onChange, errors, onCompleteBooking
           </div>
 
           <div className="space-y-2.5">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+              <span className="text-[11px] font-black uppercase tracking-wider text-emerald-300">Passenger List</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const txt = window.prompt("Paste passengers from Excel (Tab-separated: Name \t Age \t Gender — one per line):");
+                  if (!txt) return;
+                  const lines = txt.trim().split("\n").filter(Boolean);
+                  const parsed = lines.map((line) => {
+                    const parts = line.split(/\t|,/).map((s) => s.trim());
+                    return { name: parts[0] || "", age: parts[1] || "", gender: parts[2] || "Male", berth_preference: parts[3] || "No Preference" };
+                  }).filter((p) => p.name);
+                  if (parsed.length > 0) {
+                    onChange("passengers", parsed);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 rounded-lg text-xs font-bold transition cursor-pointer"
+                title="Import from Excel — paste Name, Age, Gender, Berth tab-separated"
+              >
+                📊 Import from Excel (XL)
+              </button>
+            </div>
             {passengers.map((p, idx) => (
               <div
                 key={idx}

@@ -107,7 +107,7 @@ export function ExpenseReportModal({ isOpen, onClose }: ExpenseReportModalProps)
     async function fetchBookingInflows() {
       setLoadingBookings(true);
       try {
-        const res = await fetch("/api/enquiries?limit=100");
+        const res = await fetch("/api/enquiries?limit=1000");
         if (!res.ok) return;
         const data = await res.json();
         if (data.success && Array.isArray(data.enquiries)) {
