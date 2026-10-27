@@ -32,6 +32,8 @@ import {
   Gauge,
   Calculator,
   Sliders,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { generateTicketNumber, generatePNR } from "@/lib/booking-utils";
@@ -72,7 +74,15 @@ export const Route = createFileRoute("/booking")({
   component: BookingPage,
 });
 
-type CabTripType = "ONE WAY" | "ROUND TRIP" | "LOCAL" | "AIRPORT" | "HOURLY PACKAGE";
+export interface CabMultiCityLeg {
+  id: string;
+  from: string;
+  to: string;
+  date: string;
+  time: string;
+}
+
+type CabTripType = "ONE WAY" | "ROUND TRIP" | "MULTI CITY" | "LOCAL" | "AIRPORT" | "HOURLY PACKAGE";
 
 const POPULAR_CAB_CITIES = [
   "Bangalore",
@@ -299,9 +309,64 @@ function BookingPage() {
   const [localPackage, setLocalPackage] = useState<"4hr_40km" | "8hr_80km" | "12hr_120km">("4hr_40km");
   const [cabOneWayKm, setCabOneWayKm] = useState<number>(145);
   const [cabRoundTripKm, setCabRoundTripKm] = useState<number>(290);
+  const [cabMultiCityKm, setCabMultiCityKm] = useState<number>(500);
+  const [multiCityStops, setMultiCityStops] = useState<CabMultiCityLeg[]>([
+    { id: "1", from: "Bangalore", to: "Mysore", date: new Date().toISOString().split("T")[0], time: "07:00" },
+    { id: "2", from: "Mysore", to: "Ooty", date: new Date().toISOString().split("T")[0], time: "09:00" },
+  ]);
+  const [localViaStops, setLocalViaStops] = useState<string[]>([]);
   const [isCustomKm, setIsCustomKm] = useState<boolean>(false);
   const [airportTripType, setAirportTripType] = useState<"Drop to Airport" | "Pickup from Airport">("Drop to Airport");
   const [airportName, setAirportName] = useState("Terminal 1, Kempegowda International Airport (BLR)");
+
+  // Multi-City Leg Handlers
+  const addMultiCityStop = () => {
+    const lastStop = multiCityStops[multiCityStops.length - 1];
+    const newFrom = lastStop?.to || "Mysore";
+    setMultiCityStops([
+      ...multiCityStops,
+      {
+        id: String(Date.now()),
+        from: newFrom,
+        to: "",
+        date: lastStop?.date || cabDate,
+        time: "08:00",
+      },
+    ]);
+  };
+
+  const updateMultiCityStop = (idx: number, field: keyof CabMultiCityLeg, val: string) => {
+    const updated = [...multiCityStops];
+    updated[idx] = { ...updated[idx], [field]: val };
+    if (field === "to" && idx < updated.length - 1) {
+      updated[idx + 1] = { ...updated[idx + 1], from: val };
+    }
+    setMultiCityStops(updated);
+  };
+
+  const removeMultiCityStop = (idx: number) => {
+    if (multiCityStops.length <= 2) {
+      toast.error("Multi-city route requires at least 2 destinations/legs.");
+      return;
+    }
+    const updated = multiCityStops.filter((_, i) => i !== idx);
+    setMultiCityStops(updated);
+  };
+
+  // Local Via Stops Handlers
+  const addLocalViaStop = () => {
+    setLocalViaStops([...localViaStops, ""]);
+  };
+
+  const updateLocalViaStop = (idx: number, val: string) => {
+    const updated = [...localViaStops];
+    updated[idx] = val;
+    setLocalViaStops(updated);
+  };
+
+  const removeLocalViaStop = (idx: number) => {
+    setLocalViaStops(localViaStops.filter((_, i) => i !== idx));
+  };
 
   // Selected Fleet
   const [selectedFleetId, setSelectedFleetId] = useState<string>("sedan");
@@ -429,12 +494,19 @@ function BookingPage() {
 
   // Active Journey Kilometers
   const activeJourneyKm = useMemo(() => {
-    return cabTripType === "ROUND TRIP" ? cabRoundTripKm : cabOneWayKm;
-  }, [cabTripType, cabRoundTripKm, cabOneWayKm]);
+    if (cabTripType === "ROUND TRIP") return cabRoundTripKm;
+    if (cabTripType === "MULTI CITY") return cabMultiCityKm;
+    return cabOneWayKm;
+  }, [cabTripType, cabRoundTripKm, cabMultiCityKm, cabOneWayKm]);
 
   // Dynamic Price calculation based on Trip Type, Selected Kilometers & Customization Mode
   const calculatedFare = useMemo(() => {
-    const activeKm = cabTripType === "ROUND TRIP" ? cabRoundTripKm : cabOneWayKm;
+    const activeKm =
+      cabTripType === "ROUND TRIP"
+        ? cabRoundTripKm
+        : cabTripType === "MULTI CITY"
+        ? cabMultiCityKm
+        : cabOneWayKm;
 
     // 1. FIXED TOTAL FARE MODE
     if (fareCalculationMode === "FIXED_TOTAL") {
@@ -459,15 +531,16 @@ function BookingPage() {
       } else {
         base = selectedFleet.basePriceOneWay + (cabOneWayKm - selectedFleet.includedKms) * selectedFleet.postLimitRate;
       }
-    } else if (cabTripType === "ROUND TRIP") {
-      if (cabRoundTripKm <= 0) {
+    } else if (cabTripType === "ROUND TRIP" || cabTripType === "MULTI CITY") {
+      const kmToUse = cabTripType === "MULTI CITY" ? cabMultiCityKm : cabRoundTripKm;
+      if (kmToUse <= 0) {
         base = 0;
       } else {
         const baseRtKm = selectedFleet.includedKms * 2;
-        if (cabRoundTripKm <= baseRtKm) {
+        if (kmToUse <= baseRtKm) {
           base = selectedFleet.basePriceRoundTrip;
         } else {
-          base = selectedFleet.basePriceRoundTrip + (cabRoundTripKm - baseRtKm) * selectedFleet.postLimitRate;
+          base = selectedFleet.basePriceRoundTrip + (kmToUse - baseRtKm) * selectedFleet.postLimitRate;
         }
       }
     } else if (cabTripType === "AIRPORT") {
@@ -486,6 +559,7 @@ function BookingPage() {
     cabTripType,
     cabOneWayKm,
     cabRoundTripKm,
+    cabMultiCityKm,
     localPackage,
     withLuggageCarrier,
     roofLuggageRate,
@@ -493,7 +567,12 @@ function BookingPage() {
 
   // Formula explanation text for complete live fare display
   const fareFormulaExplanation = useMemo(() => {
-    const activeKm = cabTripType === "ROUND TRIP" ? cabRoundTripKm : cabOneWayKm;
+    const activeKm =
+      cabTripType === "ROUND TRIP"
+        ? cabRoundTripKm
+        : cabTripType === "MULTI CITY"
+        ? cabMultiCityKm
+        : cabOneWayKm;
     if (fareCalculationMode === "FIXED_TOTAL") {
       return `Fixed Total Fare: ₹${Number(customFixedFare || 0).toLocaleString("en-IN")}${withLuggageCarrier ? ` + ₹${roofLuggageRate} (Luggage Carrier)` : ""}`;
     }
@@ -517,6 +596,15 @@ function BookingPage() {
       const extraKm = cabRoundTripKm - baseRtKm;
       return `Round Trip Base ₹${selectedFleet.basePriceRoundTrip.toLocaleString("en-IN")} (${baseRtKm} km) + ${extraKm} extra km @ ₹${selectedFleet.postLimitRate}/km (₹${(extraKm * selectedFleet.postLimitRate).toLocaleString("en-IN")})${withLuggageCarrier ? ` + ₹${roofLuggageRate}` : ""}`;
     }
+    if (cabTripType === "MULTI CITY") {
+      if (cabMultiCityKm <= 0) return "0 Km selected · ₹0 Fare";
+      const baseRtKm = selectedFleet.includedKms * 2;
+      if (cabMultiCityKm <= baseRtKm) {
+        return `Multi-City Outstation Base (${baseRtKm} km included) = ₹${selectedFleet.basePriceRoundTrip.toLocaleString("en-IN")}${withLuggageCarrier ? ` + ₹${roofLuggageRate}` : ""}`;
+      }
+      const extraKm = cabMultiCityKm - baseRtKm;
+      return `Multi-City Base ₹${selectedFleet.basePriceRoundTrip.toLocaleString("en-IN")} (${baseRtKm} km) + ${extraKm} extra km @ ₹${selectedFleet.postLimitRate}/km (₹${(extraKm * selectedFleet.postLimitRate).toLocaleString("en-IN")})${withLuggageCarrier ? ` + ₹${roofLuggageRate}` : ""}`;
+    }
     if (cabTripType === "AIRPORT") {
       return `Airport Transfer Flat Fare = ₹${selectedFleet.basePriceAirport.toLocaleString("en-IN")}`;
     }
@@ -528,6 +616,7 @@ function BookingPage() {
     cabTripType,
     cabOneWayKm,
     cabRoundTripKm,
+    cabMultiCityKm,
     selectedFleet,
     withLuggageCarrier,
     roofLuggageRate,
@@ -630,8 +719,11 @@ function BookingPage() {
     if (cabTripType === "AIRPORT" && airportTripType === "Pickup from Airport") {
       return airportName.split(",")[0].toUpperCase();
     }
+    if (serviceType === "CAB" && cabTripType === "MULTI CITY") {
+      return (multiCityStops[0]?.from || cabFrom || "BANGALORE").toUpperCase();
+    }
     return (cabFrom || "BANGALORE").toUpperCase();
-  }, [serviceType, otherFormData, cabTripType, airportTripType, airportName, cabFrom]);
+  }, [serviceType, otherFormData, cabTripType, airportTripType, airportName, cabFrom, multiCityStops]);
 
   const toLocationDisplay = useMemo(() => {
     if (serviceType === "TRAIN") return (otherFormData.to_station || "CHENNAI CENTRAL (MAS)").toUpperCase();
@@ -657,19 +749,27 @@ function BookingPage() {
     if (cabTripType === "AIRPORT" && airportTripType === "Drop to Airport") {
       return airportName.split(",")[0].toUpperCase();
     }
+    if (serviceType === "CAB" && cabTripType === "MULTI CITY") {
+      const cities = multiCityStops
+        .map((s) => (s.to?.split(",")[0] || s.to || "").trim().toUpperCase())
+        .filter(Boolean);
+      return `${cities.join(" ➔ ")} (MULTI CITY)`;
+    }
     if (cabTripType === "ROUND TRIP") {
       const dest = cabTo && cabTo.trim() ? cabTo.trim().toUpperCase() : "MYSORE";
       const ret = cabReturnTo && cabReturnTo.trim() ? cabReturnTo.trim().toUpperCase() : (cabFrom || "BANGALORE").toUpperCase();
       return `${dest} ➔ ${ret} (ROUND TRIP)`;
     }
+    if (cabTripType === "LOCAL" || cabTripType === "HOURLY PACKAGE") {
+      const validStops = localViaStops.filter((s) => s && s.trim());
+      const stopsText = validStops.length > 0 ? ` VIA ${validStops.join(", ").toUpperCase()}` : "";
+      return `${(cabTo || cabFrom || "BANGALORE LOCAL").toUpperCase()}${stopsText}`;
+    }
     if (cabTo && cabTo.trim()) {
       return cabTo.trim().toUpperCase();
     }
-    if (cabTripType === "LOCAL" || cabTripType === "HOURLY PACKAGE") {
-      return (cabFrom || "BANGALORE LOCAL").toUpperCase();
-    }
     return (cabTo || "MYSORE").toUpperCase();
-  }, [serviceType, otherFormData, cabTripType, airportTripType, airportName, cabTo, cabFrom]);
+  }, [serviceType, otherFormData, cabTripType, airportTripType, airportName, cabTo, cabFrom, multiCityStops, localViaStops]);
 
   const primaryPassengerName = useMemo(() => {
     if (otherFormData.passengers?.[0]?.name) {
@@ -960,11 +1060,26 @@ function BookingPage() {
   // Step 1 -> Step 2 (Route validation to Fleet Selection)
   const handleGoToFleetSelection = () => {
     const e: Record<string, string> = {};
-    if (cabTripType !== "LOCAL" && cabTripType !== "HOURLY PACKAGE") {
+    if (cabTripType === "MULTI CITY") {
+      let invalidLeg = false;
+      multiCityStops.forEach((leg, idx) => {
+        if (!leg.from?.trim() || !leg.to?.trim()) {
+          invalidLeg = true;
+          e[`leg_${idx}`] = `Leg ${idx + 1} pickup and destination are required.`;
+        }
+        if (!leg.date) {
+          invalidLeg = true;
+          e[`leg_date_${idx}`] = `Leg ${idx + 1} date is required.`;
+        }
+      });
+      if (invalidLeg) {
+        toast.error("Please fill all Multi-City stop details (From, To, Date).");
+      }
+    } else if (cabTripType !== "LOCAL" && cabTripType !== "HOURLY PACKAGE") {
       if (!cabFrom.trim()) e.from = "Pickup location is required.";
       if (!cabTo.trim()) e.to = "Drop location is required.";
     }
-    if (!cabDate) e.date = "Travel date is required.";
+    if (cabTripType !== "MULTI CITY" && !cabDate) e.date = "Travel date is required.";
     if (cabTripType === "ROUND TRIP") {
       if (!cabReturnDate) e.returnDate = "Return date is required for round trip.";
       else if (cabReturnDate < cabDate) e.returnDate = "Return date cannot be earlier than departure date.";
@@ -1015,9 +1130,10 @@ function BookingPage() {
 
     try {
       const isRt = cabTripType === "ROUND TRIP";
-      const totalKm = isRt ? cabRoundTripKm : (cabTripType === "ONE WAY" ? cabOneWayKm : (selectedFleet.includedKms || 145));
+      const isMultiCity = cabTripType === "MULTI CITY";
+      const totalKm = isMultiCity ? cabMultiCityKm : isRt ? cabRoundTripKm : (cabTripType === "ONE WAY" ? cabOneWayKm : (selectedFleet.includedKms || 145));
       const rateKm = selectedFleet.postLimitRate || 14;
-      const minKm = isRt ? 250 : 145;
+      const minKm = isMultiCity ? 250 : isRt ? 250 : 145;
       const driverAllowance = 350;
       const gstAmt = Math.round(calculatedFare * 0.05);
       const baseAmt = Math.max(0, calculatedFare - driverAllowance - gstAmt);
@@ -1043,10 +1159,10 @@ function BookingPage() {
         booking_type: "CAB",
         booking_source: "WEBSITE",
         pickup: fromLocationDisplay,
-        destination: isRt ? `${toLocationDisplay} (Round Trip)` : toLocationDisplay,
-        date: cabDate || today,
+        destination: isMultiCity ? toLocationDisplay : isRt ? `${toLocationDisplay} (Round Trip)` : toLocationDisplay,
+        date: isMultiCity ? (multiCityStops[0]?.date || cabDate || today) : (cabDate || today),
         return_date: isRt ? cabReturnDate : null,
-        time: cabTime || "07:00",
+        time: isMultiCity ? (multiCityStops[0]?.time || cabTime || "07:00") : (cabTime || "07:00"),
         passengers: String(selectedFleet.seats),
         trip_type: cabTripType,
         car_type: selectedFleet.name,
@@ -1063,15 +1179,19 @@ function BookingPage() {
         boarding_address: boardingAddress,
         ticket_number: ticketNumber,
         pnr_number: pnrNumber,
+        multi_city_cab: isMultiCity ? multiCityStops : null,
+        local_via_stops: (isHourly && localViaStops.filter((s) => s.trim()).length > 0) ? localViaStops.filter((s) => s.trim()) : null,
         notes: [
           `Ticket No: ${ticketNumber}`,
           `PNR: ${pnrNumber}`,
           `Fleet: ${selectedFleet.name} (${selectedFleet.seats} Seater)`,
           `Toll: ${tollOption}`,
-          isRt
+          isMultiCity
+            ? `Multi City: ${multiCityStops.map((s) => `${s.from} ➔ ${s.to} (${s.date})`).join(" | ")}`
+            : isRt
             ? `Round Trip: ${cabFrom} ➔ ${cabTo} ➔ ${cabReturnTo || cabFrom} | Onward: ${cabDate} ${cabTime} | Return: ${cabReturnDate} ${cabReturnTime}`
             : isHourly
-            ? `Hourly Rental: ${hourlyLabel || "Package"} | From: ${fromLocationDisplay}`
+            ? `Hourly Rental: ${hourlyLabel || "Package"} | From: ${fromLocationDisplay}${localViaStops.filter((s) => s.trim()).length > 0 ? ` | Via Stops: ${localViaStops.filter((s) => s.trim()).join(", ")}` : ""}`
             : `One Way: ${fromLocationDisplay} → ${toLocationDisplay} | Dep: ${cabDate} ${cabTime}`,
           `Distance: ~${totalKm} km | Rate: ₹${rateKm}/km`,
           `Calculation Mode: ${fareCalculationMode === "CUSTOM_PER_KM" ? `Custom ₹${customRatePerKm}/km` : fareCalculationMode === "FIXED_TOTAL" ? `Fixed Fare ₹${customFixedFare}` : "Standard Tariff"}`,
@@ -1360,10 +1480,10 @@ function BookingPage() {
                 </button>
               </div>
 
-              {/* Trip Type Tabs: ONE WAY | ROUND TRIP | LOCAL | AIRPORT | HOURLY PACKAGE */}
+              {/* Trip Type Tabs: ONE WAY | ROUND TRIP | MULTI CITY | LOCAL | AIRPORT | HOURLY PACKAGE */}
               <div className="flex justify-center">
                 <div className="inline-flex flex-wrap justify-center rounded-2xl border border-white/15 overflow-hidden text-xs sm:text-sm font-bold bg-[#111c3a]/90 p-1.5 gap-1 shadow-inner backdrop-blur-md">
-                  {(["ONE WAY", "ROUND TRIP", "LOCAL", "AIRPORT", "HOURLY PACKAGE"] as CabTripType[]).map((tab) => {
+                  {(["ONE WAY", "ROUND TRIP", "MULTI CITY", "LOCAL", "AIRPORT", "HOURLY PACKAGE"] as CabTripType[]).map((tab) => {
                     const isActive = cabTripType === tab;
                     return (
                       <button
@@ -1445,13 +1565,18 @@ function BookingPage() {
                 </div>
 
                 {/* 2. KILOMETER SELECTOR (DROPDOWN + DIRECT INPUT STARTING FROM 0 KM) */}
-                {(cabTripType === "ONE WAY" || cabTripType === "ROUND TRIP") && (
+                {(cabTripType === "ONE WAY" || cabTripType === "ROUND TRIP" || cabTripType === "MULTI CITY") && (
                   <div className="border-t border-white/10 pt-3 space-y-2.5">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div className="text-[11px] font-black uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
                         <Gauge className="w-4 h-4 text-[#00c58e]" />
                         <span>
-                          {cabTripType === "ROUND TRIP" ? "ROUND TRIP KILOMETERS (2-WAY RETURN)" : "JOURNEY KILOMETERS"} (STARTS FROM 0 KM)
+                          {cabTripType === "ROUND TRIP"
+                            ? "ROUND TRIP KILOMETERS (2-WAY RETURN)"
+                            : cabTripType === "MULTI CITY"
+                            ? "MULTI-CITY OUTSTATION KILOMETERS"
+                            : "JOURNEY KILOMETERS"}{" "}
+                          (STARTS FROM 0 KM)
                         </span>
                       </div>
                       <span className="text-[11px] font-bold text-slate-300 bg-emerald-950/70 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
@@ -1475,6 +1600,8 @@ function BookingPage() {
                               const kmNum = Number(val);
                               if (cabTripType === "ROUND TRIP") {
                                 setCabRoundTripKm(kmNum);
+                              } else if (cabTripType === "MULTI CITY") {
+                                setCabMultiCityKm(kmNum);
                               } else {
                                 setCabOneWayKm(kmNum);
                               }
@@ -1512,6 +1639,8 @@ function BookingPage() {
                               const val = Math.max(0, parseInt(e.target.value) || 0);
                               if (cabTripType === "ROUND TRIP") {
                                 setCabRoundTripKm(val);
+                              } else if (cabTripType === "MULTI CITY") {
+                                setCabMultiCityKm(val);
                               } else {
                                 setCabOneWayKm(val);
                               }
@@ -1529,7 +1658,12 @@ function BookingPage() {
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">
                         Quick Km:
                       </span>
-                      {(cabTripType === "ROUND TRIP" ? [0, 100, 200, 290, 300, 400, 500, 600, 800] : [0, 50, 100, 145, 150, 200, 250, 300, 400]).map((kmVal) => {
+                      {(cabTripType === "MULTI CITY"
+                        ? [0, 200, 300, 400, 500, 600, 800, 1000, 1200]
+                        : cabTripType === "ROUND TRIP"
+                        ? [0, 100, 200, 290, 300, 400, 500, 600, 800]
+                        : [0, 50, 100, 145, 150, 200, 250, 300, 400]
+                      ).map((kmVal) => {
                         const isSel = activeJourneyKm === kmVal && !isCustomKm;
                         return (
                           <button
@@ -1538,6 +1672,8 @@ function BookingPage() {
                             onClick={() => {
                               if (cabTripType === "ROUND TRIP") {
                                 setCabRoundTripKm(kmVal);
+                              } else if (cabTripType === "MULTI CITY") {
+                                setCabMultiCityKm(kmVal);
                               } else {
                                 setCabOneWayKm(kmVal);
                               }
@@ -2144,70 +2280,304 @@ function BookingPage() {
                   </div>
                 )}
 
-                {/* LOCAL & HOURLY PACKAGE (50/50 Pickup and Drop Location) */}
+                {/* MULTI CITY (Multi-destination outstation route with customizable legs) */}
+                {cabTripType === "MULTI CITY" && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between pb-1 border-b border-white/10 flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-black text-xs uppercase tracking-wider">
+                          MULTI CITY OUTSTATION
+                        </span>
+                        <span className="text-xs text-slate-300 font-bold">
+                          {multiCityStops.length} DESTINATION LEGS
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-300 flex items-center gap-2 flex-wrap">
+                        <span className="bg-emerald-950/70 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-emerald-300 font-bold flex items-center gap-1">
+                          <Gauge className="w-3 h-3 text-[#00c58e]" /> Total Km: {cabMultiCityKm} km
+                        </span>
+                        <button
+                          type="button"
+                          onClick={addMultiCityStop}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-bold rounded-lg border border-emerald-500/30 transition cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Add Leg
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {multiCityStops.map((leg, idx) => (
+                        <div
+                          key={leg.id || idx}
+                          className="bg-[#0e1730]/80 border-2 border-emerald-500/30 rounded-2xl p-3.5 sm:p-4 space-y-3 shadow-md relative"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+                              <span className="w-5 h-5 rounded-full bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center">
+                                {idx + 1}
+                              </span>
+                              Leg {idx + 1}: {leg.from || "From"} ➔ {leg.to || "To"}
+                            </span>
+
+                            {multiCityStops.length > 2 && (
+                              <button
+                                type="button"
+                                onClick={() => removeMultiCityStop(idx)}
+                                className="text-rose-400 hover:text-rose-300 p-1.5 hover:bg-rose-500/20 rounded-lg transition text-xs font-bold flex items-center gap-1 cursor-pointer"
+                                title="Remove this leg"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" /> Remove
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                            <div className="md:col-span-4 space-y-1">
+                              <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
+                                From City *
+                              </label>
+                              <LocationSearchInput
+                                value={leg.from}
+                                onChange={(val) => updateMultiCityStop(idx, "from", val)}
+                                placeholder="Enter Pickup City"
+                                dark={true}
+                              />
+                            </div>
+
+                            <div className="md:col-span-4 space-y-1">
+                              <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
+                                To City *
+                              </label>
+                              <LocationSearchInput
+                                value={leg.to}
+                                onChange={(val) => updateMultiCityStop(idx, "to", val)}
+                                placeholder="Enter Destination City"
+                                dark={true}
+                              />
+                            </div>
+
+                            <div className="md:col-span-2 space-y-1">
+                              <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
+                                Date *
+                              </label>
+                              <input
+                                type="date"
+                                min={today}
+                                value={leg.date}
+                                onChange={(e) => updateMultiCityStop(idx, "date", e.target.value)}
+                                className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-2.5 py-2.5 rounded-xl text-xs font-bold text-white outline-none [color-scheme:dark]"
+                              />
+                            </div>
+
+                            <div className="md:col-span-2 space-y-1">
+                              <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
+                                Time *
+                              </label>
+                              <input
+                                type="time"
+                                value={leg.time || "07:00"}
+                                onChange={(e) => updateMultiCityStop(idx, "time", e.target.value)}
+                                className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-2.5 py-2.5 rounded-xl text-xs font-bold text-white outline-none [color-scheme:dark]"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Quick Action: Add Return to Origin Leg */}
+                    <div className="flex items-center justify-between flex-wrap gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={addMultiCityStop}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 text-xs font-bold rounded-xl transition cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" /> Add Another Destination Leg
+                      </button>
+
+                      {multiCityStops.length > 0 &&
+                        multiCityStops[multiCityStops.length - 1]?.to?.trim().toLowerCase() !==
+                          multiCityStops[0]?.from?.trim().toLowerCase() && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const lastTo = multiCityStops[multiCityStops.length - 1]?.to || "Destination";
+                              const firstFrom = multiCityStops[0]?.from || "Bangalore";
+                              setMultiCityStops([
+                                ...multiCityStops,
+                                {
+                                  id: String(Date.now()),
+                                  from: lastTo,
+                                  to: firstFrom,
+                                  date: multiCityStops[multiCityStops.length - 1]?.date || cabDate,
+                                  time: "18:00",
+                                },
+                              ]);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold rounded-xl transition cursor-pointer"
+                          >
+                            🔄 Add Return to {multiCityStops[0]?.from || "Origin"}
+                          </button>
+                        )}
+                    </div>
+                  </div>
+                )}
+
+                {/* LOCAL & HOURLY PACKAGE (50/50 Pickup and Drop Location with Multi-Stop Via Areas) */}
                 {(cabTripType === "LOCAL" || cabTripType === "HOURLY PACKAGE") && (
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                    {/* FROM + SWAP + TO (Equal 50/50 Symmetrical Width) */}
-                    <div className="md:col-span-6 flex items-end gap-2">
-                      <div className="flex-1 min-w-0 space-y-1">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between pb-1 border-b border-white/10 flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-black text-xs uppercase tracking-wider">
+                          {cabTripType === "HOURLY PACKAGE" ? "HOURLY RENTAL PACKAGE" : "LOCAL CITY USE"}
+                        </span>
+                        <span className="text-xs text-slate-300 font-bold">
+                          {localPackage === "4hr_40km" ? "4 Hrs / 40 Kms" : localPackage === "8hr_80km" ? "8 Hrs / 80 Kms" : "12 Hrs / 120 Kms"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={addLocalViaStop}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 hover:bg-white/15 text-emerald-400 text-xs font-bold rounded-lg border border-white/15 transition cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Add Via Stop / Local Area
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCabTripType("MULTI CITY")}
+                          className="text-[11px] text-amber-300 hover:text-amber-200 underline font-semibold cursor-pointer"
+                        >
+                          Need Multi-City Outstation? ➔
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                      {/* FROM + SWAP + TO (Equal 50/50 Symmetrical Width) */}
+                      <div className="md:col-span-6 flex items-end gap-2">
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
+                            PICKUP LOCATION / AREA *
+                          </label>
+                          <LocationSearchInput
+                            value={cabFrom}
+                            onChange={setCabFrom}
+                            placeholder="Enter Pickup Location / Area"
+                            dark={true}
+                          />
+                        </div>
+
+                        <div className="flex-shrink-0 pb-1">
+                          <button
+                            type="button"
+                            onClick={swapLocations}
+                            className="w-9 h-9 rounded-full bg-[#111c3a] border border-white/20 hover:border-[#00c58e] hover:bg-[#16254c] flex items-center justify-center text-slate-300 transition-all shadow-md hover:scale-105 cursor-pointer"
+                            title="Swap Pickup & Drop Locations"
+                          >
+                            <ArrowLeftRight className="w-4 h-4 text-[#00c58e]" />
+                          </button>
+                        </div>
+
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
+                            DROP LOCATION / AREA *
+                          </label>
+                          <LocationSearchInput
+                            value={cabTo}
+                            onChange={setCabTo}
+                            placeholder="Enter Drop Location / Area"
+                            dark={true}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="md:col-span-3 space-y-1">
                         <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-                          PICKUP LOCATION
+                          PICK UP DATE
                         </label>
-                        <LocationSearchInput
-                          value={cabFrom}
-                          onChange={setCabFrom}
-                          placeholder="Enter Pickup Location"
-                          dark={true}
+                        <input
+                          type="date"
+                          min={today}
+                          value={cabDate}
+                          onChange={(e) => setCabDate(e.target.value)}
+                          className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
                         />
                       </div>
 
-                      <div className="flex-shrink-0 pb-1">
+                      <div className="md:col-span-3 space-y-1">
+                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
+                          PICK UP TIME
+                        </label>
+                        <input
+                          type="time"
+                          value={cabTime}
+                          onChange={(e) => setCabTime(e.target.value)}
+                          className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Multi-Stop / Via Locations inside Local Use */}
+                    <div className="bg-[#0b1329]/70 border border-white/10 rounded-xl p-3.5 space-y-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-black uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-[#00c58e]" /> Local Multi-Stop / Via Locations
+                          </span>
+                          <span className="text-[10px] text-slate-400 bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
+                            Add multiple stops/areas within local city use
+                          </span>
+                        </div>
                         <button
                           type="button"
-                          onClick={swapLocations}
-                          className="w-9 h-9 rounded-full bg-[#111c3a] border border-white/20 hover:border-[#00c58e] hover:bg-[#16254c] flex items-center justify-center text-slate-300 transition-all shadow-md hover:scale-105"
-                          title="Swap Locations"
+                          onClick={addLocalViaStop}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-bold rounded-lg border border-emerald-500/30 transition cursor-pointer"
                         >
-                          <ArrowLeftRight className="w-4 h-4 text-[#00c58e]" />
+                          <Plus className="w-3.5 h-3.5" /> Add Stop / Area
                         </button>
                       </div>
 
-                      <div className="flex-1 min-w-0 space-y-1">
-                        <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-                          DROP LOCATION
-                        </label>
-                        <LocationSearchInput
-                          value={cabTo}
-                          onChange={setCabTo}
-                          placeholder="Enter Drop Location"
-                          dark={true}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="md:col-span-3 space-y-1">
-                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-                        PICK UP DATE
-                      </label>
-                      <input
-                        type="date"
-                        min={today}
-                        value={cabDate}
-                        onChange={(e) => setCabDate(e.target.value)}
-                        className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
-                      />
-                    </div>
-
-                    <div className="md:col-span-3 space-y-1">
-                      <label className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
-                        PICK UP TIME
-                      </label>
-                      <input
-                        type="time"
-                        value={cabTime}
-                        onChange={(e) => setCabTime(e.target.value)}
-                        className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
-                      />
+                      {localViaStops.length > 0 ? (
+                        <div className="space-y-2 pt-1">
+                          {localViaStops.map((stop, idx) => (
+                            <div key={idx} className="flex items-center gap-2">
+                              <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                                {idx + 1}
+                              </span>
+                              <div className="flex-1">
+                                <LocationSearchInput
+                                  value={stop}
+                                  onChange={(val) => updateLocalViaStop(idx, val)}
+                                  placeholder={`Enter Via Location / Area ${idx + 1} (e.g. MG Road, Indiranagar, Whitefield)`}
+                                  dark={true}
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeLocalViaStop(idx)}
+                                className="p-2 text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 rounded-lg transition cursor-pointer"
+                                title="Remove stop"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-slate-400 italic bg-white/5 p-2.5 rounded-lg border border-dashed border-white/10 flex items-center justify-between">
+                          <span>No extra via stops added yet. Click &quot;Add Stop / Area&quot; to add intermediate visiting points in the city.</span>
+                          <button
+                            type="button"
+                            onClick={addLocalViaStop}
+                            className="text-emerald-400 font-bold hover:underline ml-2"
+                          >
+                            + Add First Stop
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -2953,16 +3323,31 @@ function BookingPage() {
                   <div className="space-y-1">
                     <div className="text-slate-400 font-semibold">Route &amp; Journey:</div>
                     <div className="text-white font-bold">
-                      {serviceType === "CAB" && cabTripType === "ROUND TRIP" ? `${cabFrom} ➔ ${cabTo} ➔ ${cabReturnTo || cabFrom} (Round Trip)` : `${fromLocationDisplay} → ${toLocationDisplay}`}
+                      {serviceType === "CAB" && cabTripType === "ROUND TRIP"
+                        ? `${cabFrom} ➔ ${cabTo} ➔ ${cabReturnTo || cabFrom} (Round Trip)`
+                        : `${fromLocationDisplay} → ${toLocationDisplay}`}
                     </div>
                     <div className="text-slate-300 text-[11px] space-y-0.5 pt-0.5">
-                      {serviceType === "CAB" && cabTripType === "ROUND TRIP" ? (
+                      {serviceType === "CAB" && cabTripType === "MULTI CITY" ? (
+                        <>
+                          {multiCityStops.map((leg, lIdx) => (
+                            <div key={lIdx}>
+                              🚗 <strong>Leg {lIdx + 1}:</strong> {leg.from} → {leg.to} on {leg.date} ({leg.time || "07:00"})
+                            </div>
+                          ))}
+                        </>
+                      ) : serviceType === "CAB" && cabTripType === "ROUND TRIP" ? (
                         <>
                           <div>🛫 <strong>Leg 1 (Onward):</strong> {cabFrom} → {cabTo} on {departureDateFormatted} at {cabTime}</div>
                           <div>🛬 <strong>Leg 2 (Return):</strong> {cabReturnFrom || cabTo} → {cabReturnTo || cabFrom} on {cabReturnDateFormatted} at {cabReturnTime}</div>
                         </>
                       ) : (
                         <div>Departure: {departureDateFormatted} at {serviceType === "CAB" ? cabTime : (otherFormData.time || "07:00")}</div>
+                      )}
+                      {serviceType === "CAB" && (cabTripType === "LOCAL" || cabTripType === "HOURLY PACKAGE") && localViaStops.filter((s) => s && s.trim()).length > 0 && (
+                        <div className="text-emerald-300">
+                          📍 <strong>Via Stops:</strong> {localViaStops.filter((s) => s && s.trim()).join(" ➔ ")}
+                        </div>
                       )}
                       {serviceType === "TRAIN" && (
                         <div>Train: <strong>{otherFormData.preferred_train || otherFormData.train_number || "Express"}</strong> | Class: <strong>{otherFormData.travel_class || "3A"}</strong> | Quota: <strong>{otherFormData.quota || "General"}</strong></div>
@@ -2977,6 +3362,11 @@ function BookingPage() {
                         <div>Tour: <strong>{otherFormData.package_title || "South India Tour"}</strong></div>
                       )}
                     </div>
+                    {serviceType === "CAB" && cabTripType === "MULTI CITY" && (
+                      <span className="inline-block mt-1 bg-[#00c58e]/20 text-[#00c58e] border border-[#00c58e]/30 px-2 py-0.5 rounded font-bold text-[10px]">
+                        🏙️ Multi-City Outstation ({cabMultiCityKm} km journey)
+                      </span>
+                    )}
                     {serviceType === "CAB" && cabTripType === "ROUND TRIP" && (
                       <span className="inline-block mt-1 bg-[#00c58e]/20 text-[#00c58e] border border-[#00c58e]/30 px-2 py-0.5 rounded font-bold text-[10px]">
                         🔄 2-Way Round Trip ({selectedFleet.includedKms * 2} km included)
@@ -3871,6 +4261,43 @@ function BookingPage() {
                         </td>
                       </tr>
 
+                      {/* Multi-City Route Legs Details */}
+                      {cabTripType === "MULTI CITY" && (
+                        <tr className="border-b border-slate-900 bg-slate-50">
+                          <td colSpan={6} className="p-2.5">
+                            <div className="font-black text-slate-950 uppercase text-[11px] mb-1.5 flex items-center justify-between">
+                              <span>Multi-City Route Legs ({multiCityStops.length} Stops / Destinations):</span>
+                              <span className="text-emerald-700 font-extrabold">{cabMultiCityKm} Km Total Journey</span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                              {multiCityStops.map((leg, lIdx) => (
+                                <div key={lIdx} className="bg-white border border-slate-400 rounded-lg p-2 text-[11px]">
+                                  <div className="font-extrabold text-slate-900">
+                                    Leg {lIdx + 1}: <span className="text-emerald-700">{leg.from}</span> ➔ <span className="text-blue-700">{leg.to}</span>
+                                  </div>
+                                  <div className="text-slate-600 text-[10px]">
+                                    Date: <strong>{leg.date}</strong> | Time: <strong>{leg.time || "07:00"}</strong>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+
+                      {/* Local Multi-Stop Visiting Areas */}
+                      {(cabTripType === "LOCAL" || cabTripType === "HOURLY PACKAGE") &&
+                        localViaStops.filter((s) => s && s.trim()).length > 0 && (
+                          <tr className="border-b border-slate-900 bg-slate-50">
+                            <td colSpan={6} className="p-2.5">
+                              <span className="font-bold text-slate-900">Local Multi-Stop Visiting Areas: </span>
+                              <strong className="text-slate-950">
+                                {localViaStops.filter((s) => s && s.trim()).join(" ➔ ")}
+                              </strong>
+                            </td>
+                          </tr>
+                        )}
+
                       {/* Row 3: Ticket Number | PNR Number | Departure & Return */}
                       <tr className="border-b border-slate-900 divide-x divide-slate-900">
                         <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
@@ -3922,7 +4349,9 @@ function BookingPage() {
                           Trip Type:
                         </td>
                         <td className="p-2.5 font-bold text-slate-900 uppercase">
-                          {cabTripType === "ROUND TRIP"
+                          {cabTripType === "MULTI CITY"
+                            ? `MULTI CITY (${cabMultiCityKm} KM · ${multiCityStops.length} LEGS)`
+                            : cabTripType === "ROUND TRIP"
                             ? `ROUND TRIP (2-WAY · ${cabRoundTripKm} KM)`
                             : cabTripType === "ONE WAY"
                             ? `ONE WAY (${cabOneWayKm} KM)`
