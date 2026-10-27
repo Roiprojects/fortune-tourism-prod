@@ -213,48 +213,48 @@ function createDefaultQuotation(): QuotationData {
     clientName: "Valued Customer / Corporate Client",
     clientContactPerson: "General Manager / Travel Coordinator",
     clientPhone: "9964600247",
-    clientEmail: "client@example.com",
+    clientEmail: "fortunetourism1@gmail.com",
     clientAddress: "Electronic City, Hosur Road, Bengaluru, Karnataka 560100",
     clientGst: "",
 
-    subject: "Quotation for Luxury Cab Rental & Outstation Travel Services",
-    serviceCategory: "Outstation Tour Package",
-    fromLocation: "Bangalore (Bengaluru)",
-    toLocation: "Mysore ➔ Ooty ➔ Coonoor",
+    subject: "Quotation for 3-Day Mysore & Coorg Outstation Tour Package",
+    serviceCategory: "Outstation Cab Rental",
+    fromLocation: "Bangalore",
+    toLocation: "Mysore -> Coorg -> Bangalore",
     travelStartDate: getTodayString(),
     travelEndDate: getPlusDaysString(2),
     reportingTime: "06:30 AM",
-    vehicleName: "Toyota Innova Crysta (AC 7-Seater Luxury)",
+    vehicleName: "Toyota Innova Crysta (7-Seater AC Luxury)",
     passengerCount: 5,
 
     items: [
       {
         id: "item-1",
-        description: "Outstation Round Trip 2-Way Travel (Bengaluru ➔ Mysore ➔ Ooty ➔ Bengaluru)",
-        vehicleType: "Toyota Innova Crysta",
-        durationOrKm: "3 Days / 900 Kms Included",
+        description: "Outstation 3 Days Package (900 Kms Included, Extra @ Rs. 18/km)",
+        vehicleType: "Innova Crysta",
+        durationOrKm: "3 Days / 900 Kms",
         qty: 3,
-        rate: 6800,
-        amount: 20400,
+        rate: 6500,
+        amount: 19500,
       },
       {
         id: "item-2",
-        description: "Driver Daily Allowance & Bata (Night Halt / Outstation Duty)",
-        vehicleType: "Chauffeur Service",
-        durationOrKm: "3 Days @ ₹400 / day",
+        description: "Driver Daily Bata / Night Allowance",
+        vehicleType: "Driver Bata",
+        durationOrKm: "3 Days @ Rs. 400",
         qty: 3,
         rate: 400,
         amount: 1200,
       },
     ],
 
-    subtotal: 21600,
+    subtotal: 20700,
     driverAllowance: 1200,
     tollPermitStatus: "at_actuals",
-    gstRate: 5,
-    gstAmount: 1080,
-    discount: 680,
-    grandTotal: 22000,
+    gstRate: 0, // In this tour & cab sector, GST is removed / 0%
+    gstAmount: 0,
+    discount: 0,
+    grandTotal: 20700,
 
     terms: DEFAULT_TERMS,
     notes:
@@ -290,6 +290,49 @@ function persistQuotations(list: QuotationData[]) {
   } catch (err) {
     console.error("Failed to persist quotations", err);
   }
+}
+
+function loadImgWithTimeout(src: string, timeoutMs: number = 2500): Promise<HTMLImageElement | undefined> {
+  return new Promise((resolve) => {
+    const el = new Image();
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        resolve(undefined);
+      }
+    }, timeoutMs);
+
+    el.onload = () => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        resolve(el);
+      }
+    };
+    el.onerror = () => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        resolve(undefined);
+      }
+    };
+    try {
+      el.crossOrigin = "anonymous";
+    } catch {}
+    el.src = src;
+  });
+}
+
+function sanitizePdfText(text?: string): string {
+  if (!text) return "";
+  return text
+    .replace(/[₹]/g, "Rs. ")
+    .replace(/[➔→➜]/g, "->")
+    .replace(/[–—]/g, "-")
+    .replace(/[’‘]/g, "'")
+    .replace(/[“”]/g, '"')
+    .trim();
 }
 
 interface QuotationGeneratorModalProps {
@@ -384,16 +427,17 @@ export function QuotationGeneratorModal({ isOpen, onClose }: QuotationGeneratorM
 
   const handleApplyTemplate = (type: "outstation" | "local" | "airport" | "tempo") => {
     let t: QuotationData = { ...quotation };
+    t.gstRate = 0; // GST removed for this sector
     if (type === "outstation") {
       t.subject = "Quotation for 3-Day Mysore & Coorg Outstation Tour Package";
       t.serviceCategory = "Outstation Cab Rental";
       t.fromLocation = "Bangalore";
-      t.toLocation = "Mysore ➔ Coorg ➔ Bangalore";
+      t.toLocation = "Mysore -> Coorg -> Bangalore";
       t.vehicleName = "Toyota Innova Crysta (7-Seater AC Luxury)";
       t.items = [
         {
           id: `item-${Date.now()}-1`,
-          description: "Outstation 3 Days Package (900 Kms Included, Extra @ ₹18/km)",
+          description: "Outstation 3 Days Package (900 Kms Included, Extra @ Rs. 18/km)",
           vehicleType: "Innova Crysta",
           durationOrKm: "3 Days / 900 Kms",
           qty: 3,
@@ -404,7 +448,7 @@ export function QuotationGeneratorModal({ isOpen, onClose }: QuotationGeneratorM
           id: `item-${Date.now()}-2`,
           description: "Driver Daily Bata / Night Allowance",
           vehicleType: "Driver Bata",
-          durationOrKm: "3 Days @ ₹400",
+          durationOrKm: "3 Days @ Rs. 400",
           qty: 3,
           rate: 400,
           amount: 1200,
@@ -430,7 +474,7 @@ export function QuotationGeneratorModal({ isOpen, onClose }: QuotationGeneratorM
           id: `item-${Date.now()}-2`,
           description: "Estimated Extra Hours / Fuel Buffer (Optional)",
           vehicleType: "Extra Time",
-          durationOrKm: "2 Hours @ ₹150",
+          durationOrKm: "2 Hours @ Rs. 150",
           qty: 2,
           rate: 150,
           amount: 300,
@@ -457,12 +501,12 @@ export function QuotationGeneratorModal({ isOpen, onClose }: QuotationGeneratorM
       t.subject = "Quotation for 12/17-Seater Luxury Tempo Traveller Group Travel";
       t.serviceCategory = "Tempo Traveller Group Tour";
       t.fromLocation = "Bangalore";
-      t.toLocation = "Mysore ➔ Ooty ➔ Bangalore";
+      t.toLocation = "Mysore -> Ooty -> Bangalore";
       t.vehicleName = "Force Tempo Traveller (12-Seater Luxury Recliner AC)";
       t.items = [
         {
           id: `item-${Date.now()}-1`,
-          description: "Tempo Traveller 12-Seater Package (300 Kms/day Included, Extra @ ₹26/km)",
+          description: "Tempo Traveller 12-Seater Package (300 Kms/day Included, Extra @ Rs. 26/km)",
           vehicleType: "12-Seater TT",
           durationOrKm: "2 Days / 600 Kms",
           qty: 2,
@@ -473,7 +517,7 @@ export function QuotationGeneratorModal({ isOpen, onClose }: QuotationGeneratorM
           id: `item-${Date.now()}-2`,
           description: "Driver Daily Bata / Night Allowance",
           vehicleType: "Driver Allowance",
-          durationOrKm: "2 Days @ ₹500",
+          durationOrKm: "2 Days @ Rs. 500",
           qty: 2,
           rate: 500,
           amount: 1000,
@@ -543,201 +587,373 @@ export function QuotationGeneratorModal({ isOpen, onClose }: QuotationGeneratorM
     setTimeout(() => setCopiedUPI(false), 2000);
   };
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     try {
       setIsDownloadingPDF(true);
+
+      const [logoImg, qrImg] = await Promise.all([
+        loadImgWithTimeout("/fortune-tourism-full-logo.png").then(
+          (img) => img || loadImgWithTimeout("/images/packages/fortune-tourism-full-logo.png")
+        ),
+        loadImgWithTimeout("/images/phonepe-qr.jpg").then(
+          (img) => img || loadImgWithTimeout("/phonepe-qr.jpg")
+        ),
+      ]);
+
       const doc = new jsPDF("p", "mm", "a4");
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
+      const pageWidth = doc.internal.pageSize.getWidth(); // 210mm
+      const pageHeight = doc.internal.pageSize.getHeight(); // 297mm
 
-      // Outer Decorative Border
+      // Outer Decorative Border (Matches Portal Letterhead Outer Green Line)
       doc.setDrawColor(6, 63, 45); // Fortune deep green
-      doc.setLineWidth(0.6);
-      doc.roundedRect(8, 8, pageWidth - 16, pageHeight - 16, 2, 2, "S");
+      doc.setLineWidth(0.8);
+      doc.roundedRect(8, 8, pageWidth - 16, pageHeight - 16, 2.5, 2.5, "S");
 
-      // Company Brand Header
+      // Company Brand Logo / Header
+      if (logoImg) {
+        try {
+          doc.addImage(logoImg, "PNG", 13, 11, 52, 11);
+        } catch {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(15);
+          doc.setTextColor(6, 63, 45);
+          doc.text("FORTUNE Tourism", 13, 17);
+        }
+      } else {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(15);
+        doc.setTextColor(6, 63, 45);
+        doc.text("FORTUNE Tourism", 13, 17);
+      }
+
+      doc.setFont("helvetica", "bolditalic");
+      doc.setFontSize(8);
+      doc.setTextColor(80, 80, 80);
+      doc.text("Meets all your Travel Need", 13, 24);
+
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(16);
-      doc.setTextColor(6, 63, 45);
-      doc.text("FORTUNE Tourism", 14, 18);
+      doc.setFontSize(6.8);
+      doc.setTextColor(60, 60, 60);
+      doc.text("Email: travel@fortunetourism.co.in | Web: www.fortunetourism.com | Helpline: +91 9740463404", 13, 28);
 
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(9);
-      doc.setTextColor(100, 100, 100);
-      doc.text("Meets all your Travel Need", 14, 23);
+      // Official Quotation Badge (Right Aligned - Exact Match for Portal)
+      doc.setFillColor(6, 63, 45);
+      doc.roundedRect(pageWidth - 68, 11, 55, 7.5, 1.5, 1.5, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(250, 204, 21); // Amber / Gold
+      doc.text("OFFICIAL QUOTATION", pageWidth - 40.5, 16.2, { align: "center" });
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(20, 20, 20);
+      doc.text("REF NO: ", pageWidth - 48, 22.5);
+      doc.setTextColor(180, 83, 9);
+      doc.text(quotation.quotationNumber, pageWidth - 13, 22.5, { align: "right" });
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setTextColor(60, 60, 60);
+      doc.text("DATE: ", pageWidth - 65, 27);
+      doc.setTextColor(15, 15, 15);
+      doc.text(`${formatDateDisplay(quotation.quotationDate)} | VALID TILL: ${formatDateDisplay(quotation.validUntil)}`, pageWidth - 13, 27, { align: "right" });
+
+      // Horizontal Divider
+      doc.setDrawColor(6, 63, 45);
+      doc.setLineWidth(0.6);
+      doc.line(13, 31, pageWidth - 13, 31);
+
+      // ── Client & Tour Specifications Cards (Side-by-Side Matching Portal) ──
+      const cardY = 34;
+      const cardH = 37;
+      const cardW = 90;
+
+      // Card 1: Quoted To (Client / Organization)
+      doc.setFillColor(248, 250, 248);
+      doc.setDrawColor(180, 205, 195);
+      doc.setLineWidth(0.4);
+      doc.roundedRect(13, cardY, cardW, cardH, 2, 2, "FD");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(6, 63, 45);
+      doc.text("QUOTED TO (CLIENT / ORGANIZATION):", 16, cardY + 5.5);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(10, 10, 10);
+      doc.text(sanitizePdfText(quotation.clientName).toUpperCase(), 16, cardY + 11);
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7.5);
       doc.setTextColor(60, 60, 60);
-      doc.text("Email: travel@fortunetourism.co.in | Web: www.fortunetourism.com | Helpline: +91 9740463404", 14, 28);
-
-      // Title & Quotation Meta Box (Right aligned)
+      doc.text("Attn: ", 16, cardY + 16);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.setTextColor(180, 83, 9); // Amber
-      doc.text("OFFICIAL TRAVEL QUOTATION", pageWidth - 14, 18, { align: "right" });
+      doc.setTextColor(20, 20, 20);
+      doc.text(sanitizePdfText(quotation.clientContactPerson || "N/A"), 24, cardY + 16);
 
       doc.setFont("helvetica", "normal");
+      doc.setTextColor(60, 60, 60);
+      doc.text("Phone: ", 16, cardY + 20.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(20, 20, 20);
+      doc.text(quotation.clientPhone || "—", 27, cardY + 20.5);
+
+      if (quotation.clientEmail) {
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(60, 60, 60);
+        doc.text("Email: ", 16, cardY + 25);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(20, 20, 20);
+        doc.text(quotation.clientEmail, 26, cardY + 25);
+      }
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.8);
+      doc.setTextColor(70, 70, 70);
+      const addrLines = doc.splitTextToSize(sanitizePdfText(quotation.clientAddress || "Bengaluru, Karnataka"), cardW - 6);
+      doc.text(addrLines, 16, cardY + (quotation.clientEmail ? 29.5 : 25.5));
+
+      // Card 2: Tour & Service Specifications
+      const card2X = pageWidth - 13 - cardW;
+      doc.setFillColor(248, 250, 248);
+      doc.setDrawColor(180, 205, 195);
+      doc.setLineWidth(0.4);
+      doc.roundedRect(card2X, cardY, cardW, cardH, 2, 2, "FD");
+
+      doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
-      doc.setTextColor(30, 30, 30);
-      doc.text(`QUOTATION NO: ${quotation.quotationNumber}`, pageWidth - 14, 23, { align: "right" });
-      doc.text(`DATE: ${formatDateDisplay(quotation.quotationDate)} | VALID: ${formatDateDisplay(quotation.validUntil)}`, pageWidth - 14, 28, { align: "right" });
+      doc.setTextColor(6, 63, 45);
+      doc.text("TOUR & SERVICE SPECIFICATIONS:", card2X + 3, cardY + 5.5);
 
-      doc.setDrawColor(200, 200, 200);
-      doc.setLineWidth(0.3);
-      doc.line(14, 31, pageWidth - 14, 31);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(10, 10, 10);
+      const subjLines = doc.splitTextToSize(sanitizePdfText(quotation.subject), cardW - 6);
+      doc.text(subjLines[0], card2X + 3, cardY + 10.5);
 
-      // Client & Trip Summary Box
-      autoTable(doc, {
-        startY: 34,
-        margin: { left: 14, right: 14 },
-        theme: "plain",
-        styles: { fontSize: 8, cellPadding: 2, textColor: [30, 30, 30] },
-        body: [
-          [
-            { content: "QUOTATION FOR:", styles: { fontStyle: "bold", textColor: [6, 63, 45] } },
-            { content: quotation.clientName.toUpperCase(), styles: { fontStyle: "bold" } },
-            { content: "SUBJECT:", styles: { fontStyle: "bold", textColor: [6, 63, 45] } },
-            { content: quotation.subject, styles: { fontStyle: "bold" } },
-          ],
-          [
-            { content: "Contact Person:", styles: { fontStyle: "bold" } },
-            { content: quotation.clientContactPerson || "N/A" },
-            { content: "Service Type:", styles: { fontStyle: "bold" } },
-            { content: quotation.serviceCategory },
-          ],
-          [
-            { content: "Phone / Mobile:", styles: { fontStyle: "bold" } },
-            { content: quotation.clientPhone },
-            { content: "Route / Locations:", styles: { fontStyle: "bold" } },
-            { content: `${quotation.fromLocation} ➔ ${quotation.toLocation}` },
-          ],
-          [
-            { content: "Billing Address:", styles: { fontStyle: "bold" } },
-            { content: quotation.clientAddress || "Bengaluru, Karnataka" },
-            { content: "Travel Dates:", styles: { fontStyle: "bold" } },
-            { content: `${formatDateDisplay(quotation.travelStartDate)} to ${formatDateDisplay(quotation.travelEndDate)} (${quotation.reportingTime})` },
-          ],
-        ],
-      });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(60, 60, 60);
+      doc.text("Route: ", card2X + 3, cardY + 15.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(20, 20, 20);
+      const cleanRoute = sanitizePdfText(`${quotation.fromLocation} -> ${quotation.toLocation}`);
+      const routeLines = doc.splitTextToSize(cleanRoute, cardW - 16);
+      doc.text(routeLines[0], card2X + 14, cardY + 15.5);
 
-      const clientY = (doc as any).lastAutoTable?.finalY || 60;
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(60, 60, 60);
+      doc.text("Travel Dates: ", card2X + 3, cardY + 20);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(20, 20, 20);
+      doc.text(`${formatDateDisplay(quotation.travelStartDate)} to ${formatDateDisplay(quotation.travelEndDate)}`, card2X + 22, cardY + 20);
 
-      // Line items table
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(60, 60, 60);
+      doc.text("Vehicle / Fleet: ", card2X + 3, cardY + 24.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(6, 63, 45);
+      const vehLines = doc.splitTextToSize(sanitizePdfText(quotation.vehicleName), cardW - 24);
+      doc.text(vehLines[0], card2X + 24, cardY + 24.5);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(70, 70, 70);
+      doc.text(`Reporting Time: ${quotation.reportingTime} | Category: ${quotation.serviceCategory}`, card2X + 3, cardY + 29.5);
+
+      // ── Line Items Table ──
       const tableRows = quotation.items.map((item, idx) => [
         idx + 1,
-        item.description,
-        item.vehicleType,
-        item.durationOrKm,
+        sanitizePdfText(item.description),
+        sanitizePdfText(item.vehicleType),
+        sanitizePdfText(item.durationOrKm),
         item.qty ?? 1,
         `INR ${Number(item.rate).toLocaleString("en-IN")}`,
         `INR ${Number(item.amount).toLocaleString("en-IN")}`,
       ]);
 
       autoTable(doc, {
-        startY: clientY + 4,
-        margin: { left: 14, right: 14 },
+        startY: cardY + cardH + 3.5,
+        margin: { left: 13, right: 13 },
         theme: "grid",
         styles: {
-          fontSize: 8,
-          cellPadding: 3,
+          fontSize: 7.8,
+          cellPadding: 2.8,
           textColor: [20, 20, 20],
-          lineColor: [200, 200, 200],
+          lineColor: [200, 210, 205],
           lineWidth: 0.3,
+          font: "helvetica",
         },
         headStyles: {
           fillColor: [6, 63, 45],
           textColor: [255, 255, 255],
           fontStyle: "bold",
           fontSize: 8,
+          cellPadding: 3,
+        },
+        columnStyles: {
+          0: { cellWidth: 8, halign: "center", fontStyle: "bold" },
+          1: { fontStyle: "bold" },
+          2: { cellWidth: 26, fontStyle: "bold" },
+          3: { cellWidth: 28 },
+          4: { cellWidth: 16, halign: "center", fontStyle: "bold" },
+          5: { cellWidth: 24, halign: "right", fontStyle: "bold" },
+          6: { cellWidth: 26, halign: "right", fontStyle: "bold" },
         },
         head: [["#", "Description of Travel Service", "Vehicle / Mode", "Duration / Kms", "Qty / Days", "Rate", "Amount"]],
         body: tableRows,
       });
 
-      const itemsY = (doc as any).lastAutoTable?.finalY || 120;
+      const itemsY = (doc as any).lastAutoTable?.finalY || 125;
 
-      // Commercial Summary on Right
+      // ── Amount in Words (Left) & Commercial Summary (Right) ──
+      const summaryW = 84;
+      const amountW = pageWidth - 26 - summaryW - 4; // ~84mm
+
+      // Amount in Words Box
+      doc.setFillColor(236, 253, 245); // Emerald-50
+      doc.setDrawColor(110, 231, 183); // Emerald-300
+      doc.setLineWidth(0.4);
+      doc.roundedRect(13, itemsY + 3, amountW, 14, 1.5, 1.5, "FD");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setTextColor(6, 63, 45);
+      doc.text("AMOUNT IN WORDS:", 16, itemsY + 7.5);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.8);
+      doc.setTextColor(15, 23, 42);
+      const amtLines = doc.splitTextToSize(numberToIndianWords(quotation.grandTotal), amountW - 6);
+      doc.text(amtLines, 16, itemsY + 12.5);
+
+      // Tolls & Inclusions note under Amount Box
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.8);
+      doc.setTextColor(60, 60, 60);
+      doc.text("• Tolls, Permits & Parking: ", 13, itemsY + 21);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(20, 20, 20);
+      doc.text(quotation.tollPermitStatus === "included" ? "INCLUDED IN QUOTATION" : "EXTRA AT ACTUALS", 45, itemsY + 21);
+
+      // Commercial Summary Table (Right)
+      const summaryBody: any[] = [
+        ["Subtotal Amount:", `INR ${quotation.subtotal.toLocaleString("en-IN")}`],
+      ];
+      // Only include GST if rate is greater than 0; removed for 0% sector
+      if (quotation.gstRate > 0) {
+        summaryBody.push([`GST (${quotation.gstRate}%):`, `INR ${quotation.gstAmount.toLocaleString("en-IN")}`]);
+      }
+      summaryBody.push(["Toll / Permits:", quotation.tollPermitStatus === "included" ? "INCLUDED" : "AT ACTUALS"]);
+      if (quotation.discount > 0) {
+        summaryBody.push(["Special Discount:", `- INR ${quotation.discount.toLocaleString("en-IN")}`]);
+      }
+      summaryBody.push([
+        { content: "NET GRAND TOTAL:", styles: { fontStyle: "bold", fontSize: 9, textColor: [255, 255, 255], fillColor: [6, 63, 45] } },
+        { content: `INR ${quotation.grandTotal.toLocaleString("en-IN")}`, styles: { fontStyle: "bold", fontSize: 9, textColor: [255, 255, 255], fillColor: [6, 63, 45] } },
+      ]);
+
       autoTable(doc, {
         startY: itemsY + 3,
-        margin: { left: pageWidth - 90, right: 14 },
+        margin: { left: pageWidth - 13 - summaryW, right: 13 },
         theme: "plain",
-        styles: { fontSize: 8, cellPadding: 2, textColor: [30, 30, 30] },
-        body: [
-          ["Subtotal:", `INR ${quotation.subtotal.toLocaleString("en-IN")}`],
-          [`GST (${quotation.gstRate}%):`, `INR ${quotation.gstAmount.toLocaleString("en-IN")}`],
-          ["Toll / Permits:", quotation.tollPermitStatus === "included" ? "INCLUDED" : "AT ACTUALS"],
-          ["Discount / Adjustment:", quotation.discount > 0 ? `- INR ${quotation.discount.toLocaleString("en-IN")}` : "INR 0"],
-          [
-            { content: "GRAND TOTAL:", styles: { fontStyle: "bold", fontSize: 9.5, textColor: [6, 63, 45] } },
-            { content: `INR ${quotation.grandTotal.toLocaleString("en-IN")}`, styles: { fontStyle: "bold", fontSize: 9.5, textColor: [6, 63, 45] } },
-          ],
-        ],
+        styles: { fontSize: 7.5, cellPadding: 1.8, textColor: [25, 25, 25], fontStyle: "bold" },
+        columnStyles: {
+          0: { fontStyle: "bold" },
+          1: { halign: "right", fontStyle: "bold" },
+        },
+        body: summaryBody,
       });
 
-      // Amount in Words below table
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(8);
-      doc.setTextColor(80, 80, 80);
-      doc.text(`Amount in Words: ${numberToIndianWords(quotation.grandTotal)}`, 14, itemsY + 6);
+      const summaryEndY = Math.max(
+        (doc as any).lastAutoTable?.finalY || itemsY + 25,
+        itemsY + 25
+      );
 
-      // Terms & Conditions (Left Column)
+      // ── Terms & Conditions (Left) & PhonePe Payment Box (Right) ──
+      const bottomY = summaryEndY + 4;
+      const termsW = 104;
+      const payBoxW = pageWidth - 26 - termsW - 4; // ~76mm
+      const payBoxX = pageWidth - 13 - payBoxW;
+
+      // Terms on Left
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
       doc.setTextColor(6, 63, 45);
-      doc.text("TERMS & CONDITIONS", 14, itemsY + 16);
+      doc.text("STANDARD TERMS & INSTRUCTIONS:", 13, bottomY + 4);
 
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(6.5);
-      doc.setTextColor(70, 70, 70);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.2);
+      doc.setTextColor(40, 40, 40);
       quotation.terms.slice(0, 5).forEach((term, idx) => {
-        doc.text(term, 14, itemsY + 21 + idx * 4);
+        const cleanTerm = sanitizePdfText(term);
+        const termLines = doc.splitTextToSize(cleanTerm, termsW);
+        doc.text(termLines, 13, bottomY + 8 + idx * 4.2);
       });
 
-      // Payment Box with PhonePe QR
-      const payBoxY = itemsY + 44;
-      doc.setDrawColor(95, 37, 159);
+      // PhonePe Box on Right
       doc.setFillColor(250, 245, 255);
-      doc.roundedRect(14, payBoxY, pageWidth - 28, 22, 1.5, 1.5, "FD");
+      doc.setDrawColor(216, 180, 254);
+      doc.setLineWidth(0.4);
+      doc.roundedRect(payBoxX, bottomY, payBoxW, 25, 1.5, 1.5, "FD");
 
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(7.5);
+      doc.setFontSize(7);
       doc.setTextColor(95, 37, 159);
-      doc.text("Official Payment Settlement / UPI Details (PhonePe Accepted Here)", 18, payBoxY + 5);
+      doc.text("PHONEPE / UPI PAYMENT SETTLEMENT", payBoxX + 3, bottomY + 4.5);
+
+      if (qrImg) {
+        try {
+          doc.addImage(qrImg, "JPEG", payBoxX + 3, bottomY + 6.5, 16, 16);
+        } catch {}
+      }
+
+      const qrTextX = qrImg ? payBoxX + 21 : payBoxX + 4;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setTextColor(15, 23, 42);
+      doc.text("Merchant: ZAMEER S", qrTextX, bottomY + 10);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.8);
+      doc.setTextColor(95, 37, 159);
+      doc.text(`UPI: ${quotation.upiId}`, qrTextX, bottomY + 14);
 
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(7);
-      doc.setTextColor(40, 40, 40);
-      doc.text(`Merchant Name: ${quotation.merchantName} | Bank: ${quotation.bankName} | A/C: ${quotation.accountNumber} | IFSC: ${quotation.ifscCode}`, 18, payBoxY + 10);
-      doc.text(`Official UPI ID: ${quotation.upiId} (Scan via PhonePe, Google Pay, Paytm, or Any UPI App)`, 18, payBoxY + 15);
+      doc.setFontSize(5.8);
+      doc.setTextColor(70, 70, 70);
+      doc.text("Scan via PhonePe, GPay, Paytm", qrTextX, bottomY + 18);
+      doc.text(`Bank: ${quotation.bankName}`, qrTextX, bottomY + 21.5);
 
-      // Signatory
+      // ── Signatory & Official Footer ──
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(7.5);
-      doc.setTextColor(30, 30, 30);
-      doc.text("For FORTUNE Tourism", pageWidth - 20, pageHeight - 24, { align: "right" });
+      doc.setFontSize(8);
+      doc.setTextColor(6, 63, 45);
+      doc.text("For FORTUNE Tourism", pageWidth - 14, pageHeight - 20, { align: "right" });
+
       doc.setFont("helvetica", "italic");
       doc.setFontSize(7);
       doc.setTextColor(100, 100, 100);
-      doc.text("Authorized Signatory", pageWidth - 20, pageHeight - 17, { align: "right" });
+      doc.text("Authorized Signatory", pageWidth - 14, pageHeight - 14, { align: "right" });
 
-      // Official Footer (Exact from Letterhead)
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(7);
-      doc.setTextColor(80, 80, 80);
+      doc.setFontSize(6.8);
+      doc.setTextColor(30, 30, 30);
       doc.text(
         "# 5, DG Complex, Hennaragara Gate, Bommasandra, Bangalore - 560 099",
         pageWidth / 2,
-        pageHeight - 12,
+        pageHeight - 11,
         { align: "center" }
       );
+
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(6.5);
-      doc.setTextColor(120, 120, 120);
+      doc.setFontSize(6.2);
+      doc.setTextColor(90, 90, 90);
       doc.text(
         "travel@fortunetourism.co.in | www.fortunetourism.com | Helpline: +91 9740463404",
         pageWidth / 2,
-        pageHeight - 8.5,
+        pageHeight - 7.5,
         { align: "center" }
       );
 
@@ -788,7 +1004,16 @@ Helpline: +91 9740463404 | travel@fortunetourism.co.in`;
         @media print {
           @page {
             size: A4 portrait;
-            margin: 8mm;
+            margin: 5mm 6mm;
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: auto !important;
+            background: #ffffff !important;
+            overflow: visible !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           body * {
             visibility: hidden !important;
@@ -802,12 +1027,21 @@ Helpline: +91 9740463404 | travel@fortunetourism.co.in`;
             left: 0 !important;
             top: 0 !important;
             width: 100% !important;
-            box-shadow: none !important;
-            border: 1px solid #063f2d !important;
-            padding: 10mm !important;
+            max-width: 100% !important;
             margin: 0 !important;
+            padding: 5mm 6mm !important;
+            box-sizing: border-box !important;
+            border: 2px solid #063f2d !important;
+            border-radius: 8px !important;
             background: #ffffff !important;
             color: #000000 !important;
+            box-shadow: none !important;
+            min-height: 0 !important;
+            max-height: 284mm !important;
+            height: auto !important;
+            overflow: hidden !important;
+            page-break-inside: avoid !important;
+            page-break-after: avoid !important;
           }
           .no-print {
             display: none !important;
@@ -1348,7 +1582,7 @@ Helpline: +91 9740463404 | travel@fortunetourism.co.in`;
                     </div>
 
                     <div className="flex justify-between items-center gap-2">
-                      <span className="text-slate-600">GST Rate:</span>
+                      <span className="text-slate-700 font-bold">GST Rate:</span>
                       <select
                         value={quotation.gstRate}
                         onChange={(e) => {
@@ -1358,12 +1592,16 @@ Helpline: +91 9740463404 | travel@fortunetourism.co.in`;
                         }}
                         className="bg-white border border-slate-200 rounded-lg px-2 py-0.5 text-xs font-bold"
                       >
-                        <option value={0}>0% (Exempt)</option>
+                        <option value={0}>0% (No GST / Tour Sector Exempt)</option>
                         <option value={5}>5% (Transport GST)</option>
                         <option value={12}>12% GST</option>
                         <option value={18}>18% GST</option>
                       </select>
-                      <span className="font-bold">₹{quotation.gstAmount.toLocaleString("en-IN")}</span>
+                      {quotation.gstRate > 0 ? (
+                        <span className="font-bold">₹{quotation.gstAmount.toLocaleString("en-IN")}</span>
+                      ) : (
+                        <span className="text-emerald-700 font-bold text-[11px]">NIL (Removed)</span>
+                      )}
                     </div>
 
                     <div className="flex justify-between items-center gap-2">
@@ -1449,10 +1687,9 @@ Helpline: +91 9740463404 | travel@fortunetourism.co.in`;
               {/* THE OFFICIAL LETTERHEAD CANVAS CONTAINER (Exact Match for Uploaded Image) */}
               <div
                 id="official-quotation-letterhead-print"
-                className="bg-white border-2 border-slate-900 rounded-3xl p-6 sm:p-10 shadow-xl max-w-4xl mx-auto space-y-6 relative overflow-hidden font-sans text-slate-900"
-                style={{ minHeight: "1050px" }}
+                className="bg-white border-2 border-[#063f2d] rounded-2xl p-5 sm:p-7 shadow-xl max-w-4xl mx-auto space-y-3.5 print:space-y-2 relative overflow-hidden font-sans text-slate-900 print:p-2.5 print:border-2 print:border-[#063f2d] print:shadow-none print:w-full print:max-w-none"
               >
-                {/* Center Stylized Watermark (from uploaded letterhead) */}
+                {/* Center Stylized Watermark */}
                 <div
                   className="absolute inset-0 pointer-events-none opacity-[0.06] flex items-center justify-center select-none"
                   style={{
@@ -1464,93 +1701,99 @@ Helpline: +91 9740463404 | travel@fortunetourism.co.in`;
                 />
 
                 {/* Top Letterhead Header: Logo & Company Name */}
-                <div className="border-b-2 border-[#063f2d] pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
-                  <div className="flex flex-col items-start gap-1">
+                <div className="border-b-2 border-[#063f2d] pb-3 print:pb-1.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 relative z-10">
+                  <div className="flex flex-col items-start gap-0.5">
                     <img
                       src="/images/packages/fortune-tourism-full-logo.png"
                       alt="FORTUNE Tourism"
-                      className="h-12 sm:h-14 w-auto object-contain"
+                      className="h-11 sm:h-13 print:h-10 w-auto object-contain"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = "/fortune-tourism-full-logo.png";
+                      }}
                     />
-                    <p className="font-serif italic text-xs sm:text-sm text-slate-600 font-semibold tracking-wide pl-1">
+                    <p className="font-serif italic text-xs text-slate-700 font-bold tracking-wide pl-1">
                       Meets all your Travel Need
+                    </p>
+                    <p className="text-[10px] text-slate-600 font-bold pl-1 hidden print:block">
+                      Email: travel@fortunetourism.co.in | Web: www.fortunetourism.com | Helpline: +91 9740463404
                     </p>
                   </div>
 
                   <div className="text-right text-xs space-y-1 sm:self-center">
-                    <div className="inline-block bg-[#063f2d] text-amber-300 font-black text-[11px] px-3 py-1 rounded-md tracking-wider uppercase">
+                    <div className="inline-block bg-[#063f2d] text-amber-300 font-black text-xs px-3 py-1 rounded-md tracking-wider uppercase shadow-xs">
                       OFFICIAL QUOTATION
                     </div>
-                    <div className="text-[11px] font-bold text-slate-900">
+                    <div className="text-xs font-black text-slate-950">
                       REF NO: <span className="font-mono text-amber-800 font-black">{quotation.quotationNumber}</span>
                     </div>
-                    <div className="text-[10.5px] text-slate-600 font-semibold">
-                      DATE: <strong className="text-slate-900">{formatDateDisplay(quotation.quotationDate)}</strong> | VALID TILL: <strong className="text-slate-900">{formatDateDisplay(quotation.validUntil)}</strong>
+                    <div className="text-[11px] text-slate-700 font-bold">
+                      DATE: <strong className="text-slate-950 font-black">{formatDateDisplay(quotation.quotationDate)}</strong> | VALID TILL: <strong className="text-slate-950 font-black">{formatDateDisplay(quotation.validUntil)}</strong>
                     </div>
                   </div>
                 </div>
 
-                {/* Client & Itinerary Brief Table */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10 text-xs">
-                  <div className="border border-slate-300 rounded-xl p-3.5 bg-slate-50/70 space-y-1">
-                    <div className="font-black text-[11px] text-[#063f2d] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                {/* Client & Itinerary Brief Table (Two High-Contrast Rounded Cards) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 print:gap-2 relative z-10 text-xs">
+                  <div className="border border-slate-300 rounded-xl p-3 bg-slate-50/70 space-y-1 print:p-2">
+                    <div className="font-black text-xs text-[#063f2d] uppercase tracking-wider mb-1 flex items-center gap-1.5">
                       <User className="w-3.5 h-3.5" /> Quoted To (Client / Organization):
                     </div>
-                    <div className="font-black text-sm text-slate-950 uppercase">{quotation.clientName}</div>
+                    <div className="font-black text-sm text-slate-950 uppercase tracking-tight">{quotation.clientName}</div>
                     {quotation.clientContactPerson && (
-                      <div className="text-slate-700">Attn: <strong>{quotation.clientContactPerson}</strong></div>
+                      <div className="text-slate-800 font-semibold">Attn: <strong className="font-black text-slate-950">{quotation.clientContactPerson}</strong></div>
                     )}
-                    <div className="text-slate-700">Phone: <strong>{quotation.clientPhone}</strong></div>
-                    {quotation.clientEmail && <div className="text-slate-700">Email: {quotation.clientEmail}</div>}
-                    {quotation.clientAddress && <div className="text-slate-600 text-[11px]">{quotation.clientAddress}</div>}
-                    {quotation.clientGst && <div className="text-slate-700 font-mono font-bold">GSTIN: {quotation.clientGst}</div>}
+                    <div className="text-slate-800 font-semibold">Phone: <strong className="font-black text-slate-950">{quotation.clientPhone}</strong></div>
+                    {quotation.clientEmail && <div className="text-slate-800 font-semibold">Email: <strong className="font-bold text-slate-950">{quotation.clientEmail}</strong></div>}
+                    {quotation.clientAddress && <div className="text-slate-700 font-medium text-[11px] print:text-[10px]">{quotation.clientAddress}</div>}
+                    {quotation.clientGst && <div className="text-slate-900 font-mono font-black">GSTIN: {quotation.clientGst}</div>}
                   </div>
 
-                  <div className="border border-slate-300 rounded-xl p-3.5 bg-slate-50/70 space-y-1">
-                    <div className="font-black text-[11px] text-[#063f2d] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                  <div className="border border-slate-300 rounded-xl p-3 bg-slate-50/70 space-y-1 print:p-2">
+                    <div className="font-black text-xs text-[#063f2d] uppercase tracking-wider mb-1 flex items-center gap-1.5">
                       <MapPin className="w-3.5 h-3.5" /> Tour &amp; Service Specifications:
                     </div>
-                    <div className="font-bold text-slate-900">{quotation.subject}</div>
-                    <div className="text-slate-700">
-                      Route: <strong>{quotation.fromLocation} ➔ {quotation.toLocation}</strong>
+                    <div className="font-black text-xs text-slate-950">{quotation.subject}</div>
+                    <div className="text-slate-800 font-semibold">
+                      Route: <strong className="font-black text-slate-950">{quotation.fromLocation} ➔ {quotation.toLocation}</strong>
                     </div>
-                    <div className="text-slate-700">
-                      Travel Dates: <strong>{formatDateDisplay(quotation.travelStartDate)}</strong> to <strong>{formatDateDisplay(quotation.travelEndDate)}</strong>
+                    <div className="text-slate-800 font-semibold">
+                      Travel Dates: <strong className="font-black text-slate-950">{formatDateDisplay(quotation.travelStartDate)}</strong> to <strong className="font-black text-slate-950">{formatDateDisplay(quotation.travelEndDate)}</strong>
                     </div>
-                    <div className="text-slate-700">
-                      Vehicle / Fleet: <strong className="text-emerald-900">{quotation.vehicleName}</strong>
+                    <div className="text-slate-800 font-semibold">
+                      Vehicle / Fleet: <strong className="font-black text-[#063f2d]">{quotation.vehicleName}</strong>
                     </div>
-                    <div className="text-slate-600 text-[11px]">
-                      Reporting Time: <strong>{quotation.reportingTime}</strong> | Category: {quotation.serviceCategory}
+                    <div className="text-slate-700 font-medium text-[11px] print:text-[10px]">
+                      Reporting Time: <strong className="font-bold text-slate-900">{quotation.reportingTime}</strong> | Category: {quotation.serviceCategory}
                     </div>
                   </div>
                 </div>
 
-                {/* Line Items Table */}
-                <div className="border-2 border-slate-900 rounded-xl overflow-hidden relative z-10 text-xs">
+                {/* Line Items Table with Deep Green Bold Header */}
+                <div className="border-2 border-slate-900 rounded-xl overflow-hidden relative z-10 text-xs print:my-0.5">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-[#063f2d] text-white font-black text-xs uppercase tracking-wide">
-                        <th className="p-3 w-10 text-center">#</th>
-                        <th className="p-3">Description of Travel Service</th>
-                        <th className="p-3 w-32">Vehicle / Mode</th>
-                        <th className="p-3 w-28">Duration / Kms</th>
-                        <th className="p-3 w-20 text-center">Qty / Days</th>
-                        <th className="p-3 w-24 text-right">Rate (₹)</th>
-                        <th className="p-3 w-28 text-right">Amount (₹)</th>
+                      <tr className="bg-[#063f2d] text-white font-black text-xs uppercase tracking-wider">
+                        <th className="p-2.5 print:py-1.5 print:px-2 w-10 text-center">#</th>
+                        <th className="p-2.5 print:py-1.5 print:px-2">Description of Travel Service</th>
+                        <th className="p-2.5 print:py-1.5 print:px-2 w-32">Vehicle / Mode</th>
+                        <th className="p-2.5 print:py-1.5 print:px-2 w-28">Duration / Kms</th>
+                        <th className="p-2.5 print:py-1.5 print:px-2 w-20 text-center">Qty / Days</th>
+                        <th className="p-2.5 print:py-1.5 print:px-2 w-24 text-right">Rate (₹)</th>
+                        <th className="p-2.5 print:py-1.5 print:px-2 w-28 text-right">Amount (₹)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-300 font-sans">
                       {quotation.items.map((item, idx) => (
-                        <tr key={item.id} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
-                          <td className="p-3 text-center font-bold text-slate-500">{idx + 1}</td>
-                          <td className="p-3 font-bold text-slate-950">{item.description}</td>
-                          <td className="p-3 text-slate-800 font-semibold">{item.vehicleType}</td>
-                          <td className="p-3 text-slate-700">{item.durationOrKm}</td>
-                          <td className="p-3 text-center font-bold text-slate-800">{item.qty ?? 1}</td>
-                          <td className="p-3 text-right font-bold text-slate-900">
+                        <tr key={item.id} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50/70"}>
+                          <td className="p-2.5 print:py-1.5 print:px-2 text-center font-black text-slate-700">{idx + 1}</td>
+                          <td className="p-2.5 print:py-1.5 print:px-2 font-black text-slate-950">{item.description}</td>
+                          <td className="p-2.5 print:py-1.5 print:px-2 text-slate-900 font-bold">{item.vehicleType}</td>
+                          <td className="p-2.5 print:py-1.5 print:px-2 text-slate-800 font-semibold">{item.durationOrKm}</td>
+                          <td className="p-2.5 print:py-1.5 print:px-2 text-center font-black text-slate-900">{item.qty ?? 1}</td>
+                          <td className="p-2.5 print:py-1.5 print:px-2 text-right font-bold text-slate-950">
                             ₹{Number(item.rate).toLocaleString("en-IN")}
                           </td>
-                          <td className="p-3 text-right font-black text-slate-950">
+                          <td className="p-2.5 print:py-1.5 print:px-2 text-right font-black text-slate-950">
                             ₹{Number(item.amount).toLocaleString("en-IN")}
                           </td>
                         </tr>
@@ -1560,120 +1803,126 @@ Helpline: +91 9740463404 | travel@fortunetourism.co.in`;
                 </div>
 
                 {/* Commercial Summary + Amount In Words */}
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start relative z-10 text-xs">
-                  <div className="md:col-span-7 space-y-2">
-                    <div className="p-3 bg-emerald-50/70 border border-emerald-300 rounded-xl space-y-1">
-                      <div className="text-[10.5px] font-bold text-[#063f2d] uppercase tracking-wide">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start relative z-10 text-xs print:my-0.5">
+                  <div className="md:col-span-7 space-y-1.5">
+                    <div className="p-2.5 bg-emerald-50/70 border border-emerald-300 rounded-xl space-y-0.5 print:p-2">
+                      <div className="text-[10px] font-black text-[#063f2d] uppercase tracking-wider">
                         Amount in Words:
                       </div>
-                      <div className="font-serif italic font-bold text-slate-900 text-xs sm:text-sm">
+                      <div className="font-serif italic font-black text-slate-950 text-xs sm:text-sm print:text-xs">
                         {numberToIndianWords(quotation.grandTotal)}
                       </div>
                     </div>
 
                     {/* Tolls & Inclusions Footnote */}
-                    <div className="text-[11px] text-slate-600 space-y-0.5">
+                    <div className="text-[11px] print:text-[9.5px] text-slate-700 font-medium space-y-0.5">
                       <div>
-                        • Toll, State Entry Permit &amp; Parking Charges:{" "}
-                        <strong>{quotation.tollPermitStatus === "included" ? "INCLUDED IN QUOTATION" : "EXTRA AT ACTUALS AGAINST TOLL RECEIPTS"}</strong>
+                        • Toll, State Entry Permit &amp; Parking:{" "}
+                        <strong className="font-black text-slate-900">{quotation.tollPermitStatus === "included" ? "INCLUDED IN QUOTATION" : "EXTRA AT ACTUALS AGAINST TOLL RECEIPTS"}</strong>
                       </div>
-                      {quotation.notes && <div>• Special Note: {quotation.notes}</div>}
+                      {quotation.notes && <div>• Special Note: <span className="font-bold text-slate-900">{quotation.notes}</span></div>}
                     </div>
                   </div>
 
-                  <div className="md:col-span-5 border border-slate-300 rounded-xl overflow-hidden bg-slate-50/80 text-xs">
+                  <div className="md:col-span-5 border border-slate-300 rounded-xl overflow-hidden bg-slate-50/80 text-xs print:text-[11px]">
                     <div className="divide-y divide-slate-200">
-                      <div className="p-2.5 flex justify-between">
-                        <span className="text-slate-600 font-medium">Subtotal Amount:</span>
-                        <span className="font-bold">₹{quotation.subtotal.toLocaleString("en-IN")}</span>
+                      <div className="p-2 print:py-1 print:px-2 flex justify-between">
+                        <span className="text-slate-700 font-bold">Subtotal Amount:</span>
+                        <span className="font-black text-slate-950">₹{quotation.subtotal.toLocaleString("en-IN")}</span>
                       </div>
-                      <div className="p-2.5 flex justify-between">
-                        <span className="text-slate-600 font-medium">GST ({quotation.gstRate}%):</span>
-                        <span className="font-bold">₹{quotation.gstAmount.toLocaleString("en-IN")}</span>
-                      </div>
-                      {quotation.discount > 0 && (
-                        <div className="p-2.5 flex justify-between text-red-600">
-                          <span className="font-medium">Special Discount:</span>
-                          <span className="font-bold">- ₹{quotation.discount.toLocaleString("en-IN")}</span>
+                      {/* GST removed / only displayed if rate is greater than 0 */}
+                      {quotation.gstRate > 0 && (
+                        <div className="p-2 print:py-1 print:px-2 flex justify-between">
+                          <span className="text-slate-700 font-bold">GST ({quotation.gstRate}%):</span>
+                          <span className="font-black text-slate-950">₹{quotation.gstAmount.toLocaleString("en-IN")}</span>
                         </div>
                       )}
-                      <div className="p-3 bg-emerald-100/70 flex justify-between items-center text-sm font-black text-[#063f2d]">
+                      {quotation.discount > 0 && (
+                        <div className="p-2 print:py-1 print:px-2 flex justify-between text-red-600">
+                          <span className="font-bold">Special Discount:</span>
+                          <span className="font-black">- ₹{quotation.discount.toLocaleString("en-IN")}</span>
+                        </div>
+                      )}
+                      <div className="p-2.5 print:py-1.5 print:px-2 bg-emerald-100/80 flex justify-between items-center text-sm print:text-xs font-black text-[#063f2d]">
                         <span>NET GRAND TOTAL:</span>
-                        <span className="text-base sm:text-lg">₹{quotation.grandTotal.toLocaleString("en-IN")}</span>
+                        <span className="text-base sm:text-lg print:text-sm font-black">₹{quotation.grandTotal.toLocaleString("en-IN")}</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Terms and Official Payment Details Row */}
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch relative z-10 text-xs">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-stretch relative z-10 text-xs print:my-0.5">
                   {/* Terms & Instructions */}
-                  <div className="md:col-span-8 border border-slate-300 rounded-xl p-3 bg-slate-50/50 space-y-1.5 flex flex-col justify-between">
+                  <div className="md:col-span-8 border border-slate-300 rounded-xl p-2.5 bg-slate-50/50 space-y-1 flex flex-col justify-between print:p-2">
                     <div>
-                      <div className="font-black text-[10.5px] text-[#063f2d] uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                      <div className="font-black text-[11px] text-[#063f2d] uppercase tracking-wider mb-1 flex items-center gap-1.5">
                         <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" /> Standard Terms &amp; Instructions
                       </div>
-                      <div className="space-y-1 text-[10px] text-slate-700 leading-relaxed">
+                      <div className="space-y-0.5 text-[10px] print:text-[8.5px] text-slate-800 font-semibold leading-snug">
                         {quotation.terms.slice(0, 5).map((term, i) => (
                           <div key={i}>{term}</div>
                         ))}
                       </div>
                     </div>
-                    <div className="text-[10px] text-slate-500 font-medium pt-1 border-t border-slate-200">
+                    <div className="text-[9.5px] text-slate-600 font-bold pt-1 border-t border-slate-200">
                       Subject to Bangalore jurisdiction. Quotation valid for 7 days from issue date.
                     </div>
                   </div>
 
                   {/* Official PhonePe / UPI Box with ZAMEER S QR */}
-                  <div className="md:col-span-4 border-2 border-purple-300 bg-purple-50/70 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-xs">
+                  <div className="md:col-span-4 border-2 border-purple-300 bg-purple-50/70 rounded-xl p-2.5 flex flex-col items-center justify-center text-center shadow-xs print:p-1.5">
                     <div className="text-[10px] font-black uppercase text-purple-950 tracking-wider flex items-center gap-1">
                       <span className="w-3.5 h-3.5 rounded-full bg-[#5f259f] text-white flex items-center justify-center text-[8px] font-bold">पे</span>
                       PhonePe Accepted Here
                     </div>
-                    <div className="w-24 my-1.5 bg-white p-1 rounded-lg border border-purple-200 shadow-xs">
+                    <div className="w-20 print:w-16 my-1 bg-white p-0.5 rounded-lg border border-purple-200 shadow-xs">
                       <img
                         src="/images/phonepe-qr.jpg"
                         alt="PhonePe Payment QR - ZAMEER S"
                         className="w-full h-auto object-contain rounded"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = "/phonepe-qr.jpg";
+                        }}
                       />
                     </div>
-                    <div className="text-[10.5px] font-extrabold text-slate-900">
+                    <div className="text-[10px] font-black text-slate-950">
                       Merchant: ZAMEER S
                     </div>
-                    <div className="text-[9px] text-purple-700 font-mono font-bold mt-0.5">
+                    <div className="text-[9px] text-purple-800 font-mono font-black mt-0.5">
                       UPI: {quotation.upiId}
                     </div>
-                    <div className="text-[8.5px] text-slate-500 mt-1">
+                    <div className="text-[8px] text-slate-600 font-semibold mt-0.5">
                       Scan via PhonePe, GPay, Paytm or Any UPI
                     </div>
                   </div>
                 </div>
 
                 {/* Authorized Signatory Line */}
-                <div className="pt-6 flex justify-between items-end relative z-10 text-xs">
-                  <div className="text-slate-600 text-[10.5px] space-y-0.5">
-                    <div>Prepared by: <strong>{quotation.preparedBy}</strong></div>
-                    <div>Helpline / 24x7 Support: <strong>+91 9740463404</strong></div>
+                <div className="pt-3 print:pt-1 flex justify-between items-end relative z-10 text-xs">
+                  <div className="text-slate-700 text-[10px] space-y-0.5">
+                    <div>Prepared by: <strong className="font-black text-slate-900">{quotation.preparedBy}</strong></div>
+                    <div>Helpline / 24x7 Support: <strong className="font-black text-slate-900">+91 9740463404</strong></div>
                   </div>
 
-                  <div className="text-right space-y-1">
-                    <div className="text-[11px] font-black text-[#063f2d]">
+                  <div className="text-right space-y-0.5">
+                    <div className="text-xs font-black text-[#063f2d]">
                       For FORTUNE Tourism
                     </div>
-                    <div className="h-10 flex items-center justify-end">
-                      <div className="text-slate-400 italic text-[11px] border-b border-slate-400 w-40 text-center pb-0.5">
+                    <div className="h-8 flex items-center justify-end">
+                      <div className="text-slate-600 font-bold italic text-[11px] border-b border-slate-400 w-36 text-center pb-0.5">
                         Authorized Signatory
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Official Letterhead Footer (Exact from Uploaded Image) */}
-                <div className="border-t-2 border-[#063f2d] pt-3 text-center text-slate-700 relative z-10 space-y-0.5">
-                  <div className="font-bold text-xs tracking-wide text-slate-900">
+                {/* Official Letterhead Footer */}
+                <div className="border-t-2 border-[#063f2d] pt-2 text-center text-slate-800 relative z-10 space-y-0.5">
+                  <div className="font-black text-xs tracking-wide text-slate-950">
                     # 5, DG Complex, Hennaragara Gate, Bommasandra, Bangalore - 560 099
                   </div>
-                  <div className="text-[11px] font-medium text-slate-600">
+                  <div className="text-[11px] font-bold text-slate-700">
                     travel@fortunetourism.co.in | www.fortunetourism.com | Contact: +91 9740463404
                   </div>
                 </div>
