@@ -1404,8 +1404,11 @@ function BookingPage() {
                 border: 1px solid #000 !important;
                 padding: 6px 10px !important;
               }
-              .no-print {
+              .no-print, .print-hidden {
                 display: none !important;
+              }
+              .print-only {
+                display: block !important;
               }
               img {
                 max-width: 100% !important;
@@ -1828,6 +1831,42 @@ function BookingPage() {
                           <span className="text-xs font-bold text-emerald-400">₹/km</span>
                         </div>
                       </div>
+
+                      {/* Quick Vehicle Model Commitment for Custom Rate */}
+                      <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-white/10">
+                        <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                          <Car className="w-3.5 h-3.5 text-[#00c58e]" /> Allocated Vehicle:
+                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {[
+                            { id: "sedan", label: "Swift Dzire (Sedan)", committed: "Sedan (Swift Dzire)" },
+                            { id: "hatchback", label: "Hatchback (WagonR)", committed: "Hatchback (Wagon R / Swift)" },
+                            { id: "suv", label: "Ertiga (SUV/MUV)", committed: "MUV / SUV (Maruti Ertiga)" },
+                            { id: "innova", label: "Toyota Innova", committed: "Toyota Innova (7 Seater)" },
+                            { id: "innova-crysta", label: "Innova Crysta", committed: "Toyota Innova Crysta (VIP)" },
+                            { id: "premium-sedan", label: "Honda City (Premium)", committed: "Premium Sedan (Honda City)" },
+                          ].map((car) => {
+                            const isSel = selectedFleetId === car.id || customVehicleType.toLowerCase().includes(car.id);
+                            return (
+                              <button
+                                key={car.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedFleetId(car.id);
+                                  setCustomVehicleType(car.committed);
+                                }}
+                                className={`px-2 py-0.5 rounded-lg text-[10px] font-black border transition cursor-pointer ${
+                                  isSel
+                                    ? "bg-[#00c58e] text-white border-[#00c58e] shadow-md shadow-[#00c58e]/30 scale-105"
+                                    : "bg-white/5 hover:bg-white/10 text-slate-300 border-white/10"
+                                }`}
+                              >
+                                {car.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -1876,6 +1915,42 @@ function BookingPage() {
                             className="w-full bg-transparent text-white font-black text-xs sm:text-sm outline-none text-right"
                           />
                           <span className="text-xs font-bold text-emerald-400">₹</span>
+                        </div>
+                      </div>
+
+                      {/* Quick Vehicle Model Commitment for Fixed Fare */}
+                      <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-white/10">
+                        <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                          <Car className="w-3.5 h-3.5 text-[#00c58e]" /> Allocated Vehicle:
+                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {[
+                            { id: "sedan", label: "Swift Dzire (Sedan)", committed: "Sedan (Swift Dzire)" },
+                            { id: "hatchback", label: "Hatchback (WagonR)", committed: "Hatchback (Wagon R / Swift)" },
+                            { id: "suv", label: "Ertiga (SUV/MUV)", committed: "MUV / SUV (Maruti Ertiga)" },
+                            { id: "innova", label: "Toyota Innova", committed: "Toyota Innova (7 Seater)" },
+                            { id: "innova-crysta", label: "Innova Crysta", committed: "Toyota Innova Crysta (VIP)" },
+                            { id: "premium-sedan", label: "Honda City (Premium)", committed: "Premium Sedan (Honda City)" },
+                          ].map((car) => {
+                            const isSel = selectedFleetId === car.id || customVehicleType.toLowerCase().includes(car.id);
+                            return (
+                              <button
+                                key={car.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedFleetId(car.id);
+                                  setCustomVehicleType(car.committed);
+                                }}
+                                className={`px-2 py-0.5 rounded-lg text-[10px] font-black border transition cursor-pointer ${
+                                  isSel
+                                    ? "bg-[#00c58e] text-white border-[#00c58e] shadow-md shadow-[#00c58e]/30 scale-105"
+                                    : "bg-white/5 hover:bg-white/10 text-slate-300 border-white/10"
+                                }`}
+                              >
+                                {car.label}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
@@ -4413,11 +4488,11 @@ function BookingPage() {
                           {serviceType === "CAB" ? (
                             <div className="space-y-1.5">
                               {/* Print View: Clean Formal Uppercase Vehicle Name */}
-                              <div className="hidden print:block font-black text-slate-950 uppercase text-xs">
+                              <div className="hidden print:block print-only font-black text-slate-950 uppercase text-xs">
                                 {vehicleDisplay}
                               </div>
                               {/* Screen View: Interactive Vehicle Commit / Customization */}
-                              <div className="print:hidden space-y-1.5">
+                              <div className="no-print print-hidden print:hidden space-y-1.5">
                                 <div className="flex items-center gap-1.5">
                                   <input
                                     type="text"
