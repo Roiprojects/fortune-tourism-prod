@@ -982,8 +982,10 @@ export function AccountsReportsHub({
     if (typeof window === "undefined") return SEED_TRANSACTIONS;
     if (localStorage.getItem("fortune_reports_cleared") === "true") return [];
     try {
-      const deleted = new Set(JSON.parse(localStorage.getItem("fortune_deleted_transaction_ids") || "[]"));
-      return SEED_TRANSACTIONS.filter((s) => !deleted.has(String(s.id)));
+      const deleted = new Set(
+        (JSON.parse(localStorage.getItem("fortune_deleted_transaction_ids") || "[]") as string[]).map((x) => String(x).toLowerCase())
+      );
+      return SEED_TRANSACTIONS.filter((s) => !deleted.has(String(s.id).toLowerCase()) && !deleted.has(String(s.ref_number).toLowerCase()));
     } catch {
       return SEED_TRANSACTIONS;
     }
@@ -992,15 +994,24 @@ export function AccountsReportsHub({
     if (typeof window === "undefined") return INITIAL_DAILY_REPORTS;
     if (localStorage.getItem("fortune_reports_cleared") === "true") return [];
     try {
-      const deleted = new Set(JSON.parse(localStorage.getItem("fortune_deleted_daily_record_ids") || "[]"));
-      return INITIAL_DAILY_REPORTS.filter((s) => !deleted.has(String(s.id)));
+      const deleted = new Set(
+        (JSON.parse(localStorage.getItem("fortune_deleted_daily_record_ids") || "[]") as string[]).map((x) => String(x).toLowerCase())
+      );
+      const deletedTxns = new Set(
+        (JSON.parse(localStorage.getItem("fortune_deleted_transaction_ids") || "[]") as string[]).map((x) => String(x).toLowerCase())
+      );
+      return INITIAL_DAILY_REPORTS.filter(
+        (s) =>
+          !deleted.has(String(s.id).toLowerCase()) &&
+          !deletedTxns.has(String(s.id).toLowerCase()) &&
+          (!s.pnr || (!deleted.has(String(s.pnr).toLowerCase()) && !deletedTxns.has(String(s.pnr).toLowerCase())))
+      );
     } catch {
       return INITIAL_DAILY_REPORTS;
     }
   });
 
   // Isolated per-report deletion map: { [reportKey]: [deletedId1, deletedId2, ...] }
-  // Ensures deleting in Daily Reports ONLY removes from Daily Reports and never reflects in other reports!
   const [deletedByReport, setDeletedByReport] = useState<Record<string, string[]>>(() => {
     if (typeof window === "undefined") return {};
     try {
@@ -1016,20 +1027,48 @@ export function AccountsReportsHub({
     }
   });
 
+  const recordPermanentDeletion = (recordId: string | number, refNumber?: string) => {
+    const idStr = String(recordId).trim();
+    const keysToAdd = [idStr.toLowerCase()];
+    if (refNumber) keysToAdd.push(String(refNumber).trim().toLowerCase());
+
+    if (idStr.startsWith("BKG-TXN-")) {
+      const bkgId = idStr.replace("BKG-TXN-", "").trim();
+      keysToAdd.push(`bkg-${bkgId.toLowerCase()}`);
+      keysToAdd.push(bkgId.toLowerCase());
+    } else if (idStr.startsWith("BKG-")) {
+      const bkgId = idStr.replace("BKG-", "").trim();
+      keysToAdd.push(`bkg-txn-${bkgId.toLowerCase()}`);
+      keysToAdd.push(bkgId.toLowerCase());
+    }
+
+    try {
+      const storedTxns: string[] = JSON.parse(localStorage.getItem("fortune_deleted_transaction_ids") || "[]");
+      const storedTxnSet = new Set(storedTxns.map((x) => String(x).toLowerCase()));
+      keysToAdd.forEach((k) => storedTxnSet.add(k));
+      localStorage.setItem("fortune_deleted_transaction_ids", JSON.stringify(Array.from(storedTxnSet)));
+
+      const storedDaily: string[] = JSON.parse(localStorage.getItem("fortune_deleted_daily_record_ids") || "[]");
+      const storedDailySet = new Set(storedDaily.map((x) => String(x).toLowerCase()));
+      keysToAdd.forEach((k) => storedDailySet.add(k));
+      localStorage.setItem("fortune_deleted_daily_record_ids", JSON.stringify(Array.from(storedDailySet)));
+
+      // Also record in fortune_deleted_by_report for every report tab
+      const rawReport = localStorage.getItem("fortune_deleted_by_report");
+      const reportMap: Record<string, string[]> = rawReport ? JSON.parse(rawReport) : {};
+      REPORT_DEFINITIONS.forEach((def) => {
+        const cur = reportMap[def.key] || [];
+        reportMap[def.key] = Array.from(new Set([...cur, idStr, ...(refNumber ? [String(refNumber)] : [])]));
+      });
+      localStorage.setItem("fortune_deleted_by_report", JSON.stringify(reportMap));
+      setDeletedByReport(reportMap);
+    } catch (e) {
+      console.warn("Error recording permanent deletion:", e);
+    }
+  };
+
   const markDeletedInReport = (reportKey: string, recordId: string | number) => {
-    const idStr = String(recordId);
-    setDeletedByReport((prev) => {
-      const currentList = prev[reportKey] || [];
-      if (currentList.includes(idStr)) return prev;
-      const updated = {
-        ...prev,
-        [reportKey]: [...currentList, idStr],
-      };
-      try {
-        localStorage.setItem("fortune_deleted_by_report", JSON.stringify(updated));
-      } catch {}
-      return updated;
-    });
+    recordPermanentDeletion(recordId);
   };
 
   const restoreDeletedForReport = (reportKey: string) => {
@@ -2103,13 +2142,24 @@ export function AccountsReportsHub({
       }
 
       const isCleared = typeof window !== "undefined" && localStorage.getItem("fortune_reports_cleared") === "true";
-      const deletedDailyIds = new Set<string>([
-        ...(deletedByReport["daily"] || []),
+      const deletedTxnIds = new Set<string>([
         ...(typeof window !== "undefined"
-          ? JSON.parse(localStorage.getItem("fortune_deleted_daily_record_ids") || "[]")
+          ? (JSON.parse(localStorage.getItem("fortune_deleted_transaction_ids") || "[]") as string[]).map((x) => String(x).toLowerCase())
           : []),
       ]);
-      const filteredLiveDaily = liveDaily.filter((r) => !deletedDailyIds.has(String(r.id)));
+      const deletedDailyIds = new Set<string>([
+        ...(deletedByReport["daily"] || []).map((x) => String(x).toLowerCase()),
+        ...(typeof window !== "undefined"
+          ? (JSON.parse(localStorage.getItem("fortune_deleted_daily_record_ids") || "[]") as string[]).map((x) => String(x).toLowerCase())
+          : []),
+        ...deletedTxnIds,
+      ]);
+
+      const filteredLiveDaily = liveDaily.filter((r) => {
+        const rid = String(r.id).toLowerCase();
+        const rpnr = (r.pnr || "").toLowerCase();
+        return !deletedDailyIds.has(rid) && (!rpnr || rpnr === "—" || !deletedDailyIds.has(rpnr));
+      });
 
       if (isCleared) {
         setDailyRecords(filteredLiveDaily);
@@ -2118,7 +2168,10 @@ export function AccountsReportsHub({
           filteredLiveDaily.map((d) => `${(d.pax || "").toLowerCase()}_${d.ph_no || ""}`)
         );
         const seedsToKeep = INITIAL_DAILY_REPORTS.filter(
-          (s) => !deletedDailyIds.has(String(s.id)) && !existingKeys.has(`${s.pax.toLowerCase()}_${s.ph_no}`)
+          (s) =>
+            !deletedDailyIds.has(String(s.id).toLowerCase()) &&
+            (!s.pnr || s.pnr === "—" || !deletedDailyIds.has(s.pnr.toLowerCase())) &&
+            !existingKeys.has(`${s.pax.toLowerCase()}_${s.ph_no}`)
         );
         setDailyRecords([...filteredLiveDaily, ...seedsToKeep]);
       }
@@ -2458,12 +2511,22 @@ export function AccountsReportsHub({
         ...localExpenseTxns,
       ];
 
+      const filteredCombinedTxns = allCombinedTxns.filter((t) => {
+        const tid = String(t.id).toLowerCase();
+        const tref = (t.ref_number || "").toLowerCase();
+        return !deletedTxnIds.has(tid) && !deletedTxnIds.has(tref);
+      });
+
       if (isCleared) {
-        setTransactions(allCombinedTxns);
+        setTransactions(filteredCombinedTxns);
       } else {
-        const existingTxnKeys = new Set(allCombinedTxns.map((t) => t.ref_number.toLowerCase()));
-        const seeds = SEED_TRANSACTIONS.filter((s) => !existingTxnKeys.has(s.ref_number.toLowerCase()));
-        setTransactions([...allCombinedTxns, ...seeds]);
+        const existingTxnKeys = new Set(filteredCombinedTxns.map((t) => t.ref_number.toLowerCase()));
+        const seeds = SEED_TRANSACTIONS.filter((s) => {
+          const sid = String(s.id).toLowerCase();
+          const sref = (s.ref_number || "").toLowerCase();
+          return !existingTxnKeys.has(sref) && !deletedTxnIds.has(sid) && !deletedTxnIds.has(sref);
+        });
+        setTransactions([...filteredCombinedTxns, ...seeds]);
       }
     } catch (err) {
       console.warn("Error fetching live transactions:", err);
@@ -2490,9 +2553,12 @@ export function AccountsReportsHub({
   // Filter Daily Reports (Filtered using Day Filter, DATE range, Booking Type, and Search Query)
   const filteredDailyRecords = useMemo(() => {
     const deletedInDaily = new Set([
-      ...(deletedByReport["daily"] || []),
+      ...(deletedByReport["daily"] || []).map((x) => String(x).toLowerCase()),
       ...(typeof window !== "undefined"
-        ? JSON.parse(localStorage.getItem("fortune_deleted_daily_record_ids") || "[]")
+        ? (JSON.parse(localStorage.getItem("fortune_deleted_daily_record_ids") || "[]") as string[]).map((x) => String(x).toLowerCase())
+        : []),
+      ...(typeof window !== "undefined"
+        ? (JSON.parse(localStorage.getItem("fortune_deleted_transaction_ids") || "[]") as string[]).map((x) => String(x).toLowerCase())
         : []),
     ]);
 
@@ -2500,8 +2566,10 @@ export function AccountsReportsHub({
     const yesterdayComparable = shiftDateByDays(todayComparable, -1);
 
     return dailyRecords.filter((r) => {
-      // Exclude if deleted specifically in Daily Reports
-      if (deletedInDaily.has(String(r.id))) return false;
+      // Exclude if deleted in Daily Reports or globally
+      const rid = String(r.id).toLowerCase();
+      const rpnr = (r.pnr || "").toLowerCase();
+      if (deletedInDaily.has(rid) || (rpnr && rpnr !== "—" && deletedInDaily.has(rpnr))) return false;
 
       // 1. Day / Date Filter against the report's DATE field (not TRAV ON)
       const recDate = parseToComparableDate(r.date) || parseToComparableDate(r.raw_date);
@@ -2641,46 +2709,81 @@ export function AccountsReportsHub({
   const handleDeleteDailyRecord = async (id: string | number) => {
     if (
       !window.confirm(
-        "Are you sure you want to delete this Daily Report entry?\n\nThis will ONLY delete it from Daily Reports. It will NOT affect any other reports (Reports, Final Reports, etc.) or customer bookings."
+        "Are you sure you want to delete this Daily Report entry?\n\nThis will permanently delete this record from Financial Ledgers."
       )
     ) {
       return;
     }
 
-    const idStr = String(id);
+    const idStr = String(id).trim();
+    const recToDelete = dailyRecords.find((r) => String(r.id) === idStr);
+    const pnrRef = recToDelete?.pnr && recToDelete.pnr !== "—" ? recToDelete.pnr : undefined;
 
-    // 1. Permanently record deletion ONLY for Daily Reports
-    markDeletedInReport("daily", idStr);
-    try {
-      const stored = JSON.parse(localStorage.getItem("fortune_deleted_daily_record_ids") || "[]");
-      if (!stored.includes(idStr)) {
-        stored.push(idStr);
-        localStorage.setItem("fortune_deleted_daily_record_ids", JSON.stringify(stored));
-      }
-    } catch {}
+    // 1. Permanently record deletion in master deleted sets in localStorage
+    recordPermanentDeletion(idStr, pnrRef);
 
     // 2. Remove immediately from dailyRecords in local state
     setDailyRecords((prev) => prev.filter((r) => String(r.id) !== idStr));
 
-    // 3. IMPORTANT: DO NOT touch transactions state and DO NOT call DELETE /api/bookings!
-    // Other reports (Reports, Final Reports, Credit/Debit, Payments, etc.) and bookings remain 100% intact!
+    // 3. Remove immediately from transactions in local state
+    setTransactions((prev) =>
+      prev.filter((t) => {
+        const tid = String(t.id).toLowerCase();
+        const tref = (t.ref_number || "").toLowerCase();
+        if (tid === idStr.toLowerCase()) return false;
+        if (idStr.startsWith("BKG-")) {
+          const bkgId = idStr.replace("BKG-", "");
+          if (tid === `bkg-txn-${bkgId.toLowerCase()}`) return false;
+        }
+        if (pnrRef && (tref === pnrRef.toLowerCase() || tid === pnrRef.toLowerCase())) return false;
+        return true;
+      })
+    );
 
-    // 4. If it's a manual entry created directly in day_book_entries table, delete that specific row from day_book_entries
-    if (typeof id === "number" || (!idStr.startsWith("BKG-") && !isNaN(Number(id)))) {
-      const numId = Number(id);
-      if (!isNaN(numId) && numId > 0) {
+    // 4. Backend database / persistent storage cleanup
+    const adminKey =
+      (typeof window !== "undefined" &&
+        (sessionStorage.getItem("fortune_admin_key") ||
+          localStorage.getItem("fortune_admin_key"))) ||
+      "Admin@fortunetourism2026";
+    const headers = { "x-admin-key": adminKey };
+
+    // If it's a booking, delete from bookings table in PostgreSQL
+    if (idStr.startsWith("BKG-")) {
+      const bkgId = Number(idStr.replace("BKG-", ""));
+      if (!isNaN(bkgId) && bkgId > 0) {
         try {
-          await fetch(`/api/business/day_book_entries?id=${numId}`, {
-            method: "DELETE",
-            headers: { "x-admin-key": "Admin@fortunetourism2026" },
-          });
+          await fetch(`/api/bookings/${bkgId}`, { method: "DELETE", headers });
+          await fetch(`/api/bookings?id=${bkgId}`, { method: "DELETE", headers }).catch(() => {});
         } catch (err) {
-          console.warn("DELETE /api/business/day_book_entries error:", err);
+          console.warn("DELETE /api/bookings error:", err);
         }
       }
     }
 
-    toast.success("Entry removed from Daily Reports only. Other reports remain unchanged.");
+    // If it's a manual entry created in day_book_entries table
+    const numId = Number(idStr.replace("DB-TXN-", "").replace("DR-", ""));
+    if (!isNaN(numId) && numId > 0) {
+      try {
+        await fetch(`/api/business/day_book_entries?id=${numId}`, {
+          method: "DELETE",
+          headers,
+        });
+      } catch (err) {
+        console.warn("DELETE /api/business/day_book_entries error:", err);
+      }
+    }
+
+    // If it's an offline hourly booking stored in localStorage
+    if (idStr.startsWith("HPT-") || idStr.startsWith("HR-")) {
+      try {
+        const localHourly = JSON.parse(localStorage.getItem("fortune_hourly_packages_trips_data") || "[]");
+        const filteredHourly = localHourly.filter((h: any) => h.id !== idStr && h.pnr !== pnrRef);
+        localStorage.setItem("fortune_hourly_packages_trips_data", JSON.stringify(filteredHourly));
+      } catch {}
+    }
+
+    toast.success("Entry permanently deleted.");
   };
 
   const handleDeleteTransactionRecord = async (id: string | number, label?: string) => {
@@ -2688,29 +2791,127 @@ export function AccountsReportsHub({
     const desc = label ? ` "${label}"` : "";
     if (
       !window.confirm(
-        `Are you sure you want to delete this report entry${desc} from ${activeDef.shortTitle}?\n\nThis will ONLY remove it from ${activeDef.shortTitle}. It will remain intact in Daily Reports and all other reports.`
+        `Are you sure you want to delete this report entry${desc} from ${activeDef.shortTitle}?\n\nThis will permanently delete this record across all Financial Ledgers.`
       )
     ) {
       return;
     }
 
-    const idStr = String(id);
+    const idStr = String(id).trim();
+    const labelStr = label ? String(label).trim() : "";
 
-    // 1. Permanently record deletion ONLY for the currently active report
-    markDeletedInReport(activeReport, idStr);
+    // 1. Permanently record deletion in master deleted sets in localStorage
+    recordPermanentDeletion(idStr, labelStr);
 
-    // 2. IMPORTANT: DO NOT remove from dailyRecords!
-    // 3. DO NOT delete from /api/bookings!
-    // Other reports and customer bookings remain 100% intact!
+    // 2. Remove immediately from transactions state
+    setTransactions((prev) =>
+      prev.filter((t) => {
+        const tid = String(t.id).toLowerCase();
+        const tref = (t.ref_number || "").toLowerCase();
+        const matchId = tid === idStr.toLowerCase();
+        const matchRef = labelStr ? tref === labelStr.toLowerCase() : false;
+        return !matchId && !matchRef;
+      })
+    );
 
-    toast.success(`Entry removed from ${activeDef.shortTitle} only. Other reports remain unchanged.`);
+    // 3. Also remove immediately from dailyRecords state if it matches
+    setDailyRecords((prev) =>
+      prev.filter((d) => {
+        const did = String(d.id).toLowerCase();
+        const dpnr = (d.pnr || "").toLowerCase();
+        if (did === idStr.toLowerCase()) return false;
+        if (idStr.startsWith("BKG-TXN-")) {
+          const bkgId = idStr.replace("BKG-TXN-", "");
+          if (did === `bkg-${bkgId.toLowerCase()}`) return false;
+        }
+        if (labelStr && (dpnr === labelStr.toLowerCase() || did === labelStr.toLowerCase())) return false;
+        return true;
+      })
+    );
+
+    // 4. Delete from Backend Database / Persistent Storage
+    const adminKey =
+      (typeof window !== "undefined" &&
+        (sessionStorage.getItem("fortune_admin_key") ||
+          localStorage.getItem("fortune_admin_key"))) ||
+      "Admin@fortunetourism2026";
+    const headers = { "x-admin-key": adminKey };
+
+    // Booking record
+    if (idStr.startsWith("BKG-TXN-") || idStr.startsWith("BKG-")) {
+      const bkgId = Number(idStr.replace("BKG-TXN-", "").replace("BKG-", ""));
+      if (!isNaN(bkgId) && bkgId > 0) {
+        try {
+          await fetch(`/api/bookings/${bkgId}`, { method: "DELETE", headers });
+          await fetch(`/api/bookings?id=${bkgId}`, { method: "DELETE", headers }).catch(() => {});
+        } catch (err) {
+          console.warn("DELETE /api/bookings error:", err);
+        }
+      }
+    }
+
+    // Day Book entry
+    if (idStr.startsWith("DB-TXN-") || idStr.startsWith("DR-") || (!isNaN(Number(idStr)) && Number(idStr) > 0)) {
+      const dbId = Number(idStr.replace("DB-TXN-", "").replace("DR-", ""));
+      if (!isNaN(dbId) && dbId > 0) {
+        try {
+          await fetch(`/api/business/day_book_entries?id=${dbId}`, { method: "DELETE", headers });
+        } catch (err) {
+          console.warn("DELETE /api/business/day_book_entries error:", err);
+        }
+      }
+    }
+
+    // Database Expense
+    if (idStr.startsWith("EXP-DB-")) {
+      const expId = Number(idStr.replace("EXP-DB-", ""));
+      if (!isNaN(expId) && expId > 0) {
+        try {
+          await fetch(`/api/business/expenses?id=${expId}`, { method: "DELETE", headers });
+        } catch (err) {
+          console.warn("DELETE /api/business/expenses error:", err);
+        }
+      }
+    }
+
+    // Local Expense Report
+    if (idStr.startsWith("EXP-LOC-") || idStr.startsWith("INF-LOC-")) {
+      const locId = idStr.replace("EXP-LOC-", "").replace("INF-LOC-", "");
+      try {
+        const savedExpenses = getSavedExpenseReports();
+        const updatedExpenses = savedExpenses.filter((e) => e.id !== locId && e.id !== idStr);
+        saveExpenseReports(updatedExpenses);
+      } catch (err) {
+        console.warn("Error removing local expense:", err);
+      }
+    }
+
+    // Hourly Booking
+    if (idStr.startsWith("HR-") || idStr.startsWith("HPT-")) {
+      const hrIdStr = idStr.replace("HR-", "");
+      const hrNum = Number(hrIdStr);
+      if (!isNaN(hrNum) && hrNum > 0) {
+        try {
+          await fetch(`/api/business/hourly_bookings?id=${hrNum}`, { method: "DELETE", headers });
+        } catch (err) {
+          console.warn("DELETE /api/business/hourly_bookings error:", err);
+        }
+      }
+      try {
+        const localHourly = JSON.parse(localStorage.getItem("fortune_hourly_packages_trips_data") || "[]");
+        const filteredHourly = localHourly.filter((h: any) => h.id !== idStr && h.id !== hrIdStr && h.pnr !== labelStr);
+        localStorage.setItem("fortune_hourly_packages_trips_data", JSON.stringify(filteredHourly));
+      } catch (err) {}
+    }
+
+    toast.success(`Entry "${label || idStr}" deleted successfully.`);
   };
 
   const handleClearCurrentReportData = async () => {
     const activeDef = REPORT_DEFINITIONS.find((r) => r.key === activeReport) || REPORT_DEFINITIONS[0];
     if (
       !window.confirm(
-        `Are you sure you want to clear entries in ${activeDef.shortTitle}?\n\nThis will ONLY affect ${activeDef.shortTitle}. Other reports and bookings will remain intact.`
+        `Are you sure you want to clear entries in ${activeDef.shortTitle}?\n\nThis will remove all current records from this view.`
       )
     ) {
       return;
@@ -2718,31 +2919,17 @@ export function AccountsReportsHub({
 
     if (activeReport === "daily") {
       const allDailyIds = dailyRecords.map((r) => String(r.id));
-      setDeletedByReport((prev) => {
-        const updated = {
-          ...prev,
-          daily: Array.from(new Set([...(prev.daily || []), ...allDailyIds])),
-        };
-        try {
-          localStorage.setItem("fortune_deleted_by_report", JSON.stringify(updated));
-          localStorage.setItem("fortune_deleted_daily_record_ids", JSON.stringify(updated.daily));
-        } catch {}
-        return updated;
-      });
+      const allDailyPnrs = dailyRecords.map((r) => String(r.pnr || "")).filter((p) => p && p !== "—");
+      allDailyIds.forEach((id) => recordPermanentDeletion(id));
+      allDailyPnrs.forEach((pnr) => recordPermanentDeletion(pnr));
       setDailyRecords([]);
       toast.success("Daily Reports sheet cleared.");
     } else {
       const currentReportTxnIds = filteredTransactions.map((t) => String(t.id));
-      setDeletedByReport((prev) => {
-        const updated = {
-          ...prev,
-          [activeReport]: Array.from(new Set([...(prev[activeReport] || []), ...currentReportTxnIds])),
-        };
-        try {
-          localStorage.setItem("fortune_deleted_by_report", JSON.stringify(updated));
-        } catch {}
-        return updated;
-      });
+      const currentReportRefs = filteredTransactions.map((t) => String(t.ref_number || ""));
+      currentReportTxnIds.forEach((id) => recordPermanentDeletion(id));
+      currentReportRefs.forEach((ref) => recordPermanentDeletion(ref));
+      setTransactions((prev) => prev.filter((t) => !currentReportTxnIds.includes(String(t.id))));
       toast.success(`${activeDef.shortTitle} entries cleared.`);
     }
   };
@@ -2757,9 +2944,14 @@ export function AccountsReportsHub({
     }
 
     try {
+      const allTxnIds = transactions.map((t) => String(t.id));
+      const allTxnRefs = transactions.map((t) => String(t.ref_number || ""));
+      const allDailyIds = dailyRecords.map((r) => String(r.id));
+      const allDailyPnrs = dailyRecords.map((r) => String(r.pnr || "")).filter((p) => p && p !== "—");
+
       localStorage.setItem("fortune_reports_cleared", "true");
-      localStorage.setItem("fortune_deleted_daily_record_ids", JSON.stringify([]));
-      localStorage.setItem("fortune_deleted_transaction_ids", JSON.stringify([]));
+      localStorage.setItem("fortune_deleted_daily_record_ids", JSON.stringify(Array.from(new Set([...allDailyIds, ...allDailyPnrs]))));
+      localStorage.setItem("fortune_deleted_transaction_ids", JSON.stringify(Array.from(new Set([...allTxnIds, ...allTxnRefs]))));
       localStorage.setItem("fortune_deleted_by_report", JSON.stringify({}));
 
       setDailyRecords([]);
@@ -2772,6 +2964,14 @@ export function AccountsReportsHub({
           headers: { "x-admin-key": "Admin@fortunetourism2026" },
         }),
         fetch("/api/business/business_records?all=true", {
+          method: "DELETE",
+          headers: { "x-admin-key": "Admin@fortunetourism2026" },
+        }),
+        fetch("/api/business/expenses?all=true", {
+          method: "DELETE",
+          headers: { "x-admin-key": "Admin@fortunetourism2026" },
+        }),
+        fetch("/api/business/hourly_bookings?all=true", {
           method: "DELETE",
           headers: { "x-admin-key": "Admin@fortunetourism2026" },
         }),
@@ -2961,13 +3161,20 @@ export function AccountsReportsHub({
 
   // Filter transactions (for other reports)
   const filteredTransactions = useMemo(() => {
-    const deletedInActiveReport = new Set(deletedByReport[activeReport] || []);
+    const deletedInActiveReport = new Set([
+      ...(deletedByReport[activeReport] || []).map((x) => String(x).toLowerCase()),
+      ...(typeof window !== "undefined"
+        ? (JSON.parse(localStorage.getItem("fortune_deleted_transaction_ids") || "[]") as string[]).map((x) => String(x).toLowerCase())
+        : []),
+    ]);
     const todayComparable = getLocalDateString();
     const yesterdayComparable = shiftDateByDays(todayComparable, -1);
 
     return transactions.filter((t) => {
-      // 0. Exclude records deleted specifically in THIS report
-      if (deletedInActiveReport.has(String(t.id))) return false;
+      // 0. Exclude records deleted specifically in THIS report or globally
+      const tid = String(t.id).toLowerCase();
+      const tref = (t.ref_number || "").toLowerCase();
+      if (deletedInActiveReport.has(tid) || deletedInActiveReport.has(tref)) return false;
 
       // 1. Day / Date Filter against the transaction's date
       const txnDate = parseToComparableDate(t.date);

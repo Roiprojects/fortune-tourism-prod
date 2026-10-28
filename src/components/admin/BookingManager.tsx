@@ -230,11 +230,23 @@ export function BookingListManager() {
   const handleDelete = async (id: number) => {
     if (!confirm("Are you sure you want to delete this booking?")) return;
     try {
-      const res = await fetch(`/api/bookings/${id}`, { method: "DELETE" });
+      const adminKey =
+        sessionStorage.getItem("fortune_admin_key") ||
+        localStorage.getItem("fortune_admin_key") ||
+        "Admin@fortunetourism2026";
+      const res = await fetch(`/api/bookings/${id}`, {
+        method: "DELETE",
+        headers: { "x-admin-key": adminKey },
+      });
       const data = await res.json();
       if (data.success) {
         toast.success("Booking deleted");
         setBookings((prev) => prev.filter((b) => b.id !== id));
+        try {
+          const stored: string[] = JSON.parse(localStorage.getItem("fortune_deleted_transaction_ids") || "[]");
+          const next = Array.from(new Set([...stored, String(id), `bkg-${id}`, `bkg-txn-${id}`]));
+          localStorage.setItem("fortune_deleted_transaction_ids", JSON.stringify(next));
+        } catch {}
       }
     } catch {
       toast.error("Failed to delete booking");
