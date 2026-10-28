@@ -33,6 +33,7 @@ import {
 import { LocationSearchInput } from "@/components/booking/LocationSearchInput";
 import { generateTicketNumber, generatePNR } from "@/lib/booking-utils";
 import { buildWhatsAppUrl } from "@/lib/contact";
+import { getRealCurrentTime, formatTime12Hour, formatDepartureDateString } from "@/lib/utils";
 import {
   useFleetTariffs,
   KM_OPTIONS_LIST,
@@ -217,14 +218,14 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
   const [cabTo, setCabTo] = useState("Mysore");
   const [cabDate, setCabDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [cabReturnDate, setCabReturnDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [cabTime, setCabTime] = useState("07:00");
+  const [cabTime, setCabTime] = useState(() => getRealCurrentTime());
   const [localPackage, setLocalPackage] = useState<"4hr_40km" | "8hr_80km" | "12hr_120km">("4hr_40km");
   const [cabOneWayKm, setCabOneWayKm] = useState<number>(145);
   const [cabRoundTripKm, setCabRoundTripKm] = useState<number>(290);
   const [cabMultiCityKm, setCabMultiCityKm] = useState<number>(500);
   const [multiCityStops, setMultiCityStops] = useState<CabMultiCityLeg[]>([
-    { id: "1", from: "Bangalore", to: "Mysore", date: new Date().toISOString().split("T")[0], time: "07:00" },
-    { id: "2", from: "Mysore", to: "Ooty", date: new Date().toISOString().split("T")[0], time: "09:00" },
+    { id: "1", from: "Bangalore", to: "Mysore", date: new Date().toISOString().split("T")[0], time: getRealCurrentTime() },
+    { id: "2", from: "Mysore", to: "Ooty", date: new Date().toISOString().split("T")[0], time: getRealCurrentTime() },
   ]);
   const [localViaStops, setLocalViaStops] = useState<string[]>([]);
   const [isCustomKm, setIsCustomKm] = useState<boolean>(false);
@@ -318,13 +319,12 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
 
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
 
-  // Format departure date e.g. 07-10-2026.07.00
+  // Format departure date e.g. 07-10-2026.10.45
   const departureDateFormatted = useMemo(() => {
-    const rawDate = cabDate || today;
-    const [y, m, d] = rawDate.split("-");
-    const rawTime = (cabTime || "07:00").replace(":", ".");
-    return `${d}-${m}-${y}.${rawTime}`;
-  }, [cabDate, cabTime, today]);
+    const rawDate = cabTripType === "MULTI CITY" && multiCityStops[0]?.date ? multiCityStops[0].date : (cabDate || today);
+    const rawTime = cabTripType === "MULTI CITY" && multiCityStops[0]?.time ? multiCityStops[0].time : (cabTime || getRealCurrentTime());
+    return formatDepartureDateString(rawDate, rawTime);
+  }, [cabTripType, multiCityStops, cabDate, cabTime, today]);
 
   // Current booking date & time
   const bookingDateTime = useMemo(() => {
@@ -680,9 +680,9 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
         category: "CAR",
         pickup: fromLocationDisplay,
         destination: toLocationDisplay,
-        date: cabDate || today,
+        date: cabTripType === "MULTI CITY" ? (multiCityStops[0]?.date || cabDate || today) : (cabDate || today),
         return_date: cabTripType === "ROUND TRIP" ? cabReturnDate : null,
-        time: cabTime || "07:00",
+        time: cabTripType === "MULTI CITY" ? (multiCityStops[0]?.time || cabTime || getRealCurrentTime()) : (cabTime || getRealCurrentTime()),
         passengers: String(selectedFleet.seats),
         trip_type: cabTripType,
         car_type: vehicleDisplay,
@@ -822,7 +822,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
       tourType: tourTypeDisplay,
       fromLocation: fromLocationDisplay,
       toLocation: toLocationDisplay,
-      departureOn: departureDateFormatted,
+      departureOn: `${departureDateFormatted} (${formatTime12Hour(cabTripType === "MULTI CITY" ? multiCityStops[0]?.time : cabTime)})`,
       tripType: cabTripType,
       vehicleOrMode: vehicleDisplay,
       boardingPoint: boardingPoint || "—",
@@ -1671,7 +1671,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                             </label>
                             <input
                               type="time"
-                              value={leg.time || "07:00"}
+                              value={leg.time || getRealCurrentTime()}
                               onChange={(e) => updateMultiCityStop(idx, "time", e.target.value)}
                               className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-2.5 py-2.5 rounded-xl text-xs font-bold text-white outline-none [color-scheme:dark]"
                             />
@@ -3216,7 +3216,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
 
                 <a
                   href={buildWhatsAppUrl(
-                    `Hello Fortune Tourism! New offline cab reservation booked.\n\n*Ticket No:* ${ticketNumber}\n*PNR:* ${pnrNumber}\n*Passenger:* ${passengerName || "GUEST"}\n*Phone:* ${passengerPhone || "9964600247"}\n*From:* ${fromLocationDisplay}\n*To:* ${toLocationDisplay}\n*Date:* ${departureDateFormatted}\n*Vehicle:* ${vehicleDisplay}\n*Fare:* ₹${effectiveCabFare}`
+                    `Hello Fortune Tourism! New offline cab reservation booked.\n\n*Ticket No:* ${ticketNumber}\n*PNR:* ${pnrNumber}\n*Passenger:* ${passengerName || "GUEST"}\n*Phone:* ${passengerPhone || "9964600247"}\n*From:* ${fromLocationDisplay}\n*To:* ${toLocationDisplay}\n*Date:* ${departureDateFormatted} (${formatTime12Hour(cabTripType === "MULTI CITY" ? multiCityStops[0]?.time : cabTime)})\n*Vehicle:* ${vehicleDisplay}\n*Fare:* ₹${effectiveCabFare}`
                   )}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -3336,7 +3336,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                                   Leg {lIdx + 1}: <span className="text-emerald-700">{leg.from}</span> ➔ <span className="text-blue-700">{leg.to}</span>
                                 </div>
                                 <div className="text-slate-600 text-[10px]">
-                                  Date: <strong>{leg.date}</strong> | Time: <strong>{leg.time || "07:00"}</strong>
+                                  Date: <strong>{leg.date}</strong> | Time: <strong>{formatTime12Hour(leg.time)}</strong>
                                 </div>
                               </div>
                             ))}
@@ -3376,7 +3376,10 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                         Departure On:
                       </td>
                       <td className="p-2.5 font-bold text-slate-900">
-                        {departureDateFormatted}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>{departureDateFormatted}</span>
+                          <span className="text-slate-600 font-semibold text-xs">({formatTime12Hour(cabTripType === "MULTI CITY" ? multiCityStops[0]?.time : cabTime)})</span>
+                        </div>
                       </td>
                     </tr>
 

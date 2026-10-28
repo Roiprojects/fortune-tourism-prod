@@ -1,4 +1,5 @@
 import React from "react";
+import { getRealCurrentTime } from "@/lib/utils";
 import { Bus, Calendar, AlertCircle, Trash2, Users, Phone } from "lucide-react";
 
 interface BusPassenger { name: string; age: string; gender: string; }
@@ -138,7 +139,7 @@ export function BusBookingForm({ formData, onChange, errors, onCompleteBooking, 
               </label>
               <input
                 type="time"
-                value={formData.time || "07:00"}
+                value={formData.time || getRealCurrentTime()}
                 onChange={(e) => onChange("time", e.target.value)}
                 className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white outline-none transition-all shadow-inner [color-scheme:dark]"
               />

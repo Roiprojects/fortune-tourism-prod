@@ -25,6 +25,7 @@ import {
 import { generateTicketNumber, generatePNR } from "@/lib/booking-utils";
 import { buildWhatsAppUrl } from "@/lib/contact";
 import { downloadTicketCopyPDF } from "@/lib/ticket-copy-pdf";
+import { getRealCurrentTime, formatTime12Hour, formatDepartureDateString } from "@/lib/utils";
 import { BusBookingForm } from "@/components/booking/BusBookingForm";
 import { FlightBookingForm } from "@/components/booking/FlightBookingForm";
 import { getSavedTicketTariffs } from "./FareAmountEditorModal";
@@ -94,7 +95,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
     preferred_train: "",
     travel_class: "3A",
     quota: "General",
-    time: "07:00",
+    time: getRealCurrentTime(),
     train_number: "",
     boarding_point: "",
     boarding_address: "",
@@ -110,7 +111,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
   // Form State for other services (Bus, Flight)
   const [otherFormData, setOtherFormData] = useState<any>({
     date: new Date().toISOString().split("T")[0],
-    time: "07:00",
+    time: getRealCurrentTime(),
     from_location: "",
     destination: "",
     bus_type: "AC Sleeper",
@@ -136,13 +137,20 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
 
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
 
-  // Format departure date e.g. 07-10-2026.07.00
+  // Effective departure date and time
+  const effectiveDepartureDate = useMemo(() => {
+    return (serviceType === "TRAIN" ? trainData.date : otherFormData.date) || today;
+  }, [serviceType, trainData.date, otherFormData.date, today]);
+
+  const effectiveDepartureTime = useMemo(() => {
+    if (serviceType === "TRAIN") return trainData.time || getRealCurrentTime();
+    return otherFormData.departure_time || otherFormData.time || otherFormData.preferred_time || getRealCurrentTime();
+  }, [serviceType, trainData.time, otherFormData.departure_time, otherFormData.time, otherFormData.preferred_time]);
+
+  // Format departure date e.g. 07-10-2026.10.45
   const departureDateFormatted = useMemo(() => {
-    const rawDate = (serviceType === "TRAIN" ? trainData.date : otherFormData.date) || today;
-    const [y, m, d] = String(rawDate).split("-");
-    const rawTime = ((serviceType === "TRAIN" ? trainData.time : otherFormData.time) || "07:00").replace(":", ".");
-    return `${d}-${m}-${y}.${rawTime}`;
-  }, [trainData.date, trainData.time, otherFormData.date, otherFormData.time, serviceType, today]);
+    return formatDepartureDateString(effectiveDepartureDate, effectiveDepartureTime);
+  }, [effectiveDepartureDate, effectiveDepartureTime]);
 
   // Current booking date & time
   const bookingDateTime = useMemo(() => {
@@ -455,7 +463,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
         pickup: trainData.from_station.trim(),
         destination: trainData.to_station.trim(),
         date: trainData.date || today,
-        time: trainData.time || "07:00",
+        time: trainData.time || effectiveDepartureTime,
         passengers: String(passengers.length),
         passengers_list: passengers,
         boarding_point: trainData.boarding_point.trim(),
@@ -550,7 +558,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
         pickup: isBus ? otherFormData.from_location : flightFrom,
         destination: isBus ? otherFormData.destination : flightTo,
         date: otherFormData.date || today,
-        time: otherFormData.time || "07:00",
+        time: otherFormData.departure_time || otherFormData.time || otherFormData.preferred_time || effectiveDepartureTime,
         passengers: String(pCount),
         passengers_list: otherFormData.passengers || [],
         boarding_point: otherFormData.boarding_point || "",
@@ -625,7 +633,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
       tourType: tourTypeDisplay,
       fromLocation: fromLocationDisplay,
       toLocation: toLocationDisplay,
-      departureOn: departureDateFormatted,
+      departureOn: `${departureDateFormatted} (${formatTime12Hour(effectiveDepartureTime)})`,
       tripType: "ONE WAY",
       vehicleOrMode: vehicleDisplay,
       boardingPoint: boardingPointDisplay,
@@ -654,7 +662,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
       preferred_train: "",
       travel_class: "3A",
       quota: "General",
-      time: "07:00",
+      time: getRealCurrentTime(),
       train_number: "",
       boarding_point: "",
       boarding_address: "",
@@ -1226,7 +1234,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                     {fromLocationDisplay} → {toLocationDisplay}
                   </div>
                   <div className="text-slate-300 text-[11px] space-y-0.5 pt-0.5">
-                    <div>Departure: {departureDateFormatted}</div>
+                    <div>Departure: {departureDateFormatted} ({formatTime12Hour(effectiveDepartureTime)})</div>
                     {serviceType === "TRAIN" && (
                       <div>Train: <strong>{trainData.preferred_train || "IRCTC Express"}</strong> | Class: <strong>{trainData.travel_class}</strong> | Quota: <strong>{trainData.quota}</strong> | Passengers: <strong>{passengers.length}</strong></div>
                     )}
@@ -2005,7 +2013,7 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
 
                 <a
                   href={buildWhatsAppUrl(
-                    `Hello Fortune Tourism! New offline ${serviceType.toLowerCase()} ticket reservation confirmed.\n\n*Ticket No:* ${ticketNumber}\n*PNR:* ${pnrNumber}\n*Total Fare:* ₹${ticketFareAmount.toLocaleString("en-IN")}\n*Passenger:* ${primaryPassengerName}\n*Phone:* ${primaryPhone}\n*From:* ${fromLocationDisplay}\n*To:* ${toLocationDisplay}\n*Date:* ${departureDateFormatted}\n*Service:* ${vehicleDisplay}`
+                    `Hello Fortune Tourism! New offline ${serviceType.toLowerCase()} ticket reservation confirmed.\n\n*Ticket No:* ${ticketNumber}\n*PNR:* ${pnrNumber}\n*Total Fare:* ₹${ticketFareAmount.toLocaleString("en-IN")}\n*Passenger:* ${primaryPassengerName}\n*Phone:* ${primaryPhone}\n*From:* ${fromLocationDisplay}\n*To:* ${toLocationDisplay}\n*Date:* ${departureDateFormatted} (${formatTime12Hour(effectiveDepartureTime)})\n*Service:* ${vehicleDisplay}`
                   )}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -2162,7 +2170,10 @@ export function AdminTicketBookingFlow({ onBack, onBookingCompleted }: AdminTick
                         Departure On:
                       </td>
                       <td className="p-2.5 font-bold text-slate-900">
-                        {departureDateFormatted}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>{departureDateFormatted}</span>
+                          <span className="text-slate-600 font-semibold text-xs">({formatTime12Hour(effectiveDepartureTime)})</span>
+                        </div>
                       </td>
                     </tr>
 

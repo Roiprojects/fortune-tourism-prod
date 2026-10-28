@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { LocationSearchInput } from "./LocationSearchInput";
+import { getRealCurrentTime } from "@/lib/utils";
 
 export type CabTabType = "ONE WAY" | "ROUND TRIP" | "LOCAL" | "AIRPORT" | "HOURLY PACKAGE";
 
@@ -61,7 +62,7 @@ export function CabSearchExplore({ onSelectCar, initialSearchData }: CabSearchEx
     to: initialSearchData?.to || "Mysore",
     pickupDate: initialSearchData?.pickupDate || today,
     returnDate: initialSearchData?.returnDate || today,
-    pickupTime: initialSearchData?.pickupTime || "07:00",
+    pickupTime: initialSearchData?.pickupTime || getRealCurrentTime(),
     localPackage: initialSearchData?.localPackage || "4hr_40km",
     airportTripType: initialSearchData?.airportTripType || "Drop to Airport",
     airportName: initialSearchData?.airportName || "Terminal 1, Kempegowda International Airport (BLR)",

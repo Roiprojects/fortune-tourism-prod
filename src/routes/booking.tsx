@@ -39,6 +39,7 @@ import { SiteLayout } from "@/components/site/SiteLayout";
 import { generateTicketNumber, generatePNR } from "@/lib/booking-utils";
 import { buildWhatsAppUrl } from "@/lib/contact";
 import { downloadTicketCopyPDF } from "@/lib/ticket-copy-pdf";
+import { getRealCurrentTime, formatTime12Hour, formatDepartureDateString } from "@/lib/utils";
 import { MultiServiceTypeCards, ServiceType } from "@/components/booking/MultiServiceTypeCards";
 import { LocationSearchInput } from "@/components/booking/LocationSearchInput";
 import { TrainBookingForm } from "@/components/booking/TrainBookingForm";
@@ -304,15 +305,15 @@ function BookingPage() {
   const [cabReturnTo, setCabReturnTo] = useState("Bangalore");
   const [cabDate, setCabDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [cabReturnDate, setCabReturnDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [cabTime, setCabTime] = useState("07:00");
+  const [cabTime, setCabTime] = useState(() => getRealCurrentTime());
   const [cabReturnTime, setCabReturnTime] = useState("18:00");
   const [localPackage, setLocalPackage] = useState<"4hr_40km" | "8hr_80km" | "12hr_120km">("4hr_40km");
   const [cabOneWayKm, setCabOneWayKm] = useState<number>(145);
   const [cabRoundTripKm, setCabRoundTripKm] = useState<number>(290);
   const [cabMultiCityKm, setCabMultiCityKm] = useState<number>(500);
   const [multiCityStops, setMultiCityStops] = useState<CabMultiCityLeg[]>([
-    { id: "1", from: "Bangalore", to: "Mysore", date: new Date().toISOString().split("T")[0], time: "07:00" },
-    { id: "2", from: "Mysore", to: "Ooty", date: new Date().toISOString().split("T")[0], time: "09:00" },
+    { id: "1", from: "Bangalore", to: "Mysore", date: new Date().toISOString().split("T")[0], time: getRealCurrentTime() },
+    { id: "2", from: "Mysore", to: "Ooty", date: new Date().toISOString().split("T")[0], time: getRealCurrentTime() },
   ]);
   const [localViaStops, setLocalViaStops] = useState<string[]>([]);
   const [isCustomKm, setIsCustomKm] = useState<boolean>(false);
@@ -404,7 +405,7 @@ function BookingPage() {
   // Form State for non-cab services
   const [otherFormData, setOtherFormData] = useState<any>({
     date: "",
-    time: "07:00",
+    time: getRealCurrentTime(),
     from_station: "",
     to_station: "",
     travel_class: "3A",
@@ -441,13 +442,25 @@ function BookingPage() {
     return `${day}-${month}-${year} ${hours}:${minutes}`;
   }, []);
 
-  // Format departure date
+  // Effective departure date and time based on selected serviceType
+  const effectiveDepartureDate = useMemo(() => {
+    if (serviceType === "CAB") {
+      return cabTripType === "MULTI CITY" && multiCityStops[0]?.date ? multiCityStops[0].date : (cabDate || today);
+    }
+    return otherFormData.date || otherFormData.tour_date || today;
+  }, [serviceType, cabTripType, multiCityStops, cabDate, today, otherFormData.date, otherFormData.tour_date]);
+
+  const effectiveDepartureTime = useMemo(() => {
+    if (serviceType === "CAB") {
+      return cabTripType === "MULTI CITY" && multiCityStops[0]?.time ? multiCityStops[0].time : (cabTime || getRealCurrentTime());
+    }
+    return otherFormData.departure_time || otherFormData.time || otherFormData.preferred_time || getRealCurrentTime();
+  }, [serviceType, cabTripType, multiCityStops, cabTime, otherFormData.departure_time, otherFormData.time, otherFormData.preferred_time]);
+
+  // Format departure date e.g. 28-10-2026.10.45
   const departureDateFormatted = useMemo(() => {
-    const rawDate = cabDate || today;
-    const [y, m, d] = rawDate.split("-");
-    const rawTime = (cabTime || "07:00").replace(":", ".");
-    return `${d}-${m}-${y}.${rawTime}`;
-  }, [cabDate, cabTime, today]);
+    return formatDepartureDateString(effectiveDepartureDate, effectiveDepartureTime);
+  }, [effectiveDepartureDate, effectiveDepartureTime]);
 
   // Format return date for Round Trip
   const cabReturnDateFormatted = useMemo(() => {
@@ -997,7 +1010,7 @@ function BookingPage() {
         pickup: isTrain ? otherFormData.from_station : isBus ? otherFormData.from_location : flightFrom,
         destination: isTrain ? otherFormData.to_station : isBus ? otherFormData.destination : flightTo,
         date: otherFormData.date || today,
-        time: otherFormData.time || "07:00",
+        time: otherFormData.departure_time || otherFormData.time || effectiveDepartureTime,
         passengers: String(pCount),
         passengers_list: otherFormData.passengers || [],
         boarding_point: otherFormData.boarding_point || "",
@@ -1162,7 +1175,7 @@ function BookingPage() {
         destination: isMultiCity ? toLocationDisplay : isRt ? `${toLocationDisplay} (Round Trip)` : toLocationDisplay,
         date: isMultiCity ? (multiCityStops[0]?.date || cabDate || today) : (cabDate || today),
         return_date: isRt ? cabReturnDate : null,
-        time: isMultiCity ? (multiCityStops[0]?.time || cabTime || "07:00") : (cabTime || "07:00"),
+        time: isMultiCity ? (multiCityStops[0]?.time || effectiveDepartureTime) : effectiveDepartureTime,
         passengers: String(selectedFleet.seats),
         trip_type: cabTripType,
         car_type: selectedFleet.name,
@@ -1312,7 +1325,7 @@ function BookingPage() {
       tourType: tourTypeDisplay,
       fromLocation: fromLocationDisplay,
       toLocation: cabTripType === "ROUND TRIP" ? `${toLocationDisplay} (ROUND TRIP)` : toLocationDisplay,
-      departureOn: departureDateFormatted,
+      departureOn: `${departureDateFormatted} (${formatTime12Hour(effectiveDepartureTime)})`,
       returnDate: cabTripType === "ROUND TRIP" ? cabReturnDateFormatted : undefined,
       tripType: cabTripType,
       vehicleOrMode: vehicleDisplay,
@@ -2376,7 +2389,7 @@ function BookingPage() {
                               </label>
                               <input
                                 type="time"
-                                value={leg.time || "07:00"}
+                                value={leg.time || getRealCurrentTime()}
                                 onChange={(e) => updateMultiCityStop(idx, "time", e.target.value)}
                                 className="w-full bg-[#111c3a]/90 hover:bg-[#16244a] focus:bg-[#1a2c5a] border border-white/15 focus:border-[#00c58e] focus:ring-2 focus:ring-[#00c58e]/20 px-2.5 py-2.5 rounded-xl text-xs font-bold text-white outline-none [color-scheme:dark]"
                               />
@@ -3332,17 +3345,17 @@ function BookingPage() {
                         <>
                           {multiCityStops.map((leg, lIdx) => (
                             <div key={lIdx}>
-                              🚗 <strong>Leg {lIdx + 1}:</strong> {leg.from} → {leg.to} on {leg.date} ({leg.time || "07:00"})
+                              🚗 <strong>Leg {lIdx + 1}:</strong> {leg.from} → {leg.to} on {leg.date} ({formatTime12Hour(leg.time)})
                             </div>
                           ))}
                         </>
                       ) : serviceType === "CAB" && cabTripType === "ROUND TRIP" ? (
                         <>
-                          <div>🛫 <strong>Leg 1 (Onward):</strong> {cabFrom} → {cabTo} on {departureDateFormatted} at {cabTime}</div>
-                          <div>🛬 <strong>Leg 2 (Return):</strong> {cabReturnFrom || cabTo} → {cabReturnTo || cabFrom} on {cabReturnDateFormatted} at {cabReturnTime}</div>
+                          <div>🛫 <strong>Leg 1 (Onward):</strong> {cabFrom} → {cabTo} on {departureDateFormatted} at {formatTime12Hour(cabTime)}</div>
+                          <div>🛬 <strong>Leg 2 (Return):</strong> {cabReturnFrom || cabTo} → {cabReturnTo || cabFrom} on {cabReturnDateFormatted} at {formatTime12Hour(cabReturnTime)}</div>
                         </>
                       ) : (
-                        <div>Departure: {departureDateFormatted} at {serviceType === "CAB" ? cabTime : (otherFormData.time || "07:00")}</div>
+                        <div>Departure: {departureDateFormatted} ({formatTime12Hour(effectiveDepartureTime)})</div>
                       )}
                       {serviceType === "CAB" && (cabTripType === "LOCAL" || cabTripType === "HOURLY PACKAGE") && localViaStops.filter((s) => s && s.trim()).length > 0 && (
                         <div className="text-emerald-300">
@@ -4156,7 +4169,7 @@ function BookingPage() {
 
                   <a
                     href={buildWhatsAppUrl(
-                      `Hello Fortune Tourism! I have booked my cab.\n\n*Ticket No:* ${ticketNumber}\n*PNR:* ${pnrNumber}\n*Passenger:* ${passengerName || "GUEST"}\n*Phone:* ${passengerPhone || "9964600247"}\n*From:* ${fromLocationDisplay}\n*To:* ${toLocationDisplay}\n*Date:* ${departureDateFormatted}\n*Vehicle:* ${vehicleDisplay}\n\nPlease confirm driver assignment.`
+                      `Hello Fortune Tourism! I have booked my cab.\n\n*Ticket No:* ${ticketNumber}\n*PNR:* ${pnrNumber}\n*Passenger:* ${passengerName || "GUEST"}\n*Phone:* ${passengerPhone || "9964600247"}\n*From:* ${fromLocationDisplay}\n*To:* ${toLocationDisplay}\n*Date:* ${departureDateFormatted} (${formatTime12Hour(effectiveDepartureTime)})\n*Vehicle:* ${vehicleDisplay}\n\nPlease confirm driver assignment.`
                     )}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -4276,7 +4289,7 @@ function BookingPage() {
                                     Leg {lIdx + 1}: <span className="text-emerald-700">{leg.from}</span> ➔ <span className="text-blue-700">{leg.to}</span>
                                   </div>
                                   <div className="text-slate-600 text-[10px]">
-                                    Date: <strong>{leg.date}</strong> | Time: <strong>{leg.time || "07:00"}</strong>
+                                    Date: <strong>{leg.date}</strong> | Time: <strong>{formatTime12Hour(leg.time)}</strong>
                                   </div>
                                 </div>
                               ))}
@@ -4318,11 +4331,14 @@ function BookingPage() {
                         <td className="p-2.5 font-bold text-slate-900">
                           {cabTripType === "ROUND TRIP" ? (
                             <div className="text-xs space-y-0.5">
-                              <div>Onward: <strong>{departureDateFormatted} ({cabTime})</strong></div>
-                              <div className="text-emerald-800 font-black">Return: <strong>{cabReturnDateFormatted} ({cabReturnTime})</strong></div>
+                              <div>Onward: <strong>{departureDateFormatted} ({formatTime12Hour(cabTime)})</strong></div>
+                              <div className="text-emerald-800 font-black">Return: <strong>{cabReturnDateFormatted} ({formatTime12Hour(cabReturnTime)})</strong></div>
                             </div>
                           ) : (
-                            departureDateFormatted
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span>{departureDateFormatted}</span>
+                              <span className="text-slate-600 font-semibold text-xs">({formatTime12Hour(effectiveDepartureTime)})</span>
+                            </div>
                           )}
                         </td>
                       </tr>

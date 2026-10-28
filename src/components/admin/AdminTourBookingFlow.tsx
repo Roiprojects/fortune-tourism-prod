@@ -14,6 +14,7 @@ import {
 import { generateTicketNumber, generatePNR } from "@/lib/booking-utils";
 import { buildWhatsAppUrl } from "@/lib/contact";
 import { downloadTicketCopyPDF } from "@/lib/ticket-copy-pdf";
+import { getRealCurrentTime, formatTime12Hour, formatDepartureDateString } from "@/lib/utils";
 import { TourBookingForm } from "@/components/booking/TourBookingForm";
 import { packages as defaultPackages } from "@/data/packages";
 import { useTourTariffs } from "@/lib/tour-tariffs";
@@ -48,7 +49,7 @@ export function AdminTourBookingFlow({
     tour_trip_type: "Round Trip",
     itinerary_places: ["Bangalore", "Destination 1", "Return to Bangalore"],
     date: new Date().toISOString().split("T")[0],
-    time: "07:00",
+    time: getRealCurrentTime(),
     number_of_days: packages[0]?.duration.split(" ")[0] || "3",
     destination: packages[0]?.destinations.join(" → ") || "Mysuru · Coorg",
     adults: 2,
@@ -86,12 +87,7 @@ export function AdminTourBookingFlow({
       typeof tourFormData.date === "function"
         ? tourFormData.date()
         : tourFormData.date || today;
-    const parts = String(rawDate).split("-");
-    const y = parts[0] || "";
-    const m = parts[1] || "";
-    const d = parts[2] || "";
-    const rawTime = (tourFormData.time || "07:00").replace(":", ".");
-    return `${d || "DD"}-${m || "MM"}-${y || "YYYY"}.${rawTime}`;
+    return formatDepartureDateString(rawDate, tourFormData.time || getRealCurrentTime());
   }, [tourFormData.date, tourFormData.time, today]);
 
   // Current booking date & time formatted as DD-MM-YYYY HH:MM
@@ -212,7 +208,7 @@ export function AdminTourBookingFlow({
         pickup: "BANGALORE",
         destination: pkgTitle,
         date: tourFormData.date || today,
-        time: tourFormData.time || "07:00",
+        time: tourFormData.time || getRealCurrentTime(),
         passengers: String(passengers.length),
         boarding_point: tourFormData.boarding_point?.trim() || "Bangalore Pickup",
         boarding_address: tourFormData.boarding_address?.trim() || "Bangalore",
@@ -269,7 +265,7 @@ export function AdminTourBookingFlow({
       tourType: "TOUR PACKAGE",
       fromLocation: "BANGALORE",
       toLocation: tourTitleDisplay,
-      departureOn: departureDateFormatted,
+      departureOn: `${departureDateFormatted} (${formatTime12Hour(tourFormData.time)})`,
       tripType: "ONE WAY",
       vehicleOrMode: `TOUR: ${tourTitleDisplay}`,
       boardingPoint: tourFormData.boarding_point || "—",
@@ -841,7 +837,10 @@ export function AdminTourBookingFlow({
                         Departure On:
                       </td>
                       <td className="p-2.5 font-bold text-slate-900">
-                        {departureDateFormatted}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>{departureDateFormatted}</span>
+                          <span className="text-slate-600 font-semibold text-xs">({formatTime12Hour(tourFormData.time)})</span>
+                        </div>
                       </td>
                     </tr>
 
