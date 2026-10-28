@@ -513,6 +513,31 @@ export function TicketSearchModal({
     toast.success(`Downloading PDF for Ticket ${data.ticketNumber}`);
   };
 
+  // Quick Vehicle Update handler
+  const handleQuickChangeVehicle = async (newVehicle: string) => {
+    if (!selectedTicket) return;
+    try {
+      const res = await adminFetch(`/api/bookings/${selectedTicket.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          id: selectedTicket.id,
+          vehicle_type: newVehicle,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to update vehicle.");
+      }
+      setSelectedTicket((prev: any) => ({ ...prev, vehicle_type: newVehicle }));
+      setTickets((prev) =>
+        prev.map((t) => (t.id === selectedTicket.id ? { ...t, vehicle_type: newVehicle } : t))
+      );
+      toast.success(`Vehicle updated to "${newVehicle}" for Ticket ${selectedTicket.ticket_number}`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update vehicle");
+    }
+  };
+
   // WhatsApp Share
   const handleWhatsAppShare = () => {
     if (!selectedTicket) return;
@@ -1224,11 +1249,42 @@ export function TicketSearchModal({
                             Vehicle / Operator:
                           </td>
                           <td colSpan={2} className="p-2.5 font-black text-slate-900">
-                            {selectedTicket.vehicle_type ||
-                              selectedTicket.train_name ||
-                              selectedTicket.bus_operator ||
-                              selectedTicket.airline ||
-                              "Executive Transport"}
+                            <div>
+                              <span className="uppercase text-slate-950 font-black">
+                                {selectedTicket.vehicle_type ||
+                                  selectedTicket.train_name ||
+                                  selectedTicket.bus_operator ||
+                                  selectedTicket.airline ||
+                                  "Executive Transport"}
+                              </span>
+                              {(!selectedTicket.category || selectedTicket.category === "CAR" || selectedTicket.category === "CAB") && (
+                                <div className="flex items-center gap-1 flex-wrap mt-1 no-print">
+                                  <span className="text-[9px] text-slate-500 font-bold">Quick Car:</span>
+                                  {[
+                                    "Swift Dzire",
+                                    "Sedan (Dzire/Etios)",
+                                    "Hatchback",
+                                    "Ertiga",
+                                    "Toyota Innova",
+                                    "Innova Crysta",
+                                    "Honda City",
+                                  ].map((v) => (
+                                    <button
+                                      key={v}
+                                      type="button"
+                                      onClick={() => handleQuickChangeVehicle(v)}
+                                      className={`px-1.5 py-0.2 rounded text-[9px] font-extrabold border transition cursor-pointer ${
+                                        (selectedTicket.vehicle_type || "").toLowerCase() === v.toLowerCase()
+                                          ? "bg-emerald-700 text-white border-emerald-800"
+                                          : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300"
+                                      }`}
+                                    >
+                                      {v}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
                             Boarding Point:

@@ -336,7 +336,7 @@ export const PER_KM_RATES_LIST = [
   { value: 13, label: "₹13 / km" },
   { value: 14, label: "₹14 / km (Sedan Dzire Standard)" },
   { value: 15, label: "₹15 / km" },
-  { value: 16, label: "₹16 / km (Premium Sedan Honda City)" },
+  { value: 16, label: "₹16 / km (Sedan / Dzire Custom Rate)" },
   { value: 17, label: "₹17 / km (SUV / Ertiga Standard)" },
   { value: 18, label: "₹18 / km" },
   { value: 19, label: "₹19 / km (Toyota Innova Standard)" },

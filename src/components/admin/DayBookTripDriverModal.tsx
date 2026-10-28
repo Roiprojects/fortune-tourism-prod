@@ -480,18 +480,49 @@ export function DayBookTripDriverModal({
 
             {/* Vehicle Model / Car */}
             <div>
-              <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                Vehicle Model / Car
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-bold text-slate-700">
+                  Vehicle Model / Car
+                </label>
+                <span className="text-[10px] text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  Select or type car model
+                </span>
+              </div>
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="e.g. XYLO / DZIRE / ERTIGA / INNOVA"
+                  placeholder="e.g. SWIFT DZIRE / ERTIGA / INNOVA"
                   value={vehicleType}
                   onChange={(e) => setVehicleType(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 focus:border-[#063f2d] focus:ring-2 focus:ring-[#063f2d]/20 outline-none font-bold text-slate-900"
+                  className="w-full pl-8 pr-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 focus:border-[#063f2d] focus:ring-2 focus:ring-[#063f2d]/20 outline-none font-bold text-slate-900 uppercase"
                 />
                 <Car className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              </div>
+
+              {/* Quick Car Selection Buttons */}
+              <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                {[
+                  "Swift Dzire",
+                  "Sedan (Dzire/Etios)",
+                  "Hatchback (WagonR)",
+                  "Ertiga",
+                  "Toyota Innova",
+                  "Innova Crysta",
+                  "Honda City",
+                ].map((carName) => (
+                  <button
+                    key={carName}
+                    type="button"
+                    onClick={() => setVehicleType(carName)}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-black border transition cursor-pointer ${
+                      vehicleType.toLowerCase() === carName.toLowerCase()
+                        ? "bg-[#063f2d] text-white border-[#063f2d] shadow-2xs"
+                        : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300"
+                    }`}
+                  >
+                    {carName}
+                  </button>
+                ))}
               </div>
             </div>
 

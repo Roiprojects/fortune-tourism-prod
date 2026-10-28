@@ -287,6 +287,8 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
   // Selected Fleet
   const [selectedFleetId, setSelectedFleetId] = useState<string>("sedan");
   const [withLuggageCarrier, setWithLuggageCarrier] = useState<boolean>(false);
+  // Committed / Prepared Vehicle Model (Allows choosing Dzire even with custom rate e.g. 16/km)
+  const [customVehicleType, setCustomVehicleType] = useState<string>("Sedan (Swift Dzire)");
 
   // Fare Customization & Auto Calculation States: "STANDARD" | "CUSTOM_PER_KM" | "FIXED_TOTAL"
   const [fareCalculationMode, setFareCalculationMode] = useState<"STANDARD" | "CUSTOM_PER_KM" | "FIXED_TOTAL">("STANDARD");
@@ -355,7 +357,7 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
     );
   }, [fleetOptions, selectedFleetId]);
 
-  // Car selection handler to sync default rate
+  // Car selection handler to sync default rate & committed vehicle
   const handleCarChange = (newCarId: string) => {
     setSelectedFleetId(newCarId);
     const found = fleetOptions.find(
@@ -370,6 +372,25 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
     );
     if (found && fareCalculationMode !== "CUSTOM_PER_KM") {
       setCustomRatePerKm(found.postLimitRate);
+    }
+    if (newCarId === "sedan") {
+      setCustomVehicleType("Sedan (Swift Dzire)");
+    } else if (newCarId === "premium-sedan") {
+      setCustomVehicleType("Premium Sedan (Honda City)");
+    } else if (newCarId === "hatchback") {
+      setCustomVehicleType("Hatchback (Wagon R / Swift)");
+    } else if (newCarId === "suv") {
+      setCustomVehicleType("MUV / SUV (Maruti Ertiga)");
+    } else if (newCarId === "innova") {
+      setCustomVehicleType("Toyota Innova (7 Seater)");
+    } else if (newCarId === "innova-crysta" || newCarId === "crysta") {
+      setCustomVehicleType("Toyota Innova Crysta (VIP)");
+    } else if (newCarId === "tempo" || newCarId === "tempo-traveller") {
+      setCustomVehicleType("Tempo Traveller (12/17 Seater)");
+    } else if (newCarId === "minibus" || newCarId === "mini-bus") {
+      setCustomVehicleType("Mini Bus Coach");
+    } else if (found) {
+      setCustomVehicleType(found.name);
     }
   };
 
@@ -571,8 +592,8 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
   }, [cabTripType, airportTripType, cabTo, airportName, localPackage, multiCityStops, localViaStops]);
 
   const vehicleDisplay = useMemo(() => {
-    return selectedFleet.name.toUpperCase();
-  }, [selectedFleet]);
+    return (customVehicleType || (selectedFleetId === "sedan" ? "Sedan (Swift Dzire)" : selectedFleet.name)).toUpperCase();
+  }, [customVehicleType, selectedFleetId, selectedFleet]);
 
   const tourTypeDisplay = useMemo(() => {
     return cabTripType;
@@ -3417,7 +3438,68 @@ export function AdminCabBookingFlow({ onBack, onBookingCompleted }: AdminCabBook
                         Type Of Cab:
                       </td>
                       <td className="p-2.5 font-black text-slate-900 uppercase">
-                        {vehicleDisplay}
+                        <div className="space-y-1.5">
+                          {/* Print View: Clean Formal Uppercase Vehicle Name */}
+                          <div className="hidden print:block font-black text-slate-950 uppercase text-xs">
+                            {vehicleDisplay}
+                          </div>
+                          {/* Screen View: Interactive Vehicle Commit / Customization */}
+                          <div className="print:hidden space-y-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="text"
+                                value={customVehicleType}
+                                onChange={(e) => setCustomVehicleType(e.target.value)}
+                                className="w-full bg-emerald-50/50 hover:bg-emerald-50 focus:bg-white border border-emerald-600/40 focus:border-emerald-700 rounded-lg px-2.5 py-1 text-xs sm:text-sm font-black text-slate-950 outline-none uppercase shadow-2xs transition"
+                                placeholder="e.g. SEDAN (SWIFT DZIRE)"
+                                title="Click to prepare and commit exact vehicle model"
+                              />
+                            </div>
+                            <div className="flex items-center gap-1 flex-wrap text-[10px]">
+                              <span className="text-slate-600 font-bold uppercase tracking-wider text-[9px]">
+                                Commit Car:
+                              </span>
+                              {[
+                                "Sedan (Swift Dzire)",
+                                "Swift Dzire",
+                                "Sedan (Etios/Dzire)",
+                                "Hatchback (WagonR)",
+                                "MUV (Ertiga)",
+                                "Toyota Innova",
+                                "Innova Crysta",
+                                "Premium Sedan (Honda City)",
+                              ].map((carOption) => (
+                                <button
+                                  key={carOption}
+                                  type="button"
+                                  onClick={() => {
+                                    setCustomVehicleType(carOption);
+                                    if (carOption.toLowerCase().includes("honda city") || carOption.toLowerCase().includes("premium")) {
+                                      setSelectedFleetId("premium-sedan");
+                                    } else if (carOption.toLowerCase().includes("dzire") || carOption.toLowerCase().includes("sedan") || carOption.toLowerCase().includes("etios")) {
+                                      setSelectedFleetId("sedan");
+                                    } else if (carOption.toLowerCase().includes("hatchback") || carOption.toLowerCase().includes("wagon")) {
+                                      setSelectedFleetId("hatchback");
+                                    } else if (carOption.toLowerCase().includes("ertiga")) {
+                                      setSelectedFleetId("suv");
+                                    } else if (carOption.toLowerCase().includes("crysta")) {
+                                      setSelectedFleetId("innova-crysta");
+                                    } else if (carOption.toLowerCase().includes("innova")) {
+                                      setSelectedFleetId("innova");
+                                    }
+                                  }}
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold border transition cursor-pointer ${
+                                    customVehicleType.toLowerCase() === carOption.toLowerCase()
+                                      ? "bg-emerald-800 text-white border-emerald-900 shadow-2xs"
+                                      : "bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300"
+                                  }`}
+                                >
+                                  {carOption.split("(")[0].trim() || carOption}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
                       </td>
                       <td className="p-2.5 font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
                         {cabTripType === "ROUND TRIP" ? "Onward + Return Fare:" : "Fare Amount:"}
