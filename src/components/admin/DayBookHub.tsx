@@ -12,9 +12,14 @@ import {
   User,
   CheckCircle2,
   UserCheck,
+  Plane,
+  TrainFront,
+  Bus,
+  Package,
 } from "lucide-react";
 import { DriverDetailsEditorModal } from "@/components/admin/DriverDetailsEditorModal";
 import { DayBookTripDriverModal } from "@/components/admin/DayBookTripDriverModal";
+import { DayBookTicketDetailsModal } from "@/components/admin/DayBookTicketDetailsModal";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -45,6 +50,7 @@ export interface DayBookTrip {
   passenger_name: string;
   status: string;
   departure_timestamp: number;
+  service_type?: "CAB" | "FLIGHT" | "TRAIN" | "BUS" | "TOUR";
   vehicle?: string;
   driver_name?: string;
   driver_phone?: string;
@@ -52,6 +58,18 @@ export interface DayBookTrip {
   ticket_number?: string | null;
   pnr_number?: string | null;
   notes?: string;
+  flight_number?: string | null;
+  airline?: string | null;
+  cabin_class?: string | null;
+  train_name?: string | null;
+  train_number?: string | null;
+  travel_class?: string | null;
+  quota?: string | null;
+  bus_type?: string | null;
+  bus_operator?: string | null;
+  boarding_point?: string | null;
+  package_name?: string | null;
+  total_amount?: number | string | null;
 }
 
 export function DayBookHub() {
@@ -66,6 +84,8 @@ export function DayBookHub() {
   const [driverDetailsSearch, setDriverDetailsSearch] = useState("");
   const [selectedTripForDriver, setSelectedTripForDriver] = useState<DayBookTrip | null>(null);
   const [tripDriverModalOpen, setTripDriverModalOpen] = useState(false);
+  const [selectedTripForDetails, setSelectedTripForDetails] = useState<DayBookTrip | null>(null);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
 
   const handleDriverUpdated = (updatedTrip: DayBookTrip) => {
     setTrips((prev) =>
@@ -370,18 +390,45 @@ export function DayBookHub() {
 
                     {/* FROM */}
                     <td
-                      className="px-3 py-3 border border-slate-300 text-left font-semibold text-slate-900 text-xs sm:text-sm max-w-[220px] truncate"
+                      className="px-3 py-3 border border-slate-300 text-left font-semibold text-slate-900 text-xs sm:text-sm max-w-[220px]"
                       title={trip.from_location}
                     >
-                      {trip.from_location}
+                      <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                        <span
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                            trip.service_type === "FLIGHT"
+                              ? "bg-sky-100 text-sky-800 border border-sky-300"
+                              : trip.service_type === "TRAIN"
+                              ? "bg-amber-100 text-amber-900 border border-amber-300"
+                              : trip.service_type === "BUS"
+                              ? "bg-indigo-100 text-indigo-900 border border-indigo-300"
+                              : trip.service_type === "TOUR"
+                              ? "bg-purple-100 text-purple-900 border border-purple-300"
+                              : "bg-emerald-100 text-emerald-900 border border-emerald-300"
+                          }`}
+                        >
+                          {trip.service_type === "FLIGHT" && <Plane className="w-3 h-3 text-sky-700" />}
+                          {trip.service_type === "TRAIN" && <TrainFront className="w-3 h-3 text-amber-700" />}
+                          {trip.service_type === "BUS" && <Bus className="w-3 h-3 text-indigo-700" />}
+                          {trip.service_type === "TOUR" && <Package className="w-3 h-3 text-purple-700" />}
+                          {(!trip.service_type || trip.service_type === "CAB") && <Car className="w-3 h-3 text-emerald-700" />}
+                          <span>{trip.service_type || "CAB"}</span>
+                        </span>
+                        {trip.vehicle && trip.vehicle !== "-" && (
+                          <span className="text-[10px] font-bold text-slate-500 truncate max-w-[110px]" title={trip.vehicle}>
+                            {trip.vehicle}
+                          </span>
+                        )}
+                      </div>
+                      <div className="truncate font-bold text-slate-900">{trip.from_location}</div>
                     </td>
 
                     {/* TO */}
                     <td
-                      className="px-3 py-3 border border-slate-300 text-left font-semibold text-slate-900 text-xs sm:text-sm max-w-[220px] truncate"
+                      className="px-3 py-3 border border-slate-300 text-left font-semibold text-slate-900 text-xs sm:text-sm max-w-[220px]"
                       title={trip.to_location}
                     >
-                      {trip.to_location}
+                      <div className="truncate font-bold text-slate-900 pt-3.5 sm:pt-4">{trip.to_location}</div>
                     </td>
 
                     {/* TIME */}
@@ -407,39 +454,115 @@ export function DayBookHub() {
                     {/* ACTION */}
                     <td className="px-3 py-3 border border-slate-300 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-1.5">
+                        {/* Done Button */}
                         <button
                           type="button"
                           onClick={() => handleInitiateTripDone(trip)}
-                          className="inline-flex items-center justify-center gap-1 px-3 py-1.5 bg-[#063f2d] hover:bg-[#085a3f] active:scale-95 text-white text-xs font-extrabold rounded-lg shadow-xs transition-all cursor-pointer"
+                          className={`inline-flex items-center justify-center gap-1 px-3 py-1.5 active:scale-95 text-white text-xs font-extrabold rounded-lg shadow-xs transition-all cursor-pointer ${
+                            trip.service_type === "FLIGHT"
+                              ? "bg-sky-800 hover:bg-sky-900"
+                              : trip.service_type === "TRAIN"
+                              ? "bg-amber-800 hover:bg-amber-900"
+                              : trip.service_type === "BUS"
+                              ? "bg-indigo-800 hover:bg-indigo-900"
+                              : trip.service_type === "TOUR"
+                              ? "bg-purple-800 hover:bg-purple-900"
+                              : "bg-[#063f2d] hover:bg-[#085a3f]"
+                          }`}
                         >
                           <CheckCircle className="w-3.5 h-3.5" />
-                          <span>Trip Done</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedTripForDriver(trip);
-                            setTripDriverModalOpen(true);
-                          }}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs shrink-0 active:scale-95 border ${
-                            trip.driver_name && trip.driver_name !== "-"
-                              ? "bg-emerald-100/90 hover:bg-emerald-200 text-emerald-950 border-emerald-400 font-extrabold"
-                              : "bg-emerald-50 hover:bg-emerald-100 text-[#063f2d] border-emerald-200/80"
-                          }`}
-                          title={
-                            trip.driver_name && trip.driver_name !== "-"
-                              ? `Assigned: ${trip.driver_name} (${trip.driver_phone || "No phone"}) · ${trip.taxi_number || trip.vehicle || ""}`
-                              : "Assign Driver & Vehicle Details"
-                          }
-                        >
-                          <UserCheck className="w-3.5 h-3.5 text-emerald-700" />
                           <span>
-                            {trip.driver_name && trip.driver_name !== "-"
-                              ? trip.driver_name
-                              : "Driver Details"}
+                            {trip.service_type === "FLIGHT"
+                              ? "Flight Done"
+                              : trip.service_type === "TRAIN"
+                              ? "Train Done"
+                              : trip.service_type === "BUS"
+                              ? "Bus Done"
+                              : trip.service_type === "TOUR"
+                              ? "Tour Done"
+                              : "Trip Done"}
                           </span>
                         </button>
+
+                        {/* Second Button: Driver Details ONLY for Cabs; Flight/Train/Bus/Tour Details for others */}
+                        {(!trip.service_type || trip.service_type === "CAB") ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedTripForDriver(trip);
+                              setTripDriverModalOpen(true);
+                            }}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs shrink-0 active:scale-95 border ${
+                              trip.driver_name && trip.driver_name !== "-"
+                                ? "bg-emerald-100/90 hover:bg-emerald-200 text-emerald-950 border-emerald-400 font-extrabold"
+                                : "bg-emerald-50 hover:bg-emerald-100 text-[#063f2d] border-emerald-200/80"
+                            }`}
+                            title={
+                              trip.driver_name && trip.driver_name !== "-"
+                                ? `Assigned: ${trip.driver_name} (${trip.driver_phone || "No phone"}) · ${trip.taxi_number || trip.vehicle || ""}`
+                                : "Assign Driver & Vehicle Details"
+                            }
+                          >
+                            <UserCheck className="w-3.5 h-3.5 text-emerald-700" />
+                            <span>
+                              {trip.driver_name && trip.driver_name !== "-"
+                                ? trip.driver_name
+                                : "Driver Details"}
+                            </span>
+                          </button>
+                        ) : trip.service_type === "FLIGHT" ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedTripForDetails(trip);
+                              setDetailsModalOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-300 shadow-2xs shrink-0 active:scale-95 transition-all cursor-pointer"
+                            title="View Flight Booking Details"
+                          >
+                            <Plane className="w-3.5 h-3.5 text-sky-700" />
+                            <span>Flight Details</span>
+                          </button>
+                        ) : trip.service_type === "TRAIN" ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedTripForDetails(trip);
+                              setDetailsModalOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs shrink-0 active:scale-95 transition-all cursor-pointer"
+                            title="View Train Booking Details"
+                          >
+                            <TrainFront className="w-3.5 h-3.5 text-amber-700" />
+                            <span>Train Details</span>
+                          </button>
+                        ) : trip.service_type === "BUS" ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedTripForDetails(trip);
+                              setDetailsModalOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-300 shadow-2xs shrink-0 active:scale-95 transition-all cursor-pointer"
+                            title="View Bus Booking Details"
+                          >
+                            <Bus className="w-3.5 h-3.5 text-indigo-700" />
+                            <span>Bus Details</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedTripForDetails(trip);
+                              setDetailsModalOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-300 shadow-2xs shrink-0 active:scale-95 transition-all cursor-pointer"
+                            title="View Tour Package Details"
+                          >
+                            <Package className="w-3.5 h-3.5 text-purple-700" />
+                            <span>Tour Details</span>
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -470,7 +593,15 @@ export function DayBookHub() {
               <CheckCircle2 className="w-6 h-6 text-[#063f2d]" />
             </div>
             <AlertDialogTitle className="text-lg font-bold text-center text-slate-900">
-              Are you sure you want to mark this trip as done?
+              {tripToComplete?.service_type === "FLIGHT"
+                ? "Are you sure you want to mark this flight booking as completed?"
+                : tripToComplete?.service_type === "TRAIN"
+                ? "Are you sure you want to mark this train booking as completed?"
+                : tripToComplete?.service_type === "BUS"
+                ? "Are you sure you want to mark this bus booking as completed?"
+                : tripToComplete?.service_type === "TOUR"
+                ? "Are you sure you want to mark this tour package as completed?"
+                : "Are you sure you want to mark this trip as done?"}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-center text-xs sm:text-sm text-slate-600 mt-1">
               {tripToComplete && (
@@ -503,7 +634,17 @@ export function DayBookHub() {
               disabled={actionLoading}
               className="rounded-xl bg-[#063f2d] hover:bg-[#085a3f] text-white font-bold px-4 cursor-pointer"
             >
-              {actionLoading ? "Processing..." : "Yes, Trip Done"}
+              {actionLoading
+                ? "Processing..."
+                : tripToComplete?.service_type === "FLIGHT"
+                ? "Yes, Flight Done"
+                : tripToComplete?.service_type === "TRAIN"
+                ? "Yes, Train Done"
+                : tripToComplete?.service_type === "BUS"
+                ? "Yes, Bus Done"
+                : tripToComplete?.service_type === "TOUR"
+                ? "Yes, Tour Done"
+                : "Yes, Trip Done"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -517,7 +658,7 @@ export function DayBookHub() {
         />
       )}
 
-      {/* Dedicated Trip Driver Details & Assignment Modal */}
+      {/* Dedicated Trip Driver Details & Assignment Modal (Cabs Only) */}
       {tripDriverModalOpen && selectedTripForDriver && (
         <DayBookTripDriverModal
           isOpen={tripDriverModalOpen}
@@ -527,6 +668,21 @@ export function DayBookHub() {
           onOpenFullDutySheet={(query) => {
             setDriverDetailsSearch(query || "");
             setDriverDetailsModalOpen(true);
+          }}
+        />
+      )}
+
+      {/* Dedicated Ticket & Service Details Modal (Flight, Train, Bus, Tour) */}
+      {detailsModalOpen && selectedTripForDetails && (
+        <DayBookTicketDetailsModal
+          isOpen={detailsModalOpen}
+          trip={selectedTripForDetails}
+          onClose={() => {
+            setDetailsModalOpen(false);
+            setSelectedTripForDetails(null);
+          }}
+          onMarkDone={(t) => {
+            handleInitiateTripDone(t);
           }}
         />
       )}

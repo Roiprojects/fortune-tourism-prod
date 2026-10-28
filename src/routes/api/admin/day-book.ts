@@ -143,16 +143,120 @@ export const Route = createFileRoute("/api/admin/day-book")({
              ORDER BY id DESC`,
           );
 
+/**
+ * Accurately determines service type and parses specific ticket details (Flight, Train, Bus, Tour, Cab)
+ */
+function parseServiceDetails(row: any, linkedBooking?: any) {
+  const b = linkedBooking || {};
+  const notes = String(row.notes || b.notes || "");
+  const travelBy = String(row.travel_by || b.vehicle_type || "");
+  const cat = String(b.category || "").toUpperCase();
+
+  let serviceType: "CAB" | "FLIGHT" | "TRAIN" | "BUS" | "TOUR" = "CAB";
+
+  if (cat === "FLIGHT" || cat === "AIR") {
+    serviceType = "FLIGHT";
+  } else if (cat === "TRAIN" || cat === "RAIL") {
+    serviceType = "TRAIN";
+  } else if (cat === "BUS") {
+    serviceType = "BUS";
+  } else if (cat === "TOUR" || cat === "PACKAGE") {
+    serviceType = "TOUR";
+  } else if (b.flight_number || b.airline || /flight|airline/i.test(travelBy) || /flight:/i.test(notes) || /flight\b/i.test(notes)) {
+    serviceType = "FLIGHT";
+  } else if (b.train_number || b.train_name || /train|irctc|rail/i.test(travelBy) || /train:/i.test(notes) || /train\b/i.test(notes)) {
+    serviceType = "TRAIN";
+  } else if (b.bus_type || b.bus_operator || /bus type|bus operator|sleeper|seater/i.test(travelBy) || /bus type:/i.test(notes) || /bus\b/i.test(notes)) {
+    serviceType = "BUS";
+  } else if (b.package_name || /tour package|holiday/i.test(travelBy) || /tour:/i.test(notes) || /package:/i.test(notes)) {
+    serviceType = "TOUR";
+  } else {
+    // Check location keywords
+    const locText = `${row.from_location || b.from_location || ""} ${row.to_location || b.to_location || ""}`.toLowerCase();
+    if (locText.includes("airport") && (locText.includes("chhatrapati") || locText.includes("bom") || locText.includes("del") || locText.includes("delhi") || locText.includes("mumbai") || locText.includes("kolkata") || locText.includes("hyderabad") || locText.includes("chennai"))) {
+      serviceType = "FLIGHT";
+    } else if (/\b(sbc|kcg|mas|cstm|ndls|hwh|ypr|tpty|mdu)\b/i.test(locText) || locText.includes("railway") || locText.includes("station")) {
+      serviceType = "TRAIN";
+    }
+  }
+
+  // Extract metadata
+  let flightNumber = b.flight_number || null;
+  let airline = b.airline || null;
+  let cabinClass = b.cabin_class || null;
+  let trainName = b.train_name || null;
+  let trainNumber = b.train_number || null;
+  let travelClass = b.travel_class || null;
+  let quota = b.quota || null;
+  let busType = b.bus_type || null;
+  let busOperator = b.bus_operator || null;
+  let packageName = b.package_name || null;
+  let boardingPoint = row.boarding_point || b.boarding_point || null;
+
+  if (serviceType === "FLIGHT") {
+    if (!cabinClass) {
+      const match = notes.match(/Flight:\s*([^|\n]+)/i);
+      if (match) cabinClass = match[1].trim();
+    }
+    if (!flightNumber) {
+      const match = notes.match(/Flight No:\s*([^|\n]+)/i);
+      if (match) flightNumber = match[1].trim();
+    }
+  } else if (serviceType === "TRAIN") {
+    if (!trainName) {
+      const match = notes.match(/Train:\s*([^|\n]+)/i);
+      if (match) trainName = match[1].trim();
+    }
+    if (!trainNumber) {
+      const match = notes.match(/No:\s*([^|\n]+)/i);
+      if (match) trainNumber = match[1].trim();
+    }
+    if (!travelClass) {
+      const match = notes.match(/Class:\s*([^|\n]+)/i);
+      if (match) travelClass = match[1].trim();
+    }
+    if (!quota) {
+      const match = notes.match(/Quota:\s*([^|\n]+)/i);
+      if (match) quota = match[1].trim();
+    }
+  } else if (serviceType === "BUS") {
+    if (!busType) {
+      const match = notes.match(/Bus Type:\s*([^|\n]+)/i);
+      if (match) busType = match[1].trim();
+    }
+    if (!busOperator) {
+      const match = notes.match(/Operator:\s*([^|\n]+)/i);
+      if (match) busOperator = match[1].trim();
+    }
+  } else if (serviceType === "TOUR") {
+    if (!packageName) {
+      const match = notes.match(/Package:\s*([^|\n]+)/i);
+      if (match) packageName = match[1].trim();
+    }
+  }
+
+  return {
+    serviceType,
+    flightNumber,
+    airline,
+    cabinClass,
+    trainName,
+    trainNumber,
+    travelClass,
+    quota,
+    busType,
+    busOperator,
+    packageName,
+    boardingPoint,
+  };
+}
+
           // 2. Fetch from bookings
           const bookingsRes = await query(
-            `SELECT id, ticket_number, pnr_number, booking_id, booking_number, booking_date,
-                    departure_datetime, departure_datetime::text as departure_datetime_str,
-                    pickup_time, departure_time, from_location, to_location,
-                    passenger_name, passenger_phone, vehicle_type, driver_name, driver_phone, taxi_number,
-                    booking_status, notes, created_at
-             FROM bookings
-             WHERE (booking_status IS NULL OR UPPER(booking_status) NOT IN ('COMPLETED', 'TRIP DONE', 'DONE', 'CANCELLED', 'CLOSED', 'REFUNDED'))
-             ORDER BY id DESC`,
+            `SELECT b.*, b.departure_datetime::text as departure_datetime_str
+             FROM bookings b
+             WHERE (b.booking_status IS NULL OR UPPER(b.booking_status) NOT IN ('COMPLETED', 'TRIP DONE', 'DONE', 'CANCELLED', 'CLOSED', 'REFUNDED'))
+             ORDER BY b.id DESC`,
           );
 
           // Build lookup map for bookings
@@ -212,6 +316,8 @@ export const Route = createFileRoute("/api/admin/day-book")({
             const dedupeKey = `${cleanPhone || row.passenger_name}_${dateStr}_${parsedTime.formatted}`;
             seenKeys.add(dedupeKey);
 
+            const svc = parseServiceDetails(row, linkedBooking);
+
             unifiedTrips.push({
               id: `db-${row.id}`,
               source: "day_book",
@@ -229,13 +335,26 @@ export const Route = createFileRoute("/api/admin/day-book")({
               passenger_name: row.passenger_name || linkedBooking?.passenger_name || "Guest Customer",
               status: row.status || "Pending",
               departure_timestamp: departureTimestamp,
-              vehicle: row.travel_by || linkedBooking?.vehicle_type || "-",
+              service_type: svc.serviceType,
+              vehicle: row.travel_by || linkedBooking?.vehicle_type || (svc.serviceType === "FLIGHT" ? "Flight" : svc.serviceType === "TRAIN" ? "Train" : svc.serviceType === "BUS" ? "Bus" : "-"),
               driver_name: linkedBooking?.driver_name || "-",
               driver_phone: linkedBooking?.driver_phone || "-",
               taxi_number: linkedBooking?.taxi_number || null,
               ticket_number: ticketNo || linkedBooking?.ticket_number || null,
               pnr_number: linkedBooking?.pnr_number || null,
               notes: row.notes || linkedBooking?.notes || "",
+              flight_number: svc.flightNumber,
+              airline: svc.airline,
+              cabin_class: svc.cabinClass,
+              train_name: svc.trainName,
+              train_number: svc.trainNumber,
+              travel_class: svc.travelClass,
+              quota: svc.quota,
+              bus_type: svc.busType,
+              bus_operator: svc.busOperator,
+              boarding_point: svc.boardingPoint,
+              package_name: svc.packageName,
+              total_amount: linkedBooking?.total_amount || null,
             });
           }
 
@@ -266,6 +385,8 @@ export const Route = createFileRoute("/api/admin/day-book")({
             if (seenKeys.has(dedupeKey)) continue;
             seenKeys.add(dedupeKey);
 
+            const svc = parseServiceDetails(b);
+
             unifiedTrips.push({
               id: `bkg-${b.id}`,
               source: "booking",
@@ -283,13 +404,26 @@ export const Route = createFileRoute("/api/admin/day-book")({
               passenger_name: b.passenger_name || "Guest Customer",
               status: b.booking_status || "Pending",
               departure_timestamp: departureTimestamp,
-              vehicle: b.vehicle_type || "-",
+              service_type: svc.serviceType,
+              vehicle: b.vehicle_type || (svc.serviceType === "FLIGHT" ? "Flight" : svc.serviceType === "TRAIN" ? "Train" : svc.serviceType === "BUS" ? "Bus" : "-"),
               driver_name: b.driver_name || "-",
               driver_phone: b.driver_phone || "-",
               taxi_number: b.taxi_number || null,
               ticket_number: b.ticket_number || null,
               pnr_number: b.pnr_number || null,
               notes: b.notes || "",
+              flight_number: svc.flightNumber,
+              airline: svc.airline,
+              cabin_class: svc.cabinClass,
+              train_name: svc.trainName,
+              train_number: svc.trainNumber,
+              travel_class: svc.travelClass,
+              quota: svc.quota,
+              bus_type: svc.busType,
+              bus_operator: svc.busOperator,
+              boarding_point: svc.boardingPoint,
+              package_name: svc.packageName,
+              total_amount: b.total_amount || null,
             });
           }
 
